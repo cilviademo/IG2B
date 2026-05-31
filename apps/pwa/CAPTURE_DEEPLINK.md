@@ -36,37 +36,62 @@ no Shortcut needed.
 > iPhone the share sheet won't list the PWA directly. Use the Apple Shortcut below
 > (it targets `/share`, so it's still zero-tap after you pick the shortcut).
 
-## The one shortcut: "Indigold Capture" (iPhone)
+## The one shortcut: "Indigold Capture" (iPhone, iOS 17/18)
 
-Build a single accept-anything shortcut. The endpoint auto-detects platform/type
-and pre-fills every field, so it's **Share → Indigold Capture → Save**.
+> **Why your earlier versions sent an empty payload:** the `Text` action's
+> `[magic variables]` only insert a value if they're wired to the *output of a
+> specific action*. If "Get URLs from Input" finds no URL (Instagram/Notes/etc.
+> don't always provide one), the variable resolves to **empty** — so you got
+> `?url=`. The fix is a **single `raw` field** fed by a value that's *never*
+> empty, plus a **Clipboard fallback**. The endpoint now figures out everything
+> from `raw`.
 
-1. **Shortcuts → +**, name it **Indigold Capture**.
-2. Top dropdown → **Details**: ✓ **Show in Share Sheet**; **Accepted types = Any**
-   (URLs, Text, Safari pages, Images, PDFs, …).
-3. Add **Get URLs from Input** (Shortcut Input).
-4. Add **URL Encode** → input the **Shortcut Input** (handles spaces/symbols).
-5. Add **Text** and paste (insert the magic variables where shown):
+### Recipe (resilient: Share Sheet **and** Clipboard)
+
+1. **Shortcuts → New Shortcut**, name it **Indigold Capture**.
+2. Tap the title → **Details** (or the ⓘ/Share-Sheet icon):
+   - ✓ **Show in Share Sheet**
+   - **Share Sheet Types → Any** (leave all on)
+   - ✓ **Allow this shortcut to access Any URL** (Privacy)
+3. **If** → condition **Shortcut Input** **has any value**
+   - **Otherwise** branch: add **Get Clipboard**. (This is the Clipboard fallback
+     for when you opened the app without sharing, or the share gave nothing.)
+   - End If. (Both branches converge on the value below.)
+   - *Simpler equivalent if the If-block is fiddly:* skip step 3 and in step 4 use
+     **Shortcut Input**; add a separate "Indigold (Clipboard)" shortcut that uses
+     **Get Clipboard**. Two tiny shortcuts beat one brittle one.
+4. Add **Text**. Set its content to the value from step 3 (the **Shortcut Input**,
+   or **Clipboard** in the Otherwise branch). Do **not** type anything else — this
+   Text is just the raw shared value as a string.
+5. Add **URL Encode** → input = the **Text** from step 4.
+6. Add **Text** again and paste **exactly** (insert the **URL Encoded** variable
+   where shown — it's the only variable, and it's never empty):
    ```
-   https://indigold-pwa.onrender.com/capture?url=[URLs]&content=[URL-Encoded Shortcut Input]&title=[Shortcut Input Name]&source=ios_share_sheet
+   https://indigold-pwa.onrender.com/capture?raw=[URL Encoded Text]&source=ios_shortcut&method=share_sheet&device=iphone
    ```
-   - `[URLs]` = output of step 3
-   - `[URL-Encoded Shortcut Input]` = output of step 4
-   - `[Shortcut Input Name]` = optional (use **Get Details of Shortcut Input → Name**)
-   - `source=ios_share_sheet` is a static hint; the endpoint still auto-detects the
-     real platform (instagram/tiktok/youtube/…) from the URL and only uses this as
-     the fallback when no platform matches.
-6. Add **Open URLs** → the **Text** from step 5.
+7. Add **Open URLs** → input = the **Text** from step 6.
 
-Now: Instagram/TikTok/YouTube/X/Threads/Facebook/Safari/Notes → **Share → Indigold
-Capture** → Indigold opens with the form already filled (type + source auto-detected
-from the URL, tags generated) → tap **Save**.
+That's it. The single `raw` value carries whatever iOS gave (a URL, an article's
+URL string, or plain text). Indigold parses `raw`, detects whether it's a link or
+a note, infers the platform/type/tags, and pre-fills the form.
 
-**Want zero taps (no Save)?** Change the URL in step 5 from `/capture` to `/share`
-— it auto-classifies and files instantly, no form.
+- **Zero-tap variant:** change `/capture` → `/share` in step 6. It auto-files into
+  the Universal Intake Queue (no Save), still honoring the Clipboard fallback.
+- **Clipboard-first apps (Instagram/TikTok/YouTube):** in the app, tap **Copy
+  Link**, then run **Indigold Capture** — the Clipboard branch picks it up.
 
-**You only need `url` and `content`.** Everything else (type, source, title, tags,
-domain) is inferred. Sending a bare `?url=` for a shared link is enough.
+### Verify it's sending data
+Open Indigold from the shortcut → tap **Debug Intake** (small toggle under
+"Preparing your capture…"). It shows the live `location_href`, `query_params`,
+`parsed_payload`, `detected_type`, `detected_source`, and `received_raw`. If
+`received_raw` is empty, the Shortcut's Text/variable wiring is the culprit (re-do
+steps 4–6); if it's populated, the app will pre-fill correctly.
+
+### Accepted params
+`raw` (preferred catch-all) · `url` · `content`/`text`/`body` · `title` · `type` ·
+`source` · `note` · `tags` · `method` · `device`. Explicit `url` wins over `raw`;
+platform is always auto-detected from the URL host (the `source` param is only a
+fallback label).
 
 ## Manual fallback
 `/capture?type=…&title=…&url=…&body=…&source=…&note=…&tags=…` opens a pre-filled

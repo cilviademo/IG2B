@@ -8,7 +8,7 @@ import { getPending, delPending, putFile, type PendingFile } from "@/lib/idbShar
 import { syncCaptureToApi, apiEnabled } from "@/lib/api";
 import { markSynced } from "@/lib/captureStore";
 import CaptureForm from "@/components/CaptureForm";
-import type { CaptureParams } from "@/lib/deeplink";
+import { parseCaptureParams, type CaptureParams } from "@/lib/deeplink";
 
 // /share — zero-friction intake. Handles:
 //   • Web Share Target POST payloads (via SW -> IndexedDB, ?pending=<id>), incl. files
@@ -44,12 +44,14 @@ export default function Share() {
           input = {};
         }
       } else {
+        // Shared parser handles raw/content/text aliases + embedded URLs.
+        const p = parseCaptureParams(window.location.search);
         input = {
-          url: q.get("url") || undefined,
-          title: q.get("title") || undefined,
-          text: q.get("text") || q.get("body") || undefined,
-          source: q.get("source") || undefined,
-          note: q.get("note") || undefined,
+          url: p.url || undefined,
+          title: p.title || undefined,
+          text: p.body || undefined,
+          source: p.source || undefined,
+          note: p.note || undefined,
         };
       }
 
@@ -97,7 +99,11 @@ export default function Share() {
         media: c.media,
         auto_classified: true,
         files: filesMeta.length ? filesMeta : undefined,
-        provenance: { capture_method: pendingId ? "share_target" : "share_link", device: detectDevice(), app_context: "pwa" },
+        provenance: {
+          capture_method: q.get("method") || (pendingId ? "share_target" : "share_link"),
+          device: q.get("device") || detectDevice(),
+          app_context: "pwa",
+        },
       };
       saveCapture(cap);
       if (pendingId) await delPending(pendingId);

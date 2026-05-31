@@ -27,9 +27,11 @@ export interface CaptureParams {
   source?: string;
   note?: string;
   tags?: string;
+  method?: string;
+  device?: string;
 }
 
-const KEYS = ["type", "title", "url", "body", "source", "note", "tags"] as const;
+const KEYS = ["type", "title", "url", "body", "source", "note", "tags", "method", "device"] as const;
 
 export function parseCaptureParams(search: string): CaptureParams {
   const q = new URLSearchParams(search);
@@ -42,6 +44,23 @@ export function parseCaptureParams(search: string): CaptureParams {
   if (out.body == null) {
     const alt = q.get("content") ?? q.get("text");
     if (alt != null) out.body = alt;
+  }
+
+  // Generic `raw` payload (the resilient Shortcut path): the shortcut may pass
+  // a URL, text, or a title in one field. Route it to url/body without clobbering
+  // any explicit params already provided.
+  const raw = q.get("raw");
+  if (raw != null && raw.trim() !== "") {
+    const r = raw.trim();
+    const isUrl = /^https?:\/\/\S+$/i.test(r);
+    if (isUrl) {
+      if (out.url == null) out.url = r;
+    } else {
+      // text may still *contain* a URL (e.g. "Check this https://… cool"):
+      const m = r.match(/https?:\/\/\S+/i);
+      if (m && out.url == null) out.url = m[0];
+      if (out.body == null) out.body = r;
+    }
   }
   return out;
 }
