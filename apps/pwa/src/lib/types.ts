@@ -79,6 +79,11 @@ export const CAPTURE_TYPE_LABEL: Record<CaptureType, string> = {
   document: "Document",
   llm_conversation: "LLM Conversation",
   manual_text: "Manual Text",
+  short_form_video: "Short Video",
+  long_form_video: "Long Video",
+  social_post: "Social Post",
+  web_resource: "Web Resource",
+  note: "Note",
 };
 
 export const SENSITIVITY_COLOR: Record<Sensitivity, string> = {

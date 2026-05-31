@@ -14,6 +14,11 @@ import { deriveDomainMedia } from "@/lib/classify";
 
 // The 8 capture types supported in test mode.
 const TYPES: CaptureType[] = [
+  "short_form_video",
+  "long_form_video",
+  "social_post",
+  "web_resource",
+  "note",
   "apple_note",
   "instagram_reel",
   "threads_post",
@@ -22,6 +27,7 @@ const TYPES: CaptureType[] = [
   "voice_memo",
   "manual_text",
   "llm_conversation",
+  "document",
 ];
 
 const DEFAULT_SOURCE: Record<CaptureType, string> = {
@@ -34,6 +40,11 @@ const DEFAULT_SOURCE: Record<CaptureType, string> = {
   manual_text: "manual",
   llm_conversation: "assistant_export",
   document: "files",
+  short_form_video: "ios_share_sheet",
+  long_form_video: "ios_share_sheet",
+  social_post: "ios_share_sheet",
+  web_resource: "ios_share_sheet",
+  note: "manual",
 };
 
 const SENS: Sensitivity[] = ["public", "internal", "private", "secret"];
@@ -51,10 +62,14 @@ export default function CaptureForm({
   onClose,
   onSaved,
   initial,
+  defaultProcessing,
+  prefilledLabel,
 }: {
   onClose: () => void;
   onSaved: () => void;
   initial?: CaptureParams;
+  defaultProcessing?: ProcessingStatus;
+  prefilledLabel?: string;
 }) {
   const init = initial || {};
   const initialType = coerceType(init.type);
@@ -66,7 +81,7 @@ export default function CaptureForm({
   const [sourceTouched, setSourceTouched] = useState(Boolean(init.source));
   const [userNote, setUserNote] = useState(init.note ?? "");
   const [sensitivity, setSensitivity] = useState<Sensitivity>("internal");
-  const [processing, setProcessing] = useState<ProcessingStatus>("unprocessed");
+  const [processing, setProcessing] = useState<ProcessingStatus>(defaultProcessing ?? "unprocessed");
   const [tags, setTags] = useState(init.tags ?? "");
 
   const prefilled = Boolean(init.type || init.title || init.url || init.body || init.note || init.tags || init.source);
@@ -127,7 +142,7 @@ export default function CaptureForm({
       <div className="space-y-3">
         {prefilled && (
           <p className="label-mono" style={{ color: "oklch(0.78 0.14 85)" }}>
-            Pre-filled from a deep link — review and tap Save.
+            {prefilledLabel ?? "Pre-filled from a deep link — review and tap Save."}
           </p>
         )}
 

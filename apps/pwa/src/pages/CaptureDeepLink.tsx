@@ -31,7 +31,13 @@ export default function CaptureDeepLink() {
     <div className="px-5 pt-16 flex flex-col items-center text-center gap-2">
       <Sparkles size={22} style={{ color: "oklch(0.78 0.14 85)" }} />
       <p className="label-mono" style={{ color: "oklch(0.55 0.02 280)" }}>Preparing your capture…</p>
-      <CaptureForm initial={initial} onClose={go} onSaved={go} />
+      <CaptureForm
+        initial={initial}
+        defaultProcessing="queued"
+        prefilledLabel="Pre-filled from iOS Share Sheet — review and tap Save."
+        onClose={go}
+        onSaved={go}
+      />
     </div>
   );
 }

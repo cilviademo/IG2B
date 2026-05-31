@@ -61,15 +61,20 @@ function hostOf(url: string): string {
   }
 }
 
-interface HostRule { match: RegExp; type: CaptureType; source: string; domain: Domain; media: Media; }
-const HOST_RULES: HostRule[] = [
-  { match: /instagram\.com/, type: "instagram_reel", source: "instagram", domain: "content", media: "video" },
-  { match: /threads\.(net|com)/, type: "threads_post", source: "threads", domain: "content", media: "text" },
-  { match: /(youtube\.com|youtu\.be)/, type: "web_link", source: "youtube", domain: "content", media: "video" },
-  { match: /tiktok\.com/, type: "web_link", source: "tiktok", domain: "content", media: "video" },
-  { match: /(twitter\.com|x\.com)/, type: "web_link", source: "x", domain: "content", media: "text" },
-  { match: /facebook\.com|fb\.watch/, type: "web_link", source: "facebook", domain: "content", media: "link" },
-];
+// Hostname -> canonical source platform (per the Share Sheet spec).
+function detectSource(host: string): string {
+  if (/instagram\.com/.test(host)) return "instagram";
+  if (/tiktok\.com/.test(host)) return "tiktok";
+  if (/youtube\.com|youtu\.be/.test(host)) return "youtube";
+  if (/vimeo\.com/.test(host)) return "vimeo";
+  if (/reddit\.com/.test(host)) return "reddit";
+  if (/threads\.(net|com)/.test(host)) return "threads";
+  if (/(^|\.)x\.com|twitter\.com/.test(host)) return "x";
+  if (/facebook\.com|fb\.watch/.test(host)) return "facebook";
+  if (/linkedin\.com/.test(host)) return "linkedin";
+  if (/apple\.com/.test(host)) return "apple";
+  return "";
+}
 
 function tagsFrom(seed: string, source: string): string[] {
   return [...new Set([...keywords(seed, 4), source].filter(Boolean))].slice(0, 5);
@@ -120,20 +125,34 @@ export function classifyShared(input: ShareInput): Classified {
 
   let type: CaptureType, source: string, domain: Domain, media: Media, confidence: number;
 
-  const rule = host ? HOST_RULES.find((r) => r.match.test(host)) : undefined;
-  if (rule) {
-    ({ type, source, domain, media } = rule);
-    confidence = 0.95;
-  } else if (rawUrl) {
-    type = "web_link"; source = srcHint || host || "web"; domain = "reference"; media = "article"; confidence = 0.78;
+  const path = (() => {
+    try {
+      return new URL(rawUrl).pathname.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+  const u = host + path;
+
+  if (rawUrl) {
+    source = srcHint || detectSource(host) || "ios_share_sheet";
+    if (/instagram\.com\/reel/.test(u) || /tiktok\.com/.test(host) || /youtube\.com\/shorts/.test(u) || /facebook\.com\/reel/.test(u)) {
+      type = "short_form_video"; domain = "content"; media = "video"; confidence = 0.95;
+    } else if (/youtube\.com\/watch/.test(u) || /youtu\.be/.test(host) || /vimeo\.com/.test(host)) {
+      type = "long_form_video"; domain = "content"; media = "video"; confidence = 0.95;
+    } else if (/threads\.(net|com)|(^|\.)x\.com|twitter\.com|reddit\.com|facebook\.com|linkedin\.com/.test(host)) {
+      type = "social_post"; domain = "content"; media = "text"; confidence = 0.9;
+    } else {
+      type = "web_resource"; domain = "reference"; media = "article"; confidence = 0.8;
+    }
   } else if (/note/.test(srcHint)) {
-    type = "apple_note"; source = "apple_notes"; domain = "knowledge"; media = "text"; confidence = 0.85;
+    type = "note"; source = "apple"; domain = "knowledge"; media = "text"; confidence = 0.85;
   } else if (/chatgpt|claude|assistant|gpt|llm/.test(srcHint)) {
     type = "llm_conversation"; source = srcHint || "assistant_export"; domain = "knowledge"; media = "text"; confidence = 0.85;
   } else if (body) {
-    type = "manual_text"; source = srcHint || "manual"; domain = "knowledge"; media = "text"; confidence = 0.6;
+    type = "note"; source = srcHint || "ios_share_sheet"; domain = "knowledge"; media = "text"; confidence = 0.7;
   } else {
-    type = "manual_text"; source = "manual"; domain = "knowledge"; media = "text"; confidence = 0.3;
+    type = "note"; source = "manual"; domain = "knowledge"; media = "text"; confidence = 0.3;
   }
 
   const title =
@@ -153,11 +172,11 @@ export function classifyShared(input: ShareInput): Classified {
 export function deriveDomainMedia(type: CaptureType, url: string): { domain: Domain; media: Media } {
   const c = classifyShared({ url, source: type.includes("note") ? "notes" : undefined });
   if (url) return { domain: c.domain, media: c.media };
-  if (type === "instagram_reel") return { domain: "content", media: "video" };
-  if (type === "threads_post") return { domain: "content", media: "text" };
+  if (type === "instagram_reel" || type === "short_form_video" || type === "long_form_video") return { domain: "content", media: "video" };
+  if (type === "threads_post" || type === "social_post") return { domain: "content", media: "text" };
   if (type === "screenshot") return { domain: "reference", media: "image" };
   if (type === "voice_memo") return { domain: "knowledge", media: "audio" };
   if (type === "document") return { domain: "reference", media: "document" };
-  if (type === "web_link") return { domain: "reference", media: "article" };
+  if (type === "web_link" || type === "web_resource") return { domain: "reference", media: "article" };
   return { domain: "knowledge", media: "text" };
 }

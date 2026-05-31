@@ -25,6 +25,8 @@ import {
   FileText,
   MessagesSquare,
   PenLine,
+  Video,
+  Globe2,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -44,6 +46,11 @@ const TYPE_ICON: Record<CaptureType, LucideIcon> = {
   document: FileText,
   llm_conversation: MessagesSquare,
   manual_text: PenLine,
+  short_form_video: Clapperboard,
+  long_form_video: Video,
+  social_post: AtSign,
+  web_resource: Globe2,
+  note: StickyNote,
 };
 
 function timeAgo(iso: string): string {

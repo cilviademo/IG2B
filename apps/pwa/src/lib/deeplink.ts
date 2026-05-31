@@ -12,6 +12,11 @@ const VALID_TYPES: CaptureType[] = [
   "voice_memo",
   "manual_text",
   "llm_conversation",
+  "short_form_video",
+  "long_form_video",
+  "social_post",
+  "web_resource",
+  "note",
 ];
 
 export interface CaptureParams {
@@ -43,19 +48,22 @@ export function parseCaptureParams(search: string): CaptureParams {
 
 // Friendly type aliases the shortcut (or anyone) may send -> canonical CaptureType.
 const TYPE_ALIASES: Record<string, CaptureType> = {
-  "short-form-video": "instagram_reel",
-  "short_form_video": "instagram_reel",
-  reel: "instagram_reel",
-  video: "instagram_reel",
-  note: "apple_note",
-  "apple-note": "apple_note",
-  "web-resource": "web_link",
-  "web_resource": "web_link",
-  article: "web_link",
-  link: "web_link",
-  url: "web_link",
+  "short-form-video": "short_form_video",
+  reel: "short_form_video",
+  short: "short_form_video",
+  "long-form-video": "long_form_video",
+  "web-resource": "web_resource",
+  "web_resource": "web_resource",
+  article: "web_resource",
+  link: "web_resource",
+  url: "web_resource",
+  "social-post": "social_post",
+  social: "social_post",
+  post: "social_post",
   thread: "threads_post",
   "threads-post": "threads_post",
+  note: "note",
+  "apple-note": "apple_note",
   image: "screenshot",
   photo: "screenshot",
   screenshot: "screenshot",
@@ -69,6 +77,7 @@ const TYPE_ALIASES: Record<string, CaptureType> = {
   pdf: "document",
   text: "manual_text",
   manual: "manual_text",
+  video: "short_form_video",
 };
 
 /** Map a raw/aliased type string to a canonical CaptureType, or undefined. */

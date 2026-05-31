@@ -91,13 +91,30 @@ interface SyncableCapture {
   sensitivity: string;
 }
 
+// Map the PWA's richer semantic types to the backend's accepted enum.
+const BACKEND_TYPE: Record<string, string> = {
+  short_form_video: "instagram_reel",
+  long_form_video: "web_link",
+  social_post: "threads_post",
+  web_resource: "web_link",
+  note: "manual_text",
+};
+const BACKEND_ALLOWED = new Set([
+  "apple_note", "instagram_reel", "threads_post", "web_link", "screenshot",
+  "voice_memo", "document", "llm_conversation", "manual_text",
+]);
+function toBackendType(t: string): string {
+  if (BACKEND_ALLOWED.has(t)) return t;
+  return BACKEND_TYPE[t] || "manual_text";
+}
+
 /** Push one capture to the backend (creates a capture -> enqueues worker pipeline). */
 export async function syncCaptureToApi(cap: SyncableCapture): Promise<boolean> {
   if (!apiEnabled()) return false;
   if (!getToken() && !(await ensureSession())) return false;
   try {
     const body = {
-      type: cap.type,
+      type: toBackendType(cap.type),
       source: cap.source,
       title: cap.title,
       note: cap.user_note || cap.body || "",
