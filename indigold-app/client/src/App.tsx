@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, Router as WouterRouter } from "wouter";
+import { useHashLocation } from "wouter/use-hash-location";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import TabBar from "./components/TabBar";
@@ -13,7 +14,12 @@ import ContextPack from "./pages/ContextPack";
 import WeeklyBrief from "./pages/WeeklyBrief";
 import ImportExport from "./pages/ImportExport";
 
-function Router() {
+// When opened directly from disk (the self-contained single-file build),
+// the page is file:// and pushState is forbidden — so use hash routing there.
+// Served over http(s) we keep clean path-based URLs.
+const isFileProtocol = typeof window !== "undefined" && window.location.protocol === "file:";
+
+function Routes() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -30,20 +36,23 @@ function Router() {
 }
 
 function App() {
+  const routerProps = isFileProtocol ? { hook: useHashLocation } : {};
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark">
         <TooltipProvider delayDuration={200}>
           <Toaster />
-          <div
-            className="min-h-[100dvh] flex flex-col safe-top"
-            style={{ background: "oklch(0.08 0.02 280)" }}
-          >
-            <main className="flex-1 overflow-y-auto pb-20">
-              <Router />
-            </main>
-            <TabBar />
-          </div>
+          <WouterRouter {...routerProps}>
+            <div
+              className="min-h-[100dvh] flex flex-col safe-top"
+              style={{ background: "oklch(0.08 0.02 280)" }}
+            >
+              <main className="flex-1 overflow-y-auto pb-20">
+                <Routes />
+              </main>
+              <TabBar />
+            </div>
+          </WouterRouter>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

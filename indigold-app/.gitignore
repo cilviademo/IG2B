@@ -32,3 +32,6 @@ Thumbs.db
 .idea/
 __pycache__/
 *.pyc
+
+# Puppeteer browser cache (screenshot tooling)
+.pptr/
