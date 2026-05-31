@@ -35,7 +35,7 @@ services:
     runtime: static
     name: indigold-pwa
     rootDir: apps/pwa
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     staticPublishPath: dist
     pullRequestPreviewsEnabled: true
     envVars:
@@ -59,7 +59,7 @@ services:
                           # wakes on the next request). For reliable always-on
                           # background jobs + daily briefs, switch to `starter` (~$7/mo).
     region: oregon
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /health
     envVars:
