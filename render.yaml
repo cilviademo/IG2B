@@ -5,19 +5,20 @@
 # To scale out to the full 8-service architecture later, deploy render.full.yaml
 # (separate worker, cron, and private services) — no code changes required.
 #
-# Cost notes:
+# Cost notes (current defaults ≈ $6/mo):
 #   - indigold-pwa (static) ............ free
-#   - indigold-api (starter) ........... ~$7/mo  (must stay always-on for the
-#                                         embedded worker; use plan: free for ~$0
-#                                         but it sleeps and won't process jobs while idle)
-#   - indigold-db (free) ............... free for ~30 days, then upgrade to basic-256mb
+#   - indigold-api (free) .............. $0  — sleeps after ~15 min idle; the
+#                                         embedded worker/scheduler run only while
+#                                         awake. Switch to `starter` (~$7) for
+#                                         always-on background jobs + daily briefs.
+#   - indigold-db (basic-256mb) ........ ~$6/mo — persistent (won't expire)
 #   - indigold-cache / Key Value (free)  free (25 MB)
 
 databases:
   - name: indigold-db
     databaseName: indigold
     user: indigold
-    plan: free            # expires ~30 days; change to basic-256mb to persist
+    plan: basic-256mb     # persistent (does not expire). Use `free` for a 30-day trial db.
     region: oregon
 
 services:
@@ -53,7 +54,10 @@ services:
     runtime: node
     name: indigold-api
     rootDir: apps/api
-    plan: starter         # change to `free` for ~$0 (sleeps; jobs only run while awake)
+    plan: free            # $0 — NOTE: sleeps after ~15 min idle. The embedded
+                          # worker/scheduler only run while the API is awake (it
+                          # wakes on the next request). For reliable always-on
+                          # background jobs + daily briefs, switch to `starter` (~$7/mo).
     region: oregon
     buildCommand: npm install && npm run build
     startCommand: npm start

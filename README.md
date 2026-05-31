@@ -28,11 +28,11 @@ This repository is the **immediate target architecture**: a monorepo deployed to
 
 Two Blueprints are provided:
 
-- **[`render.yaml`](./render.yaml) — low-cost (default, ~$7/mo).** One always-on
-  API runs the worker, Radian, Encompass, and the scheduler **in-process**;
-  Postgres + Key Value use free tiers; the PWA is a free static site. Same code,
-  fewer billable instances. (Set the API to `plan: free` for ~$0 — it then sleeps
-  and only processes jobs while awake.)
+- **[`render.yaml`](./render.yaml) — low-cost (default, ≈$6/mo).** One API runs the
+  worker, Radian, Encompass, and the scheduler **in-process**; the API is on the
+  **free** plan ($0, sleeps when idle), Postgres is **basic-256mb** (~$6/mo,
+  persistent), Key Value is **free**, and the PWA is a free static site. For
+  always-on background jobs + reliable daily briefs, set the API to `starter` (~$7).
 - **[`render.full.yaml`](./render.full.yaml) — scaled (all 8 resources).** Separate
   worker, cron, and the two private services. Deploy this later with **no code
   changes** — the API auto-detects: if `RADIAN_URL`/`ENCOMPASS_URL` are set it
