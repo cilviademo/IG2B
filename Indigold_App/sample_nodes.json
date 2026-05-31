@@ -1,0 +1,271 @@
+{
+  "$comment": "SYNTHETIC FIXTURE — no real people, projects, or facts. Validates against schemas/node.schema.json.",
+  "schema_version": "1.0.0",
+  "generated_for": "Indigold v0.1 prototype",
+  "nodes": [
+    {
+      "id": "node_project_quartz",
+      "type": "project",
+      "engine": "knowledge",
+      "title": "Project Quartz",
+      "snippet": "Flagship synthetic project used to exercise Encompass retrieval and Radian forecasting end to end.",
+      "body_ref": "fake_vault/04_PROJECTS/project_quartz.md",
+      "created_at": "2026-01-04T09:00:00Z",
+      "updated_at": "2026-05-20T14:12:00Z",
+      "last_accessed_at": "2026-05-30T08:30:00Z",
+      "truth_layers": ["C"],
+      "primary_truth_layer": "C",
+      "provenance": ["node_source_field_notes"],
+      "tags": ["active", "flagship", "demo"],
+      "privacy": "private",
+      "memory": {
+        "score": 92,
+        "lifecycle": "active",
+        "review_due": "2026-07-01",
+        "factors": { "importance": 95, "relevance": 96, "novelty": 70, "project_connection": 100, "revenue_potential": 88, "identity_relevance": 60, "recency": 90 }
+      }
+    },
+    {
+      "id": "node_project_atlas",
+      "type": "project",
+      "engine": "knowledge",
+      "title": "Project Atlas",
+      "snippet": "Secondary synthetic initiative exploring the Liminal Atlas visual exploration layer.",
+      "body_ref": "fake_vault/04_PROJECTS/project_atlas.md",
+      "created_at": "2026-02-11T10:00:00Z",
+      "updated_at": "2026-05-02T11:00:00Z",
+      "last_accessed_at": "2026-05-18T19:00:00Z",
+      "truth_layers": ["C"],
+      "primary_truth_layer": "C",
+      "provenance": [],
+      "tags": ["active", "visual"],
+      "privacy": "private",
+      "memory": {
+        "score": 74,
+        "lifecycle": "active",
+        "review_due": "2026-06-15",
+        "factors": { "importance": 72, "relevance": 70, "novelty": 80, "project_connection": 85, "revenue_potential": 55, "identity_relevance": 50, "recency": 65 }
+      }
+    },
+    {
+      "id": "node_person_a",
+      "type": "person",
+      "engine": "knowledge",
+      "title": "Sample Person A",
+      "snippet": "Synthetic collaborator. Owns specialist input that Project Quartz depends on.",
+      "body_ref": "fake_vault/02_KNOWLEDGE_ENGINE/person_a.md",
+      "created_at": "2026-01-05T09:00:00Z",
+      "updated_at": "2026-04-28T16:00:00Z",
+      "last_accessed_at": "2026-05-29T12:00:00Z",
+      "truth_layers": ["C"],
+      "primary_truth_layer": "C",
+      "provenance": [],
+      "tags": ["collaborator"],
+      "privacy": "private",
+      "memory": {
+        "score": 81,
+        "lifecycle": "active",
+        "review_due": "2026-08-01",
+        "factors": { "importance": 84, "relevance": 80, "novelty": 40, "project_connection": 90, "revenue_potential": 50, "identity_relevance": 55, "recency": 78 }
+      }
+    },
+    {
+      "id": "node_person_b",
+      "type": "person",
+      "engine": "knowledge",
+      "title": "Sample Person B",
+      "snippet": "Synthetic advisor referenced by the Boardroom Engine for strategic review.",
+      "body_ref": "fake_vault/02_KNOWLEDGE_ENGINE/person_b.md",
+      "created_at": "2026-01-20T09:00:00Z",
+      "updated_at": "2026-03-30T16:00:00Z",
+      "last_accessed_at": "2026-05-10T12:00:00Z",
+      "truth_layers": ["C"],
+      "primary_truth_layer": "C",
+      "provenance": [],
+      "tags": ["advisor"],
+      "privacy": "private",
+      "memory": {
+        "score": 63,
+        "lifecycle": "review",
+        "review_due": "2026-06-05",
+        "factors": { "importance": 65, "relevance": 55, "novelty": 35, "project_connection": 60, "revenue_potential": 40, "identity_relevance": 50, "recency": 48 }
+      }
+    },
+    {
+      "id": "node_concept_generative_metaphors",
+      "type": "concept",
+      "engine": "knowledge",
+      "title": "Concept: Generative Metaphors",
+      "snippet": "Mood-board-style knowledge organization metaphor preserved as the Generative Cosmos product idea.",
+      "body_ref": "fake_vault/02_KNOWLEDGE_ENGINE/generative_metaphors.md",
+      "created_at": "2026-01-12T09:00:00Z",
+      "updated_at": "2026-05-15T16:00:00Z",
+      "last_accessed_at": "2026-05-28T12:00:00Z",
+      "truth_layers": ["C", "D"],
+      "primary_truth_layer": "C",
+      "provenance": ["node_source_field_notes"],
+      "tags": ["theory", "visual"],
+      "privacy": "shareable",
+      "memory": {
+        "score": 70,
+        "lifecycle": "active",
+        "review_due": "2026-07-20",
+        "factors": { "importance": 68, "relevance": 60, "novelty": 88, "project_connection": 55, "revenue_potential": 45, "identity_relevance": 72, "recency": 70 }
+      }
+    },
+    {
+      "id": "node_concept_context_engineering",
+      "type": "concept",
+      "engine": "context",
+      "title": "Concept: Context Engineering",
+      "snippet": "Hot Cache + Context Packs + just-in-time loading. The discipline of retrieving the smallest high-signal token set.",
+      "body_ref": "fake_vault/03_CONTEXT_ENGINE/context_engineering.md",
+      "created_at": "2026-01-08T09:00:00Z",
+      "updated_at": "2026-05-22T16:00:00Z",
+      "last_accessed_at": "2026-05-31T07:00:00Z",
+      "truth_layers": ["C"],
+      "primary_truth_layer": "C",
+      "provenance": [],
+      "tags": ["theory", "core"],
+      "privacy": "shareable",
+      "memory": {
+        "score": 86,
+        "lifecycle": "active",
+        "review_due": "2026-09-01",
+        "factors": { "importance": 90, "relevance": 88, "novelty": 60, "project_connection": 80, "revenue_potential": 50, "identity_relevance": 65, "recency": 95 }
+      }
+    },
+    {
+      "id": "node_source_field_notes",
+      "type": "source",
+      "engine": "knowledge",
+      "title": "Raw Source: Field Notes 2026-01",
+      "snippet": "Immutable synthetic capture used as the Layer A origin for several derived nodes.",
+      "body_ref": "fake_vault/01_RAW_ARCHIVE/field_notes_2026_01.md",
+      "created_at": "2026-01-03T08:00:00Z",
+      "updated_at": "2026-01-03T08:00:00Z",
+      "last_accessed_at": "2026-05-20T08:00:00Z",
+      "truth_layers": ["A", "B"],
+      "primary_truth_layer": "A",
+      "provenance": [],
+      "tags": ["raw", "immutable"],
+      "privacy": "private",
+      "memory": {
+        "score": 58,
+        "lifecycle": "archive",
+        "review_due": null,
+        "factors": { "importance": 60, "relevance": 40, "novelty": 30, "project_connection": 70, "revenue_potential": 30, "identity_relevance": 40, "recency": 35 }
+      }
+    },
+    {
+      "id": "node_skill_summarize",
+      "type": "skill",
+      "engine": "context",
+      "title": "Skill: Multi-Source Summarize",
+      "snippet": "Model-agnostic capability: corroborate N sources into a Layer C synthesis with provenance.",
+      "body_ref": "fake_vault/07_SKILLS_LIBRARY/summarize.md",
+      "created_at": "2026-01-15T09:00:00Z",
+      "updated_at": "2026-04-10T16:00:00Z",
+      "last_accessed_at": "2026-05-27T12:00:00Z",
+      "truth_layers": ["C"],
+      "primary_truth_layer": "C",
+      "provenance": [],
+      "tags": ["skill", "reusable"],
+      "privacy": "shareable",
+      "memory": {
+        "score": 67,
+        "lifecycle": "active",
+        "review_due": "2026-08-10",
+        "factors": { "importance": 70, "relevance": 65, "novelty": 25, "project_connection": 60, "revenue_potential": 35, "identity_relevance": 30, "recency": 72 }
+      }
+    },
+    {
+      "id": "node_opportunity_alpha",
+      "type": "opportunity",
+      "engine": "opportunity",
+      "title": "Opportunity: Quartz Productization",
+      "snippet": "Radian-flagged opening to package Project Quartz learnings into a synthetic revenue stream.",
+      "body_ref": "fake_vault/06_BOARDROOM_ENGINE/opportunity_alpha.md",
+      "created_at": "2026-04-01T09:00:00Z",
+      "updated_at": "2026-05-25T16:00:00Z",
+      "last_accessed_at": "2026-05-30T12:00:00Z",
+      "truth_layers": ["E"],
+      "primary_truth_layer": "E",
+      "provenance": ["node_project_quartz", "node_concept_context_engineering"],
+      "tags": ["opportunity", "radian"],
+      "privacy": "private",
+      "memory": {
+        "score": 88,
+        "lifecycle": "promote",
+        "review_due": "2026-06-10",
+        "factors": { "importance": 90, "relevance": 92, "novelty": 75, "project_connection": 95, "revenue_potential": 96, "identity_relevance": 50, "recency": 90 }
+      }
+    },
+    {
+      "id": "node_decision_q1_pivot",
+      "type": "decision",
+      "engine": "boardroom",
+      "title": "Decision: Q1 Scope Pivot",
+      "snippet": "Executed decision to narrow Project Quartz scope. Now a Layer F historical fact.",
+      "body_ref": "fake_vault/06_BOARDROOM_ENGINE/decision_q1_pivot.md",
+      "created_at": "2026-03-15T09:00:00Z",
+      "updated_at": "2026-03-15T09:00:00Z",
+      "last_accessed_at": "2026-05-12T12:00:00Z",
+      "truth_layers": ["F"],
+      "primary_truth_layer": "F",
+      "provenance": ["node_opportunity_alpha", "node_person_b"],
+      "tags": ["decision", "history"],
+      "privacy": "private",
+      "memory": {
+        "score": 54,
+        "lifecycle": "archive",
+        "review_due": null,
+        "factors": { "importance": 65, "relevance": 45, "novelty": 20, "project_connection": 75, "revenue_potential": 40, "identity_relevance": 45, "recency": 40 }
+      }
+    },
+    {
+      "id": "node_concept_memory_value",
+      "type": "concept",
+      "engine": "knowledge",
+      "title": "Concept: Memory Value Score",
+      "snippet": "Knowledge Economics metric: information must earn the right to remain Active.",
+      "body_ref": "fake_vault/02_KNOWLEDGE_ENGINE/memory_value_score.md",
+      "created_at": "2026-01-18T09:00:00Z",
+      "updated_at": "2026-05-19T16:00:00Z",
+      "last_accessed_at": "2026-05-30T12:00:00Z",
+      "truth_layers": ["C"],
+      "primary_truth_layer": "C",
+      "provenance": [],
+      "tags": ["theory", "core"],
+      "privacy": "shareable",
+      "memory": {
+        "score": 79,
+        "lifecycle": "active",
+        "review_due": "2026-08-20",
+        "factors": { "importance": 82, "relevance": 78, "novelty": 55, "project_connection": 70, "revenue_potential": 45, "identity_relevance": 60, "recency": 80 }
+      }
+    },
+    {
+      "id": "node_event_kickoff",
+      "type": "event",
+      "engine": "knowledge",
+      "title": "Event: Quartz Kickoff",
+      "snippet": "Synthetic project kickoff event anchoring the Project Timeline.",
+      "body_ref": "fake_vault/04_PROJECTS/quartz_kickoff.md",
+      "created_at": "2026-01-04T09:00:00Z",
+      "updated_at": "2026-01-04T09:00:00Z",
+      "last_accessed_at": "2026-05-01T12:00:00Z",
+      "truth_layers": ["A"],
+      "primary_truth_layer": "A",
+      "provenance": [],
+      "tags": ["event", "history"],
+      "privacy": "private",
+      "memory": {
+        "score": 49,
+        "lifecycle": "archive",
+        "review_due": null,
+        "factors": { "importance": 55, "relevance": 40, "novelty": 20, "project_connection": 70, "revenue_potential": 25, "identity_relevance": 30, "recency": 30 }
+      }
+    }
+  ]
+}

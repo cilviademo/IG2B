@@ -1,0 +1,86 @@
+{
+  "$comment": "SYNTHETIC FIXTURE — drives the Timeline view. Each event references a node and a track.",
+  "schema_version": "1.0.0",
+  "events": [
+    {
+      "id": "evt_2026_01_04_kickoff",
+      "date": "2026-01-04",
+      "type": "milestone",
+      "track": "project",
+      "title": "Project Quartz kickoff",
+      "project": "Project Quartz",
+      "node_id": "node_event_kickoff",
+      "truth_layer": "A"
+    },
+    {
+      "id": "evt_2026_01_08_context",
+      "date": "2026-01-08",
+      "type": "knowledge",
+      "track": "knowledge_evolution",
+      "title": "Context Engineering concept captured",
+      "project": "Project Quartz",
+      "node_id": "node_concept_context_engineering",
+      "truth_layer": "C"
+    },
+    {
+      "id": "evt_2026_02_11_atlas",
+      "date": "2026-02-11",
+      "type": "milestone",
+      "track": "project",
+      "title": "Project Atlas spun up",
+      "project": "Project Atlas",
+      "node_id": "node_project_atlas",
+      "truth_layer": "C"
+    },
+    {
+      "id": "evt_2026_03_15_pivot",
+      "date": "2026-03-15",
+      "type": "decision",
+      "track": "decision",
+      "title": "Q1 scope pivot executed",
+      "project": "Project Quartz",
+      "node_id": "node_decision_q1_pivot",
+      "truth_layer": "F"
+    },
+    {
+      "id": "evt_2026_04_01_opportunity",
+      "date": "2026-04-01",
+      "type": "opportunity",
+      "track": "opportunity",
+      "title": "Radian flags productization opening",
+      "project": "Project Quartz",
+      "node_id": "node_opportunity_alpha",
+      "truth_layer": "E"
+    },
+    {
+      "id": "evt_2026_05_19_memval",
+      "date": "2026-05-19",
+      "type": "knowledge",
+      "track": "knowledge_evolution",
+      "title": "Memory Value Score model refined",
+      "project": "Indigold Core",
+      "node_id": "node_concept_memory_value",
+      "truth_layer": "C"
+    },
+    {
+      "id": "evt_2026_05_25_review",
+      "date": "2026-05-25",
+      "type": "review",
+      "track": "boardroom",
+      "title": "Boardroom strategic review",
+      "project": "Project Quartz",
+      "node_id": "node_opportunity_alpha",
+      "truth_layer": "E"
+    },
+    {
+      "id": "evt_2026_06_10_forecast",
+      "date": "2026-06-10",
+      "type": "forecast",
+      "track": "radian",
+      "title": "Radian forecast: productization window",
+      "project": "Project Quartz",
+      "node_id": "node_opportunity_alpha",
+      "truth_layer": "E"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://indigold.local/schemas/memory.schema.json",
+  "title": "Memory Value Score",
+  "description": "Knowledge Economics scoring + lifecycle state. Information must earn the right to remain Active.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["score", "lifecycle", "factors"],
+  "properties": {
+    "score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Composite Memory Value Score (0-100), derived from weighted factors."
+    },
+    "lifecycle": {
+      "type": "string",
+      "enum": ["promote", "active", "review", "archive", "expire"],
+      "description": "Current stage in Promote -> Active -> Review -> Archive -> Expire."
+    },
+    "factors": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Sub-scores (0-100) that compose the Memory Value Score.",
+      "required": ["importance", "relevance", "novelty", "recency"],
+      "properties": {
+        "importance": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "relevance": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "novelty": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "project_connection": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "revenue_potential": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "identity_relevance": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "recency": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "review_due": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "When this item is next due for lifecycle review."
+    }
+  }
+}

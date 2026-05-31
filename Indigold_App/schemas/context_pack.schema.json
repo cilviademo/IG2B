@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://indigold.local/schemas/context_pack.schema.json",
+  "title": "Context Pack Frontmatter",
+  "description": "Contract for a pre-compiled, token-budgeted context bundle assembled by the Context Engine (Encompass). Validates the YAML frontmatter of a context pack Markdown file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "purpose", "token_budget", "source_nodes", "assembled_at"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ctx_[a-z0-9_-]+$"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The specific task this pack was assembled for. Drives just-in-time retrieval."
+    },
+    "token_budget": {
+      "type": "integer",
+      "minimum": 200,
+      "maximum": 8000,
+      "description": "Hard ceiling. Compress rather than overflow (target ~2000-4000)."
+    },
+    "token_estimate": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Estimated tokens of the assembled pack; must be <= token_budget."
+    },
+    "source_nodes": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Lightweight node id handles included in this pack (dereferenced at assembly time).",
+      "items": { "type": "string", "pattern": "^node_[a-z0-9_-]+$" }
+    },
+    "retrieval": {
+      "type": "string",
+      "enum": ["encompass", "manual", "hot_cache"],
+      "description": "How the pack was assembled."
+    },
+    "assembled_at": { "type": "string", "format": "date-time" },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "SemVer for the context pack format."
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://indigold.local/schemas/edge.schema.json",
+  "title": "Indigold Edge",
+  "description": "A temporally-scoped, directed relationship between two nodes (bitemporal-ready via valid_from/valid_until).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "source_id", "target_id", "relationship_type", "valid_from"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^edge_[a-z0-9_-]+$"
+    },
+    "source_id": { "type": "string", "pattern": "^node_[a-z0-9_-]+$" },
+    "target_id": { "type": "string", "pattern": "^node_[a-z0-9_-]+$" },
+    "relationship_type": {
+      "type": "string",
+      "enum": [
+        "depends_on", "relates_to", "derived_from", "authored_by",
+        "blocks", "informs", "part_of", "mentions", "supersedes", "advises"
+      ]
+    },
+    "weight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Edge strength used by Encompass retrieval ranking and Liminal Atlas layout."
+    },
+    "valid_from": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this relationship became true (temporal navigation)."
+    },
+    "valid_until": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "When it stopped being true. Null/absent = still valid (open interval)."
+    },
+    "provenance": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Node/source ids that justify this edge."
+    }
+  }
+}

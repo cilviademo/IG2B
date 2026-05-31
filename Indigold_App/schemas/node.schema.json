@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://indigold.local/schemas/node.schema.json",
+  "title": "Indigold Node",
+  "description": "An entity in the Knowledge/Identity graph: Project, Person, Concept, Source, etc. Every node carries provenance via truth_layers and a Memory Value Score.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "type", "title", "created_at", "updated_at", "truth_layers"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^node_[a-z0-9_-]+$",
+      "description": "Stable identifier. Used as a lightweight handle for just-in-time dereferencing."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["project", "person", "concept", "source", "skill", "event", "decision", "opportunity"],
+      "description": "Entity class. Keeps Identity / Knowledge / Execution concerns separable."
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "snippet": {
+      "type": "string",
+      "description": "Short high-signal summary (<= ~280 chars) for feeds and context packs."
+    },
+    "body_ref": {
+      "type": "string",
+      "description": "Relative path into fake_vault/ for the full Markdown body. Lightweight identifier — NOT inlined."
+    },
+    "engine": {
+      "type": "string",
+      "enum": ["identity", "knowledge", "context", "boardroom", "monitoring", "opportunity", "research"],
+      "description": "Owning engine. The graph spans engines but a node has a single owner (Separation of Concerns)."
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "last_accessed_at": { "type": "string", "format": "date-time" },
+    "truth_layers": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One or more epistemological layers this node participates in (A=Raw .. F=Action).",
+      "items": {
+        "type": "string",
+        "enum": ["A", "B", "C", "D", "E", "F"]
+      }
+    },
+    "primary_truth_layer": {
+      "type": "string",
+      "enum": ["A", "B", "C", "D", "E", "F"],
+      "description": "The dominant classification used for confidence/UX labelling."
+    },
+    "provenance": {
+      "type": "array",
+      "description": "Source node ids this node was derived from. Required (may be empty) so derived data always traces to Raw.",
+      "items": { "type": "string" }
+    },
+    "memory": { "$ref": "memory.schema.json" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "privacy": {
+      "type": "string",
+      "enum": ["secure", "private", "shareable"],
+      "default": "private",
+      "description": "Privacy by default — everything is 'private' unless explicitly downgraded."
+    }
+  }
+}

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <title>Indigold</title>
+  <meta name="description" content="Indigold v0.1 — local-first Personal Intelligence OS prototype (synthetic data only)." />
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1E1B4B" />
+
+  <!-- iOS standalone / home-screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Indigold" />
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Add-to-Home-Screen hint (shown only in a browser tab, not standalone) -->
+  <div id="a2hs-banner" class="a2hs hidden" role="status">
+    <span>Install Indigold: tap <strong>Share</strong> &rarr; <strong>Add to Home Screen</strong></span>
+    <button id="a2hs-dismiss" aria-label="Dismiss install hint">&times;</button>
+  </div>
+
+  <!-- App header -->
+  <header class="app-header" id="app-header">
+    <div class="brand">
+      <img src="assets/icons/icon.svg" alt="" class="brand-mark" width="24" height="24" />
+      <span class="brand-name">Indigold</span>
+    </div>
+    <span class="env-badge" title="This build runs only on synthetic fixtures.">SYNTHETIC v0.1</span>
+  </header>
+
+  <!-- View container -->
+  <main id="view" class="view" aria-live="polite"><!-- rendered by app.js --></main>
+
+  <!-- Node / detail modal -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <button id="modal-close" class="modal-close" aria-label="Close">&times;</button>
+      <div id="modal-body"><!-- rendered by app.js --></div>
+    </div>
+  </div>
+
+  <!-- Bottom tab bar -->
+  <nav class="tabbar" id="tabbar" role="tablist" aria-label="Primary">
+    <a class="tab" data-route="inbox"    href="#inbox"    role="tab"><span class="ico">&#128229;</span><span class="lbl">Inbox</span></a>
+    <a class="tab" data-route="dashboard" href="#dashboard" role="tab"><span class="ico">&#129518;</span><span class="lbl">Mission</span></a>
+    <a class="tab" data-route="timeline" href="#timeline" role="tab"><span class="ico">&#128338;</span><span class="lbl">Timeline</span></a>
+    <a class="tab" data-route="atlas"    href="#atlas"    role="tab"><span class="ico">&#128376;</span><span class="lbl">Atlas</span></a>
+    <a class="tab" data-route="context"  href="#context"  role="tab"><span class="ico">&#128230;</span><span class="lbl">Context</span></a>
+    <a class="tab" data-route="brief"    href="#brief"    role="tab"><span class="ico">&#129517;</span><span class="lbl">Radian</span></a>
+    <a class="tab" data-route="io"       href="#io"       role="tab"><span class="ico">&#8645;</span><span class="lbl">Data</span></a>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+{
+  "$comment": "SYNTHETIC FIXTURE — validates against schemas/edge.schema.json. Temporal edges use valid_from / valid_until.",
+  "schema_version": "1.0.0",
+  "edges": [
+    {
+      "id": "edge_quartz_dependson_persona",
+      "source_id": "node_project_quartz",
+      "target_id": "node_person_a",
+      "relationship_type": "depends_on",
+      "weight": 0.9,
+      "valid_from": "2026-01-05T00:00:00Z",
+      "valid_until": null,
+      "provenance": ["node_source_field_notes"]
+    },
+    {
+      "id": "edge_quartz_derivedfrom_notes",
+      "source_id": "node_project_quartz",
+      "target_id": "node_source_field_notes",
+      "relationship_type": "derived_from",
+      "weight": 0.7,
+      "valid_from": "2026-01-04T00:00:00Z",
+      "valid_until": null,
+      "provenance": []
+    },
+    {
+      "id": "edge_quartz_relates_metaphors",
+      "source_id": "node_project_quartz",
+      "target_id": "node_concept_generative_metaphors",
+      "relationship_type": "relates_to",
+      "weight": 0.5,
+      "valid_from": "2026-01-12T00:00:00Z",
+      "valid_until": null,
+      "provenance": []
+    },
+    {
+      "id": "edge_quartz_informs_opportunity",
+      "source_id": "node_project_quartz",
+      "target_id": "node_opportunity_alpha",
+      "relationship_type": "informs",
+      "weight": 0.85,
+      "valid_from": "2026-04-01T00:00:00Z",
+      "valid_until": null,
+      "provenance": []
+    },
+    {
+      "id": "edge_opportunity_advisedby_personb",
+      "source_id": "node_opportunity_alpha",
+      "target_id": "node_person_b",
+      "relationship_type": "advises",
+      "weight": 0.6,
+      "valid_from": "2026-04-05T00:00:00Z",
+      "valid_until": null,
+      "provenance": []
+    },
+    {
+      "id": "edge_decision_supersedes_kickoff",
+      "source_id": "node_decision_q1_pivot",
+      "target_id": "node_event_kickoff",
+      "relationship_type": "supersedes",
+      "weight": 0.4,
+      "valid_from": "2026-03-15T00:00:00Z",
+      "valid_until": null,
+      "provenance": []
+    },
+    {
+      "id": "edge_decision_derivedfrom_opportunity",
+      "source_id": "node_decision_q1_pivot",
+      "target_id": "node_opportunity_alpha",
+      "relationship_type": "derived_from",
+      "weight": 0.7,
+      "valid_from": "2026-03-15T00:00:00Z",
+      "valid_until": null,
+      "provenance": []
+    },
+    {
+      "id": "edge_atlas_relates_metaphors",
+      "source_id": "node_project_atlas",
+      "target_id": "node_concept_generative_metaphors",
+      "relationship_type": "relates_to",
+      "weight": 0.8,
+      "valid_from": "2026-02-11T00:00:00Z",
+      "valid_until": null,
+      "provenance": []
+    },
+    {
+      "id": "edge_quartz_uses_context",
+      "source_id": "node_project_quartz",
+      "target_id": "node_concept_context_engineering",
+      "relationship_type": "relates_to",
+      "weight": 0.65,
+      "valid_from": "2026-01-08T00:00:00Z",
+      "valid_until": null,
+      "provenance": []
+    },
+    {
+      "id": "edge_skill_informs_context",
+      "source_id": "node_skill_summarize",
+      "target_id": "node_concept_context_engineering",
+      "relationship_type": "informs",
+      "weight": 0.5,
+      "valid_from": "2026-01-15T00:00:00Z",
+      "valid_until": null,
+      "provenance": []
+    },
+    {
+      "id": "edge_memval_partof_context",
+      "source_id": "node_concept_memory_value",
+      "target_id": "node_concept_context_engineering",
+      "relationship_type": "part_of",
+      "weight": 0.55,
+      "valid_from": "2026-01-18T00:00:00Z",
+      "valid_until": null,
+      "provenance": []
+    },
+    {
+      "id": "edge_persona_authored_notes",
+      "source_id": "node_source_field_notes",
+      "target_id": "node_person_a",
+      "relationship_type": "authored_by",
+      "weight": 0.9,
+      "valid_from": "2026-01-03T00:00:00Z",
+      "valid_until": "2026-03-01T00:00:00Z",
+      "provenance": []
+    }
+  ]
+}

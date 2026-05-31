@@ -1,0 +1,39 @@
+# ---------------------------------------------------------------------------
+# Indigold v0.1 — hard guardrails against ever committing real data or secrets.
+# The prototype runs on SYNTHETIC fixtures only. The real vault must never live
+# inside this workspace and must never be committed.
+# ---------------------------------------------------------------------------
+
+# Real vault — NEVER commit (any spelling / location)
+Indigold_Vault/
+*Indigold_Vault*/
+OneDrive/
+iCloud*/
+*real_vault*
+*.real
+*.private.json
+vault/
+
+# Secrets / tokens / keys — NEVER commit
+.env
+.env.*
+*.key
+*.pem
+*secret*
+*token*
+*credentials*
+*.p12
+
+# Local export artifacts produced by the Import/Export view
+indigold_export.json
+
+# Tooling / OS noise
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+.cache/
+.vscode/
+.idea/
+__pycache__/
+*.pyc
