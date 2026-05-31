@@ -35,6 +35,21 @@ if ("serviceWorker" in navigator) {
   });
 })();
 
+// iOS standalone PWAs can launch at the manifest start_url ("/") and drop the
+// requested path while keeping the query string. If capture params arrive on a
+// non-capture route, route to /capture so Share Sheet links still pre-fill.
+(() => {
+  try {
+    const path = window.location.pathname;
+    if (path === "/capture" || path === "/share" || path === "/share-target") return;
+    const q = new URLSearchParams(window.location.search);
+    const hasCaptureParams = ["url", "content", "text", "title", "type", "note", "tags"].some((k) => q.get(k));
+    if (hasCaptureParams) window.location.replace("/capture" + window.location.search);
+  } catch {
+    /* ignore */
+  }
+})();
+
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element #root not found");
 
