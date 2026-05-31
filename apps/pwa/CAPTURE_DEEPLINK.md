@@ -48,11 +48,14 @@ and pre-fills every field, so it's **Share → Indigold Capture → Save**.
 4. Add **URL Encode** → input the **Shortcut Input** (handles spaces/symbols).
 5. Add **Text** and paste (insert the magic variables where shown):
    ```
-   https://indigold-pwa.onrender.com/capture?url=[URLs]&content=[URL-Encoded Shortcut Input]&title=[Shortcut Input Name]
+   https://indigold-pwa.onrender.com/capture?url=[URLs]&content=[URL-Encoded Shortcut Input]&title=[Shortcut Input Name]&source=ios_share_sheet
    ```
    - `[URLs]` = output of step 3
    - `[URL-Encoded Shortcut Input]` = output of step 4
    - `[Shortcut Input Name]` = optional (use **Get Details of Shortcut Input → Name**)
+   - `source=ios_share_sheet` is a static hint; the endpoint still auto-detects the
+     real platform (instagram/tiktok/youtube/…) from the URL and only uses this as
+     the fallback when no platform matches.
 6. Add **Open URLs** → the **Text** from step 5.
 
 Now: Instagram/TikTok/YouTube/X/Threads/Facebook/Safari/Notes → **Share → Indigold

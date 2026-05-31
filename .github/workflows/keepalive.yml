@@ -1,0 +1,41 @@
+name: Keep Indigold API awake
+
+# Pings the API /health on a schedule so the free Render instance doesn't sleep,
+# keeping the embedded worker + self-scheduler running so captures sync and daily
+# briefs fire reliably. Override the URL via the repo variable INDIGOLD_API_URL.
+#
+# Cost note: only needed while indigold-api is on the FREE plan. If you upgrade
+# the API to `starter` (always-on), you can delete this workflow.
+
+on:
+  schedule:
+    - cron: "*/12 * * * *" # every 12 minutes (free dynos sleep after ~15 min idle)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: indigold-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health (retry until awake)
+        env:
+          API_URL: ${{ vars.INDIGOLD_API_URL || 'https://indigold-api.onrender.com' }}
+        run: |
+          set -e
+          url="${API_URL%/}/health"
+          echo "Pinging $url"
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$url" || echo 000)
+            echo "attempt $i -> HTTP $code"
+            if [ "$code" = "200" ]; then echo "awake ✓"; exit 0; fi
+            sleep 15
+          done
+          echo "::warning::API did not return 200 after retries (may be a cold start or wrong URL)"
+          # Don't fail the workflow on a single miss — the next run will retry.
+          exit 0

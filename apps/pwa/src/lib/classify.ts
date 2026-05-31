@@ -135,7 +135,8 @@ export function classifyShared(input: ShareInput): Classified {
   const u = host + path;
 
   if (rawUrl) {
-    source = srcHint || detectSource(host) || "ios_share_sheet";
+    // Host detection wins; the shortcut's `source` hint is only a fallback.
+    source = detectSource(host) || srcHint || "ios_share_sheet";
     if (/instagram\.com\/reel/.test(u) || /tiktok\.com/.test(host) || /youtube\.com\/shorts/.test(u) || /facebook\.com\/reel/.test(u)) {
       type = "short_form_video"; domain = "content"; media = "video"; confidence = 0.95;
     } else if (/youtube\.com\/watch/.test(u) || /youtu\.be/.test(host) || /vimeo\.com/.test(host)) {
