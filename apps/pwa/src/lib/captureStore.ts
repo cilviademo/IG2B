@@ -19,6 +19,8 @@ export interface LocalCapture {
   domain?: string;
   media?: string;
   auto_classified?: boolean;
+  files?: { name: string; type: string; size: number }[];
+  synced?: boolean;
   provenance: { capture_method: string; device: string; app_context: string };
 }
 
@@ -68,6 +70,15 @@ export function saveCapture(c: LocalCapture) {
   if (idx >= 0) list[idx] = c;
   else list.push(c);
   write(list);
+}
+
+export function markSynced(id: string) {
+  const list = read();
+  const idx = list.findIndex((c) => c.id === id);
+  if (idx >= 0 && !list[idx].synced) {
+    list[idx].synced = true;
+    write(list);
+  }
 }
 
 export function removeCapture(id: string) {

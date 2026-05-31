@@ -9,7 +9,7 @@
  *   the documented path to fully-local assets is to self-host the fonts.
  * - No analytics, no telemetry, no data exfiltration. */
 
-const CACHE = "indigold-v0.3.0";
+const CACHE = "indigold-v0.4.0";
 
 const PRECACHE = [
   "/",
@@ -50,11 +50,65 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// ---- Web Share Target (POST) ----
+// Manifest points share_target.action at /share-target (multipart). We can't run
+// server code on a static host, so the SW captures the shared payload (text, url,
+// files) into IndexedDB and 303-redirects to /share?pending=<id> for processing.
+const SHARE_DB = "indigold-share";
+function shareIdbPut(value) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SHARE_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("pending")) db.createObjectStore("pending", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("files")) db.createObjectStore("files", { keyPath: "id" });
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction("pending", "readwrite");
+      tx.objectStore("pending").put(value);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
+  const reqUrl = new URL(request.url);
+
+  if (request.method === "POST" && reqUrl.pathname === "/share-target") {
+    event.respondWith(
+      (async () => {
+        try {
+          const form = await request.formData();
+          const id = "share_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+          const files = [];
+          for (const f of form.getAll("files")) {
+            if (f && typeof f === "object" && "name" in f) {
+              files.push({ name: f.name, type: f.type, size: f.size, blob: f });
+            }
+          }
+          await shareIdbPut({
+            id,
+            title: String(form.get("title") || ""),
+            text: String(form.get("text") || ""),
+            url: String(form.get("url") || ""),
+            files,
+          });
+          return Response.redirect(new URL("/share?pending=" + id, self.location.origin).toString(), 303);
+        } catch (e) {
+          return Response.redirect(new URL("/share?error=share_failed", self.location.origin).toString(), 303);
+        }
+      })(),
+    );
+    return;
+  }
+
   if (request.method !== "GET") return;
 
-  const url = new URL(request.url);
+  const url = reqUrl;
   const sameOrigin = url.origin === self.location.origin;
 
   // Cross-origin (fonts): stale-while-revalidate, best-effort.

@@ -26,6 +26,8 @@ export interface DetailItem {
   domain?: string;
   media?: string;
   auto_classified?: boolean;
+  files?: { name: string; type: string; size: number }[];
+  synced?: boolean;
   provenance?: { capture_method?: string; device?: string; app_context?: string };
 }
 
@@ -49,6 +51,11 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
           {item.auto_classified && (
             <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.78 0.14 85 / 0.18)", color: "oklch(0.78 0.14 85)" }}>
               auto
+            </span>
+          )}
+          {item.synced && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.6 0.18 145 / 0.18)", color: "oklch(0.7 0.16 150)" }}>
+              synced
             </span>
           )}
           <span className="text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wide" style={{ color: sens, border: `1px solid ${sens}` }}>
@@ -80,6 +87,17 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
           <div>
             <div className="label-mono mb-1">User note</div>
             <p className="text-sm" style={{ color: "oklch(0.75 0.01 280)" }}>{item.user_note}</p>
+          </div>
+        )}
+
+        {item.files && item.files.length > 0 && (
+          <div>
+            <div className="label-mono mb-1">Attached files</div>
+            {item.files.map((f, i) => (
+              <div key={i} className="text-xs font-mono" style={{ color: "oklch(0.72 0.15 195)" }}>
+                {f.name} · {f.type || "file"} · {Math.max(1, Math.round(f.size / 1024))} KB
+              </div>
+            ))}
           </div>
         )}
 

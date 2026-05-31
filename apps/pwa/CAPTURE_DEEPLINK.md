@@ -55,6 +55,27 @@ Now: any app → **Share → Indigold** → it's captured and classified. No for
 manually (fallback)** opens the same form, with **Copy Deep Link** and **Generate
 Shortcut URL** test buttons.
 
+## Files & backend sync
+- The `share_target` is **POST + multipart**, so shared **images, PDFs, audio,
+  video, text and documents** are accepted. The service worker captures the
+  payload into IndexedDB and redirects to `/share?pending=<id>`; the app
+  classifies by MIME (image→screenshot, pdf/doc→document, audio→voice_memo, …),
+  stores the blob locally, and files it — no form.
+- **Confidence threshold:** if auto-classification confidence is low, the
+  pre-filled manual form appears as a fallback (the only time you see a form).
+- **Backend sync (local-first):** when `VITE_API_URL` is set and the API is
+  reachable, each capture is pushed to `/captures` (which runs the worker
+  enrichment → graph → context-pack → search pipeline) using a silent per-device
+  account — no login screen. Offline/asleep → stays local and re-syncs later.
+
+## iOS reality (important)
+Apple Safari does **not** implement the Web Share Target API, so on iPhone the PWA
+will **not** appear in the native share sheet today (text or files). The Apple
+Shortcut → `/share?...` remains the iOS bridge. The Web Share Target works on
+Android / desktop installed PWAs and is ready for iOS if Apple ships support. A
+true native iOS share-sheet entry needs a thin native wrapper (Capacitor/App
+Store) — a later phase.
+
 ## Notes
 - Instagram/Reels: only URL + note + optional caption text are stored. No scraping,
   no transcription, no video.

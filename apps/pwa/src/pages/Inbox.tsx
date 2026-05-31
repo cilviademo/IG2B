@@ -15,6 +15,7 @@ import {
   Upload,
   Copy,
   Clock,
+  Paperclip,
   Link2,
   StickyNote,
   Clapperboard,
@@ -30,7 +31,8 @@ import { toast } from "sonner";
 import CaptureForm from "@/components/CaptureForm";
 import CaptureDetail, { type DetailItem } from "@/components/CaptureDetail";
 import Sheet from "@/components/Sheet";
-import { listCaptures, removeCapture, subscribeCaptures, exportCaptures, importCaptures, type LocalCapture } from "@/lib/captureStore";
+import { listCaptures, removeCapture, subscribeCaptures, exportCaptures, importCaptures, markSynced, type LocalCapture } from "@/lib/captureStore";
+import { apiEnabled, ensureSession, syncCaptureToApi } from "@/lib/api";
 
 const TYPE_ICON: Record<CaptureType, LucideIcon> = {
   apple_note: StickyNote,
@@ -77,6 +79,23 @@ export default function Inbox() {
     setLocal(listCaptures());
     return subscribeCaptures(() => setLocal(listCaptures()));
   }, []);
+
+  // Best-effort backend sync (local-first): push unsynced captures so the worker
+  // runs enrichment/graph/context. Silent if the API is unset/asleep/offline.
+  useEffect(() => {
+    if (!apiEnabled()) return;
+    let cancelled = false;
+    (async () => {
+      if (!(await ensureSession()) || cancelled) return;
+      for (const c of listCaptures()) {
+        if (c.synced || cancelled) continue;
+        if (await syncCaptureToApi(c)) markSynced(c.id);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [local.length]);
 
   const items: DetailItem[] = useMemo(() => {
     const locals = local.map(localToDetail);
@@ -282,6 +301,12 @@ function CaptureCard({ item, index, onOpen }: { item: DetailItem; index: number;
       <div className="flex items-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full" style={{ background: proc.color }} />
         <span className="label-mono" style={{ color: proc.color }}>{proc.label}</span>
+        {item.files && item.files.length > 0 && (
+          <span className="label-mono flex items-center gap-0.5" style={{ color: "oklch(0.72 0.15 195)" }}>
+            <Paperclip size={10} /> {item.files.length}
+          </span>
+        )}
+        {item.synced && <span className="label-mono" style={{ color: "oklch(0.7 0.16 150)" }}>· synced</span>}
         <span className="label-mono ml-auto flex items-center gap-1" style={{ color: "oklch(0.4 0.02 280)" }}>
           <Clock size={10} /> {timeAgo(item.captured_at)}
         </span>
