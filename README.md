@@ -26,8 +26,20 @@ This repository is the **immediate target architecture**: a monorepo deployed to
 | 7 | Private Service | `indigold-radian` | Strategic forecasting / way-ahead | `services/radian` |
 | 8 | Private Service | `indigold-encompass` | Retrieval + context assembly | `services/encompass` |
 
-Everything is wired by [`render.yaml`](./render.yaml) (a Blueprint). Import it and
-Render creates all eight under one Project.
+Two Blueprints are provided:
+
+- **[`render.yaml`](./render.yaml) — low-cost (default, ~$7/mo).** One always-on
+  API runs the worker, Radian, Encompass, and the scheduler **in-process**;
+  Postgres + Key Value use free tiers; the PWA is a free static site. Same code,
+  fewer billable instances. (Set the API to `plan: free` for ~$0 — it then sleeps
+  and only processes jobs while awake.)
+- **[`render.full.yaml`](./render.full.yaml) — scaled (all 8 resources).** Separate
+  worker, cron, and the two private services. Deploy this later with **no code
+  changes** — the API auto-detects: if `RADIAN_URL`/`ENCOMPASS_URL` are set it
+  calls them over HTTP, otherwise it runs the shared intelligence core locally;
+  `RUN_WORKER`/`RUN_SCHEDULER` toggle the embedded subsystems off.
+
+Import either and Render creates the resources under one Project.
 
 ---
 

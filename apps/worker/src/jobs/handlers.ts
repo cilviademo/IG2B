@@ -1,9 +1,7 @@
 import * as repo from "@indigold/db";
 import { enqueue, id, type Job } from "@indigold/shared";
+import { forecast } from "@indigold/shared/intelligence";
 import { model } from "../lib/model";
-
-const RADIAN_RAW = process.env.RADIAN_URL || "localhost:7101";
-const RADIAN_URL = /^https?:\/\//.test(RADIAN_RAW) ? RADIAN_RAW : `http://${RADIAN_RAW}`;
 
 type Handler = (job: Job) => Promise<void>;
 
@@ -73,20 +71,11 @@ const graphUpdate: Handler = async (job) => {
   await repo.jobs.finish(job.id, "done", { edges: made });
 };
 
-// Daily/weekly briefs delegate strategic reasoning to Radian.
+// Daily/weekly briefs use the shared Radian core directly.
 const briefJob = (kind: "daily" | "weekly"): Handler => async (job) => {
   const nodes = await repo.nodes.list(job.user_id);
   const edges = await repo.edges.list(job.user_id);
-  let payload: Record<string, unknown> = { kind, nodes: nodes.length, edges: edges.length };
-  try {
-    const res = await fetch(RADIAN_URL + "/forecast", {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ nodes, edges, horizon: kind === "daily" ? "day" : "week" }),
-    });
-    if (res.ok) payload = (await res.json() as { payload: Record<string, unknown> }).payload;
-  } catch {
-    /* Radian offline -> store the lightweight summary above */
-  }
+  const payload = forecast(nodes, edges, kind === "daily" ? "day" : "week") as unknown as Record<string, unknown>;
   await repo.briefs.create({ id: id("brief"), user_id: job.user_id, kind, period: new Date().toISOString().slice(0, 10), payload });
   await repo.jobs.finish(job.id, "done");
 };

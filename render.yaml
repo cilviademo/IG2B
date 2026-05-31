@@ -1,33 +1,35 @@
-# Render Blueprint — the Indigold platform (8 resources).
-# Create/import under a Project named "Indigold".
-# Adjust `plan` and `region` to your account. Private-service connectivity
-# requires all services to share a region.
-
-envVarGroups:
-  - name: indigold-shared
-    envVars:
-      - key: INTERNAL_TOKEN        # shared secret guarding private-service calls
-        generateValue: true
-      - key: DAILY_TOKEN_BUDGET
-        value: "200000"
+# Render Blueprint — LOW-COST topology (~$7/mo to start, or ~$0 with a free API).
+# Everything (worker + Radian + Encompass + scheduler) runs IN-PROCESS inside one
+# always-on API. Postgres + Key Value use free tiers. The PWA is a free static site.
+#
+# To scale out to the full 8-service architecture later, deploy render.full.yaml
+# (separate worker, cron, and private services) — no code changes required.
+#
+# Cost notes:
+#   - indigold-pwa (static) ............ free
+#   - indigold-api (starter) ........... ~$7/mo  (must stay always-on for the
+#                                         embedded worker; use plan: free for ~$0
+#                                         but it sleeps and won't process jobs while idle)
+#   - indigold-db (free) ............... free for ~30 days, then upgrade to basic-256mb
+#   - indigold-cache / Key Value (free)  free (25 MB)
 
 databases:
   - name: indigold-db
     databaseName: indigold
     user: indigold
-    plan: basic-256mb
+    plan: free            # expires ~30 days; change to basic-256mb to persist
     region: oregon
 
 services:
-  # ---------------------------------------------------------------- Key Value
+  # ---- Key Value (Redis): sessions, rate limits, token budget, job queue ----
   - type: redis
     name: indigold-cache
-    plan: starter
+    plan: free            # 25 MB; plenty for sessions + a light job queue
     region: oregon
     maxmemoryPolicy: allkeys-lru
-    ipAllowList: []               # internal-only
+    ipAllowList: []
 
-  # ----------------------------------------------------------- Static Site PWA
+  # ---- Static Site: PWA (free) ----
   - type: web
     runtime: static
     name: indigold-pwa
@@ -46,20 +48,25 @@ services:
         source: /*
         destination: /index.html
 
-  # --------------------------------------------------------------- Web API
+  # ---- Web Service: API + embedded worker + scheduler + Radian/Encompass ----
   - type: web
     runtime: node
     name: indigold-api
     rootDir: apps/api
-    plan: starter
+    plan: starter         # change to `free` for ~$0 (sleeps; jobs only run while awake)
     region: oregon
     buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /health
     envVars:
-      - fromGroup: indigold-shared
       - key: NODE_ENV
         value: production
+      - key: RUN_WORKER          # process the job queue in-process
+        value: "true"
+      - key: RUN_SCHEDULER       # self-schedule daily/weekly/monitor fan-out
+        value: "true"
+      - key: DAILY_TOKEN_BUDGET
+        value: "200000"
       - key: DATABASE_URL
         fromDatabase:
           name: indigold-db
@@ -71,89 +78,9 @@ services:
           property: connectionString
       - key: SESSION_SECRET
         generateValue: true
-      - key: RADIAN_URL
-        fromService:
-          type: pserv
-          name: indigold-radian
-          property: hostport
-      - key: ENCOMPASS_URL
-        fromService:
-          type: pserv
-          name: indigold-encompass
-          property: hostport
       - key: PWA_ORIGIN
         fromService:
           type: web
           name: indigold-pwa
           property: host
-
-  # --------------------------------------------------------- Background Worker
-  - type: worker
-    runtime: node
-    name: indigold-worker
-    rootDir: apps/worker
-    plan: starter
-    region: oregon
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    envVars:
-      - fromGroup: indigold-shared
-      - key: DATABASE_URL
-        fromDatabase:
-          name: indigold-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: indigold-cache
-          property: connectionString
-      - key: RADIAN_URL
-        fromService:
-          type: pserv
-          name: indigold-radian
-          property: hostport
-
-  # ------------------------------------------------------------ Cron Scheduler
-  - type: cron
-    runtime: node
-    name: indigold-scheduler
-    rootDir: apps/scheduler
-    region: oregon
-    schedule: "0 13 * * *"        # daily 13:00 UTC (fans out daily/weekly/monitor)
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    envVars:
-      - fromGroup: indigold-shared
-      - key: DATABASE_URL
-        fromDatabase:
-          name: indigold-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: indigold-cache
-          property: connectionString
-
-  # ----------------------------------------------------- Private Service: Radian
-  - type: pserv
-    runtime: node
-    name: indigold-radian
-    rootDir: services/radian
-    plan: starter
-    region: oregon
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    envVars:
-      - fromGroup: indigold-shared
-
-  # -------------------------------------------------- Private Service: Encompass
-  - type: pserv
-    runtime: node
-    name: indigold-encompass
-    rootDir: services/encompass
-    plan: starter
-    region: oregon
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    envVars:
-      - fromGroup: indigold-shared
+      # RADIAN_URL / ENCOMPASS_URL intentionally unset -> intelligence runs in-process.

@@ -43,6 +43,29 @@ app.use((_req, res) => res.status(404).json({ error: "not_found" }));
 
 const port = Number(process.env.PORT || 7000);
 
+// EMBEDDED mode (low-cost single service): optionally run the job worker and the
+// self-scheduler inside this process. SCALED mode runs them as their own services.
+async function startEmbedded() {
+  if (process.env.RUN_WORKER === "true") {
+    const [{ consume }, { handlers }] = await Promise.all([
+      import("@indigold/shared"),
+      import("../../worker/src/jobs/handlers"),
+    ]);
+    consume(
+      async (job) => {
+        const h = handlers[job.type];
+        if (h) await h(job);
+      },
+      { onError: (e, job) => console.error(`[api/worker] ${job?.type} failed:`, (e as Error)?.message) },
+    ).catch((e) => console.error("[api/worker] fatal:", e));
+    console.log("[indigold-api] embedded worker started");
+  }
+  if (process.env.RUN_SCHEDULER === "true") {
+    const { startScheduler } = await import("./lib/scheduler");
+    startScheduler();
+  }
+}
+
 async function boot() {
   if (process.env.RUN_MIGRATIONS !== "false") {
     try {
@@ -52,5 +75,6 @@ async function boot() {
     }
   }
   app.listen(port, () => console.log(`[indigold-api] listening on :${port}`));
+  await startEmbedded();
 }
 boot();

@@ -1,8 +1,12 @@
-// Clients for the private services (Radian + Encompass). Same-region HTTP on
-// Render. The blueprint injects host:port (no scheme) — add http:// if missing.
+// Radian + Encompass access. EMBEDDED mode (low-cost single service): if the
+// service URL env is unset, call the shared intelligence core in-process.
+// SCALED mode: if RADIAN_URL / ENCOMPASS_URL are set, call them over HTTP.
+import { forecast as forecastLocal, assemble as assembleLocal } from "@indigold/shared/intelligence";
+import type { GraphNode, GraphEdge } from "@indigold/shared/types";
+
 const withScheme = (u: string) => (/^https?:\/\//.test(u) ? u : `http://${u}`);
-const RADIAN_URL = withScheme(process.env.RADIAN_URL || "localhost:7101");
-const ENCOMPASS_URL = withScheme(process.env.ENCOMPASS_URL || "localhost:7102");
+const RADIAN_URL = process.env.RADIAN_URL ? withScheme(process.env.RADIAN_URL) : "";
+const ENCOMPASS_URL = process.env.ENCOMPASS_URL ? withScheme(process.env.ENCOMPASS_URL) : "";
 
 async function post<T>(base: string, path: string, body: unknown): Promise<T> {
   const res = await fetch(base + path, {
@@ -14,16 +18,25 @@ async function post<T>(base: string, path: string, body: unknown): Promise<T> {
   return (await res.json()) as T;
 }
 
+type ForecastBody = { nodes: GraphNode[]; edges: GraphEdge[]; horizon?: string };
+type AssembleBody = { purpose?: string; tokenBudget?: number; nodes: GraphNode[]; edges: GraphEdge[] };
+type Pack = ReturnType<typeof assembleLocal>;
+
 export const radian = {
-  forecast: (body: unknown) => post<{ payload: Record<string, unknown> }>(RADIAN_URL, "/forecast", body),
+  async forecast(body: ForecastBody): Promise<{ payload: Record<string, unknown> }> {
+    if (RADIAN_URL) return post(RADIAN_URL, "/forecast", body);
+    return { payload: forecastLocal(body.nodes, body.edges, body.horizon) as unknown as Record<string, unknown> };
+  },
 };
+
 export const encompass = {
-  assemble: (body: unknown) =>
-    post<{
-      title: string;
-      purpose: string;
-      token_budget: { total: number; used: number };
-      source_nodes: string[];
-      sections: { heading: string; content: string; truth_layer: string; provenance: string }[];
-    }>(ENCOMPASS_URL, "/assemble", body),
+  async assemble(body: AssembleBody): Promise<Pack> {
+    if (ENCOMPASS_URL) return post(ENCOMPASS_URL, "/assemble", body);
+    return assembleLocal(body);
+  },
+};
+
+export const mode = {
+  radian: RADIAN_URL ? "http" : "embedded",
+  encompass: ENCOMPASS_URL ? "http" : "embedded",
 };
