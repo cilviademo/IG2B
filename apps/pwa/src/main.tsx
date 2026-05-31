@@ -14,6 +14,27 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+// Capacitor deep-link bridge (no-op in a normal browser). When wrapped in the
+// native iOS shell, the Share Extension opens indigold://share?… or
+// indigold://capture?… — route that into the SPA. Uses the globally-injected
+// Capacitor runtime, so no bundler dependency is added to the web build.
+(() => {
+  const cap = (window as unknown as {
+    Capacitor?: { Plugins?: { App?: { addListener: (e: string, cb: (d: { url: string }) => void) => void } } };
+  }).Capacitor;
+  const AppPlugin = cap?.Plugins?.App;
+  if (!AppPlugin) return;
+  AppPlugin.addListener("appUrlOpen", (data) => {
+    try {
+      const u = new URL(data.url); // e.g. indigold://share?url=…
+      const route = (u.host || u.pathname.replace(/^\/+/, "") || "share").toLowerCase();
+      window.location.assign((route === "capture" ? "/capture" : "/share") + (u.search || ""));
+    } catch {
+      /* ignore malformed deep links */
+    }
+  });
+})();
+
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element #root not found");
 
