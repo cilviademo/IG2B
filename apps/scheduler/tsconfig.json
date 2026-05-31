@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@indigold/shared": ["../../packages/shared/src/index.ts"],
+      "@indigold/shared/*": ["../../packages/shared/src/*"],
+      "@indigold/db": ["../../packages/db/src/index.ts"]
+    }
+  },
+  "include": ["src", "../../packages/shared/src", "../../packages/db/src"]
+}

@@ -1,0 +1,17 @@
+{
+  "_comment": "SYNTHETIC — temporal edges with valid_from.",
+  "edges": [
+    { "source_id": "n1", "target_id": "n2", "relationship": "collaborates_with", "valid_from": "2026-01-05", "label": "Quartz depends on Person A" },
+    { "source_id": "n1", "target_id": "n3", "relationship": "applies", "valid_from": "2026-01-08", "label": "Quartz applies Context Engineering" },
+    { "source_id": "n1", "target_id": "n7", "relationship": "derived_from", "valid_from": "2026-01-04", "label": "Derived from Field Notes" },
+    { "source_id": "n5", "target_id": "n11", "relationship": "applies", "valid_from": "2026-02-11", "label": "Atlas applies Liminal Atlas" },
+    { "source_id": "n4", "target_id": "n11", "relationship": "informs", "valid_from": "2026-02-12", "label": "Metaphors inform the Atlas" },
+    { "source_id": "n1", "target_id": "n9", "relationship": "enables", "valid_from": "2026-04-01", "label": "Quartz enables Productization" },
+    { "source_id": "n9", "target_id": "n6", "relationship": "recommended", "valid_from": "2026-04-05", "label": "Advised by Person B" },
+    { "source_id": "n10", "target_id": "n9", "relationship": "derived_from", "valid_from": "2026-03-15", "label": "Pivot derived from opportunity" },
+    { "source_id": "n8", "target_id": "n3", "relationship": "contains", "valid_from": "2026-01-18", "label": "MVS part of Context Engineering" },
+    { "source_id": "n12", "target_id": "n7", "relationship": "derived_from", "valid_from": "2026-01-03", "label": "Normalized from Field Notes" },
+    { "source_id": "n3", "target_id": "n11", "relationship": "references", "valid_from": "2026-01-10", "label": "Context Engineering references Atlas" },
+    { "source_id": "n2", "target_id": "n7", "relationship": "involves", "valid_from": "2026-01-03", "label": "Person A authored Field Notes" }
+  ]
+}

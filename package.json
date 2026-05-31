@@ -1,0 +1,24 @@
+{
+  "name": "indigold",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Indigold — local-first Personal Intelligence OS as a Render multi-service platform.",
+  "scripts": {
+    "install:all": "for d in apps/api apps/worker apps/scheduler services/radian services/encompass apps/pwa; do echo \"== install $d ==\"; (cd \"$d\" && npm install) || exit 1; done",
+    "build:all": "for d in apps/api apps/worker apps/scheduler services/radian services/encompass apps/pwa; do echo \"== build $d ==\"; (cd \"$d\" && npm run build) || exit 1; done",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:all": "npm run typecheck && (cd apps/pwa && npm run typecheck)"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.9.0",
+    "@types/pg": "^8.11.10",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "ioredis": "^5.4.1",
+    "pg": "^8.13.1",
+    "typescript": "~5.6.3",
+    "zod": "^3.23.8"
+  }
+}

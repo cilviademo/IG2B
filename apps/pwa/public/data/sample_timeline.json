@@ -1,0 +1,15 @@
+{
+  "_comment": "SYNTHETIC — 10 chronological events.",
+  "events": [
+    { "id": "e1", "date": "2025-11-12", "type": "project", "significance": "medium", "title": "Quartz seed idea", "description": "First synthetic scoping note that would become Project Quartz." },
+    { "id": "e2", "date": "2025-12-03", "type": "discovery", "significance": "medium", "title": "Generative Metaphors surfaced", "description": "Mood-board metaphor for organizing knowledge identified." },
+    { "id": "e3", "date": "2026-01-04", "type": "milestone", "significance": "critical", "title": "Project Quartz kickoff", "description": "Flagship synthetic project formally started." },
+    { "id": "e4", "date": "2026-01-08", "type": "insight", "significance": "high", "title": "Context Engineering captured", "description": "Hot Cache, Context Packs, and just-in-time loading codified." },
+    { "id": "e5", "date": "2026-02-11", "type": "project", "significance": "medium", "title": "Project Atlas spun up", "description": "Secondary initiative to explore the Liminal Atlas." },
+    { "id": "e6", "date": "2026-03-15", "type": "architecture", "significance": "high", "title": "Q1 scope pivot executed", "description": "Quartz scope narrowed; recorded as a historical Action." },
+    { "id": "e7", "date": "2026-04-01", "type": "discovery", "significance": "high", "title": "Productization opportunity", "description": "Radian flags a synthetic revenue-stream opening." },
+    { "id": "e8", "date": "2026-05-19", "type": "insight", "significance": "medium", "title": "MVS model refined", "description": "Memory Value Score weighting updated." },
+    { "id": "e9", "date": "2026-05-25", "type": "connection", "significance": "medium", "title": "Boardroom strategic review", "description": "Reasoning roles convened over the Quartz opportunity." },
+    { "id": "e10", "date": "2026-05-31", "type": "milestone", "significance": "medium", "title": "Weekly brief generated", "description": "Radian produced the week-22 directional brief." }
+  ]
+}

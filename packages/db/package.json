@@ -1,0 +1,13 @@
+{
+  "name": "@indigold/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Indigold Postgres schema, client, and repositories.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "indigold-encompass",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --platform node --target node20 --clean",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.9.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "~5.6.3"
+  }
+}

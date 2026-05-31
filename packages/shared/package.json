@@ -1,0 +1,16 @@
+{
+  "name": "@indigold/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared types, contracts, env, KV, and queue for the Indigold platform.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./contracts": "./src/contracts.ts"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1",
+    "zod": "^3.23.8"
+  }
+}

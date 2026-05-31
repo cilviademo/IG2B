@@ -1,0 +1,43 @@
+import { Router } from "express";
+import { users, audit } from "@indigold/db";
+import { contracts, setSession, delSession, token, id } from "@indigold/shared";
+import { hashPassword, verifyPassword } from "../lib/password";
+import { validate } from "../lib/validate";
+import { requireAuth, type Authed } from "../middleware/auth";
+
+const r = Router();
+
+r.post("/register", validate(contracts.authBody), async (req, res) => {
+  const { email, password } = req.body as { email: string; password: string };
+  const existing = await users.byEmail(email);
+  if (existing) return res.status(409).json({ error: "email_in_use" });
+  const user = await users.create({ id: id("user"), email, password_hash: await hashPassword(password) });
+  if (!user) return res.status(500).json({ error: "create_failed" });
+  const tok = token();
+  await setSession(tok, { userId: user.id, email });
+  await audit.log({ user_id: user.id, actor: "api", action: "register" });
+  res.json({ token: tok, user: { id: user.id, email } });
+});
+
+r.post("/login", validate(contracts.authBody), async (req, res) => {
+  const { email, password } = req.body as { email: string; password: string };
+  const user = await users.byEmail(email);
+  if (!user || !(await verifyPassword(password, user.password_hash)))
+    return res.status(401).json({ error: "invalid_credentials" });
+  const tok = token();
+  await setSession(tok, { userId: user.id, email });
+  await audit.log({ user_id: user.id, actor: "api", action: "login" });
+  res.json({ token: tok, user: { id: user.id, email } });
+});
+
+r.post("/logout", requireAuth, async (req, res) => {
+  const header = req.header("authorization") || "";
+  await delSession(header.slice(7));
+  res.json({ ok: true });
+});
+
+r.get("/me", requireAuth, async (req: Authed, res) => {
+  res.json({ id: req.userId, email: req.email });
+});
+
+export default r;
