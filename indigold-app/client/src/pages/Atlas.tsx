@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useJson } from "@/hooks/useJson";
-import { type GraphNode, type GraphEdge, TRUTH_LAYER_COLORS } from "@/lib/types";
+import { type GraphNode, type GraphEdge, type TruthLayer, TRUTH_LAYER_COLORS } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
-import { Globe2, X, Plus, Minus, Locate } from "lucide-react";
+import { Globe2, X, Plus, Minus, Locate, Layers } from "lucide-react";
 
 const GRAPH_IMG = "/images/graph-constellation.png";
+const HIGH_MVS = 85; // globes at/above this gently pulse
+const CLUSTER_AUTO_AT = 40; // auto-cluster by layer above this node count
 
 interface SimNode {
   node: GraphNode;
@@ -14,6 +16,7 @@ interface SimNode {
   vy: number;
   r: number;
   degree: number;
+  phase: number;
 }
 
 type RGB = [number, number, number];
@@ -32,6 +35,7 @@ const darken = (c: RGB, f: number): RGB => [
   Math.round(c[1] * (1 - f)),
   Math.round(c[2] * (1 - f)),
 ];
+const LAYER_ORDER: TruthLayer[] = ["A", "B", "C", "D", "E", "F"];
 
 export default function Atlas() {
   const nodesRes = useJson<{ nodes: GraphNode[] }>("/data/sample_nodes.json");
@@ -40,11 +44,16 @@ export default function Atlas() {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [selected, setSelected] = useState<GraphNode | null>(null);
   const selectedRef = useRef<string | null>(null);
+  const clusterRef = useRef(false);
+  const [cluster, setCluster] = useState(false);
   const apiRef = useRef<{ zoom: (f: number) => void; reset: () => void } | null>(null);
 
   useEffect(() => {
     selectedRef.current = selected?.id ?? null;
   }, [selected]);
+  useEffect(() => {
+    clusterRef.current = cluster;
+  }, [cluster]);
 
   const nodes = nodesRes.data?.nodes;
   const edges = edgesRes.data?.edges;
@@ -57,9 +66,27 @@ export default function Atlas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // auto-enable clustering for large graphs
+    if (nodes.length > CLUSTER_AUTO_AT) {
+      clusterRef.current = true;
+      setCluster(true);
+    }
+
     const dpr = window.devicePixelRatio || 1;
     let W = wrap.clientWidth;
     let H = wrap.clientHeight;
+
+    // per-layer cluster centroids (recomputed on resize)
+    const layersPresent = LAYER_ORDER.filter((L) => nodes.some((n) => n.truth_layer === L));
+    let clusters: Record<string, { x: number; y: number }> = {};
+    function computeClusters() {
+      clusters = {};
+      const R = Math.min(W, H) * 0.32;
+      layersPresent.forEach((L, i) => {
+        const a = (i / layersPresent.length) * Math.PI * 2 - Math.PI / 2;
+        clusters[L] = { x: W / 2 + Math.cos(a) * R, y: H / 2 + Math.sin(a) * R };
+      });
+    }
     function sizeCanvas() {
       W = wrap!.clientWidth;
       H = wrap!.clientHeight;
@@ -68,10 +95,10 @@ export default function Atlas() {
       canvas!.style.width = W + "px";
       canvas!.style.height = H + "px";
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      computeClusters();
     }
     sizeCanvas();
 
-    // adjacency + degree
     const degree: Record<string, number> = {};
     edges.forEach((e) => {
       degree[e.source_id] = (degree[e.source_id] || 0) + 1;
@@ -93,15 +120,14 @@ export default function Atlas() {
         y: H / 2 + Math.sin(a) * Math.min(W, H) * 0.32 + (Math.random() - 0.5) * 20,
         vx: 0,
         vy: 0,
-        // large "globes": base + connection count + memory value
         r: 16 + deg * 3.2 + (node.mvs / 100) * 10,
         degree: deg,
+        phase: Math.random() * Math.PI * 2,
       };
     });
     const byId = new Map(sim.map((s) => [s.node.id, s]));
     const links = edges.filter((e) => byId.has(e.source_id) && byId.has(e.target_id));
 
-    // view transform (screen = world * scale + t)
     const view = { scale: 1, tx: 0, ty: 0 };
     const hoverRef = { id: null as string | null };
     const screenToWorld = (px: number, py: number) => ({
@@ -124,7 +150,6 @@ export default function Atlas() {
       },
     };
 
-    // ---- pointer handling: drag node / pan / pinch / tap ----
     const pointers = new Map<number, { x: number; y: number }>();
     let dragNode: SimNode | null = null;
     let panning = false;
@@ -165,7 +190,6 @@ export default function Atlas() {
     function onPointerMove(ev: PointerEvent) {
       const p = localPoint(ev);
       if (!pointers.has(ev.pointerId)) {
-        // hover (desktop) — highlight without dragging
         if (ev.buttons === 0) {
           const hit = pick(p.x, p.y);
           hoverRef.id = hit ? hit.node.id : null;
@@ -225,9 +249,11 @@ export default function Atlas() {
     const onResize = () => sizeCanvas();
     window.addEventListener("resize", onResize);
 
-    // ---- simulation ----
     let raf = 0;
+    let time = 0;
     function tick() {
+      time += 0.045;
+      const clustering = clusterRef.current;
       for (let i = 0; i < sim.length; i++) {
         for (let j = i + 1; j < sim.length; j++) {
           const a = sim[i];
@@ -236,15 +262,11 @@ export default function Atlas() {
           let dy = a.y - b.y;
           let d2 = dx * dx + dy * dy || 0.01;
           let d = Math.sqrt(d2);
-          // repulsion (scaled up for large globes)
           const f = 9000 / d2;
-          const fx = (dx / d) * f;
-          const fy = (dy / d) * f;
-          a.vx += fx;
-          a.vy += fy;
-          b.vx -= fx;
-          b.vy -= fy;
-          // soft collision so globes don't overlap
+          a.vx += (dx / d) * f;
+          a.vy += (dy / d) * f;
+          b.vx -= (dx / d) * f;
+          b.vy -= (dy / d) * f;
           const minD = a.r + b.r + 14;
           if (d < minD) {
             const push = (minD - d) * 0.5;
@@ -263,17 +285,21 @@ export default function Atlas() {
         const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
         const rest = a.r + b.r + 70;
         const f = (d - rest) * 0.015 * (0.5 + (e.weight || 0.5));
-        const fx = (dx / d) * f;
-        const fy = (dy / d) * f;
-        a.vx += fx;
-        a.vy += fy;
-        b.vx -= fx;
-        b.vy -= fy;
+        a.vx += (dx / d) * f;
+        a.vy += (dy / d) * f;
+        b.vx -= (dx / d) * f;
+        b.vy -= (dy / d) * f;
       }
       for (const s of sim) {
         if (s === dragNode) continue;
-        s.vx += (W / 2 - s.x) * 0.0016;
-        s.vy += (H / 2 - s.y) * 0.0016;
+        if (clustering) {
+          const c = clusters[s.node.truth_layer] || { x: W / 2, y: H / 2 };
+          s.vx += (c.x - s.x) * 0.022;
+          s.vy += (c.y - s.y) * 0.022;
+        } else {
+          s.vx += (W / 2 - s.x) * 0.0016;
+          s.vy += (H / 2 - s.y) * 0.0016;
+        }
         s.vx *= 0.86;
         s.vy *= 0.86;
         s.vx = Math.max(-8, Math.min(8, s.vx));
@@ -292,28 +318,55 @@ export default function Atlas() {
       const neighbors = active ? adj[active] : null;
       const isLit = (id: string) => !active || id === active || (neighbors ? neighbors.has(id) : false);
 
-      // edges
+      // edges (curved)
       for (const e of links) {
         const a = byId.get(e.source_id)!;
         const b = byId.get(e.target_id)!;
-        const lit = active && (e.source_id === active || e.target_id === active);
+        const lit = !!active && (e.source_id === active || e.target_id === active);
+        const ax = a.x * scale + tx;
+        const ay = a.y * scale + ty;
+        const bx = b.x * scale + tx;
+        const by = b.y * scale + ty;
+        const mx = (ax + bx) / 2;
+        const my = (ay + by) / 2;
+        const ex = bx - ax;
+        const ey = by - ay;
+        const len = Math.hypot(ex, ey) || 1;
+        const off = Math.min(46, len * 0.12);
+        const cx = mx + (-ey / len) * off;
+        const cy = my + (ex / len) * off;
+
         if (active && !lit) {
           ctx!.strokeStyle = "rgba(120,120,170,0.05)";
           ctx!.lineWidth = 1;
         } else if (lit) {
-          ctx!.strokeStyle = "rgba(212,175,71,0.55)";
+          ctx!.strokeStyle = "rgba(212,175,71,0.6)";
           ctx!.lineWidth = 2;
         } else {
           ctx!.strokeStyle = `rgba(120,120,200,${0.1 + (e.weight || 0.3) * 0.18})`;
           ctx!.lineWidth = 1 + (e.weight || 0.3);
         }
         ctx!.beginPath();
-        ctx!.moveTo(a.x * scale + tx, a.y * scale + ty);
-        ctx!.lineTo(b.x * scale + tx, b.y * scale + ty);
+        ctx!.moveTo(ax, ay);
+        ctx!.quadraticCurveTo(cx, cy, bx, by);
         ctx!.stroke();
+
+        // relationship label on lit edges
+        if (lit) {
+          const lx = 0.25 * ax + 0.5 * cx + 0.25 * bx;
+          const ly = 0.25 * ay + 0.5 * cy + 0.25 * by;
+          const text = e.relationship.replace(/_/g, " ");
+          ctx!.font = '9px "JetBrains Mono", monospace';
+          ctx!.textAlign = "center";
+          const tw = ctx!.measureText(text).width;
+          ctx!.fillStyle = "rgba(8,8,18,0.82)";
+          ctx!.fillRect(lx - tw / 2 - 4, ly - 7, tw + 8, 14);
+          ctx!.fillStyle = "rgba(232,201,100,0.95)";
+          ctx!.fillText(text, lx, ly + 2.5);
+        }
       }
 
-      // nodes (draw smaller first so big globes sit on top)
+      // nodes (smaller under larger)
       const order = [...sim].sort((p, q) => p.r - q.r);
       for (const s of order) {
         const sx = s.x * scale + tx;
@@ -322,9 +375,9 @@ export default function Atlas() {
         const base = hexToRgb(TRUTH_LAYER_COLORS[s.node.truth_layer]);
         const lit = isLit(s.node.id);
         const alpha = lit ? 1 : 0.22;
-        drawGlobe(ctx!, sx, sy, sr, base, alpha, selectedRef.current === s.node.id);
+        const pulse = s.node.mvs >= HIGH_MVS ? 0.5 + 0.5 * Math.sin(time + s.phase) : 0;
+        drawGlobe(ctx!, sx, sy, sr, base, alpha, selectedRef.current === s.node.id, pulse);
 
-        // label
         if (sr > 7) {
           const fs = Math.max(9, Math.min(15, 11 * scale));
           ctx!.font = `${fs}px "JetBrains Mono", monospace`;
@@ -335,6 +388,19 @@ export default function Atlas() {
           ctx!.fillText(label, sx, sy + sr + fs + 3);
           ctx!.fillStyle = rgba(lighten(base, 0.7), alpha);
           ctx!.fillText(label, sx, sy + sr + fs + 2);
+        }
+      }
+
+      // cluster layer captions
+      if (clusterRef.current) {
+        ctx!.textAlign = "center";
+        ctx!.font = '10px "JetBrains Mono", monospace';
+        for (const L of layersPresent) {
+          const c = clusters[L];
+          if (!c) continue;
+          const base = hexToRgb(TRUTH_LAYER_COLORS[L]);
+          ctx!.fillStyle = rgba(lighten(base, 0.5), 0.85);
+          ctx!.fillText(`LAYER ${L}`, c.x * scale + tx, c.y * scale + ty - Math.min(W, H) * 0.18 * scale);
         }
       }
     }
@@ -372,7 +438,6 @@ export default function Atlas() {
         <canvas ref={canvasRef} className="absolute inset-0 touch-none" style={{ cursor: "grab" }} />
       </div>
 
-      {/* header overlay */}
       <div
         className="absolute top-0 left-0 right-0 px-5 pt-4 pb-8 pointer-events-none"
         style={{ background: "linear-gradient(to bottom, oklch(0.08 0.02 280 / 0.92), transparent)" }}
@@ -389,8 +454,19 @@ export default function Atlas() {
         </p>
       </div>
 
-      {/* zoom controls */}
       <div className="absolute right-4 bottom-4 flex flex-col gap-2">
+        <button
+          aria-label="Cluster by Truth Layer"
+          onClick={() => setCluster((c) => !c)}
+          className="w-10 h-10 rounded-full flex items-center justify-center border-glow"
+          style={{
+            background: cluster ? "oklch(0.45 0.22 264 / 0.85)" : "oklch(0.12 0.02 280 / 0.85)",
+            color: cluster ? "oklch(0.92 0.01 280)" : "oklch(0.75 0.01 280)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <Layers size={17} />
+        </button>
         {[
           { icon: Plus, fn: () => apiRef.current?.zoom(1.25), label: "Zoom in" },
           { icon: Minus, fn: () => apiRef.current?.zoom(0.8), label: "Zoom out" },
@@ -421,18 +497,19 @@ function drawGlobe(
   base: RGB,
   alpha: number,
   selected: boolean,
+  pulse: number,
 ) {
   if (r <= 0) return;
-  // outer halo / glow
-  const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2.6);
-  glow.addColorStop(0, rgba(base, 0.4 * alpha));
+  // outer halo / glow — high-MVS nodes breathe
+  const haloR = r * (2.6 + pulse * 0.5);
+  const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, haloR);
+  glow.addColorStop(0, rgba(base, (0.4 + pulse * 0.25) * alpha));
   glow.addColorStop(1, rgba(base, 0));
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(x, y, r * 2.6, 0, Math.PI * 2);
+  ctx.arc(x, y, haloR, 0, Math.PI * 2);
   ctx.fill();
 
-  // 3D sphere body (highlight offset to top-left)
   const hx = x - r * 0.34;
   const hy = y - r * 0.34;
   const sphere = ctx.createRadialGradient(hx, hy, r * 0.1, x, y, r);
@@ -444,14 +521,12 @@ function drawGlobe(
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
 
-  // rim light
   ctx.lineWidth = Math.max(1, r * 0.05);
   ctx.strokeStyle = rgba(lighten(base, 0.45), 0.5 * alpha);
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.stroke();
 
-  // specular highlight
   const spec = ctx.createRadialGradient(hx, hy, 0, hx, hy, r * 0.55);
   spec.addColorStop(0, rgba([255, 255, 255], 0.55 * alpha));
   spec.addColorStop(1, rgba([255, 255, 255], 0));
@@ -460,7 +535,6 @@ function drawGlobe(
   ctx.arc(hx, hy, r * 0.55, 0, Math.PI * 2);
   ctx.fill();
 
-  // selection ring
   if (selected) {
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = "rgba(212,175,71,0.95)";
