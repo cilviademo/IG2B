@@ -21,6 +21,7 @@ export interface GraphEdge {
   relationship: string;
   valid_from: string;
   label: string;
+  weight?: number;
 }
 
 export interface TimelineEvent {
