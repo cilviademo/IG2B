@@ -1,0 +1,19 @@
+{
+  "name": "indigold-ios-shell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capacitor native iOS shell + Share Extension for the Indigold PWA. Build on macOS with Xcode.",
+  "scripts": {
+    "init:ios": "cap add ios",
+    "sync": "cap sync ios",
+    "open": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/ios": "^6.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0"
+  }
+}
