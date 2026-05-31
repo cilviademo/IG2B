@@ -3,21 +3,19 @@ import { useJson } from "@/hooks/useJson";
 import {
   type Capture,
   type CaptureType,
-  type Sensitivity,
   CAPTURE_TYPE_LABEL,
   SENSITIVITY_COLOR,
   PROCESSING_META,
-  SENSITIVITY_CYCLE,
 } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
 import {
   Inbox as InboxIcon,
-  Check,
-  CheckCircle2,
-  Shield,
+  Plus,
+  Download,
+  Upload,
+  Copy,
   Clock,
   Link2,
-  Camera,
   StickyNote,
   Clapperboard,
   AtSign,
@@ -29,6 +27,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import CaptureForm from "@/components/CaptureForm";
+import CaptureDetail, { type DetailItem } from "@/components/CaptureDetail";
+import Sheet from "@/components/Sheet";
+import { listCaptures, removeCapture, subscribeCaptures, exportCaptures, importCaptures, type LocalCapture } from "@/lib/captureStore";
 
 const TYPE_ICON: Record<CaptureType, LucideIcon> = {
   apple_note: StickyNote,
@@ -50,49 +52,91 @@ function timeAgo(iso: string): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
+function localToDetail(c: LocalCapture): DetailItem {
+  return { ...c, local: true };
+}
+function sampleToDetail(c: Capture): DetailItem {
+  return {
+    id: c.id, local: false, type: c.type, title: c.title, source: c.source,
+    sensitivity: c.sensitivity, processing_status: c.processing_status,
+    captured_at: c.captured_at, url: c.url ?? undefined, note: c.note,
+  };
+}
+
 export default function Inbox() {
   const { data, loading, error } = useJson<{ items: Capture[] }>("/data/sample_inbox.json");
-  const [items, setItems] = useState<Capture[]>([]);
+  const [local, setLocal] = useState<LocalCapture[]>([]);
   const [filter, setFilter] = useState<CaptureType | "all">("all");
+  const [showForm, setShowForm] = useState(false);
+  const [detail, setDetail] = useState<DetailItem | null>(null);
+  const [exportText, setExportText] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
 
   useEffect(() => {
-    if (data) setItems(data.items);
-  }, [data]);
+    setLocal(listCaptures());
+    return subscribeCaptures(() => setLocal(listCaptures()));
+  }, []);
 
-  const presentTypes = useMemo(
-    () => Array.from(new Set(items.map((i) => i.type))),
-    [items],
-  );
-  const visible = filter === "all" ? items : items.filter((i) => i.type === filter);
+  const items: DetailItem[] = useMemo(() => {
+    const locals = local.map(localToDetail);
+    const samples = (data?.items ?? []).map(sampleToDetail);
+    const all = [...locals, ...samples];
+    return filter === "all" ? all : all.filter((i) => i.type === filter);
+  }, [local, data, filter]);
+
+  const presentTypes = useMemo(() => {
+    const set = new Set<CaptureType>();
+    local.forEach((c) => set.add(c.type));
+    (data?.items ?? []).forEach((c) => set.add(c.type));
+    return [...set];
+  }, [local, data]);
 
   if (loading) return <Loading label="Capture Inbox" />;
   if (error || !data) return <ErrorState message={error ?? "no data"} />;
 
-  function triage(id: string) {
-    const item = items.find((i) => i.id === id);
-    setItems((prev) => prev.filter((it) => it.id !== id));
-    toast.success("Triaged", {
-      description: `${item ? CAPTURE_TYPE_LABEL[item.type] : "Capture"} promoted out of the inbox (mock).`,
-    });
+  function doExport() {
+    setExportText(exportCaptures());
   }
-  function cycleSensitivity(id: string) {
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== id) return it;
-        const next = SENSITIVITY_CYCLE[(SENSITIVITY_CYCLE.indexOf(it.sensitivity) + 1) % SENSITIVITY_CYCLE.length];
-        toast(`Sensitivity → ${next}`);
-        return { ...it, sensitivity: next };
-      }),
-    );
+  function download(text: string) {
+    try {
+      const blob = new Blob([text], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "indigold_captures.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      toast.error("Download blocked — copy the JSON instead");
+    }
   }
-  function toggleQueue(id: string) {
-    setItems((prev) =>
-      prev.map((it) =>
-        it.id === id
-          ? { ...it, processing_status: it.processing_status === "queued" ? "unprocessed" : "queued" }
-          : it,
-      ),
-    );
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied to clipboard");
+    } catch {
+      toast("Select the text and copy manually");
+    }
+  }
+  function doImport() {
+    try {
+      const { added, total } = importCaptures(importText);
+      toast.success(`Imported ${added} capture(s)`, { description: `${total} total local captures.` });
+      setShowImport(false);
+      setImportText("");
+    } catch (e) {
+      toast.error("Import failed", { description: e instanceof Error ? e.message : "invalid JSON" });
+    }
+  }
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => setImportText(String(reader.result));
+    reader.readAsText(f);
   }
 
   return (
@@ -102,13 +146,32 @@ export default function Inbox() {
           <InboxIcon size={18} style={{ color: "oklch(0.6 0.2 264)" }} />
           <h1 className="text-xl">Capture Inbox</h1>
         </div>
-        <span className="label-mono">{items.length} pending</span>
+        <span className="label-mono">{items.length} items · {local.length} local</span>
       </div>
       <p className="label-mono mb-3" style={{ color: "oklch(0.4 0.02 280)" }}>
-        iPhone Share Sheet → Apple Shortcut → Inbox → review here
+        Paste from iPhone → choose a type → save locally. No backend, no login.
       </p>
 
-      {/* capture-type filter */}
+      {/* + Capture (prominent) */}
+      <button
+        onClick={() => setShowForm(true)}
+        className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold mb-2.5"
+        style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}
+      >
+        <Plus size={17} /> Capture
+      </button>
+
+      {/* Export / Import */}
+      <div className="flex gap-2 mb-3">
+        <button onClick={doExport} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}>
+          <Download size={14} /> Export
+        </button>
+        <button onClick={() => setShowImport(true)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}>
+          <Upload size={14} /> Import
+        </button>
+      </div>
+
+      {/* type filter */}
       <div className="flex gap-1.5 overflow-x-auto pb-2 mb-2 -mx-1 px-1">
         <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label="All" />
         {presentTypes.map((t) => (
@@ -116,156 +179,111 @@ export default function Inbox() {
         ))}
       </div>
 
-      {visible.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-2">
-          <CheckCircle2 size={26} style={{ color: "oklch(0.78 0.14 85)" }} />
-          <span className="label-mono">{items.length === 0 ? "Inbox clear" : "Nothing in this filter"}</span>
+      {items.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-2">
+          <InboxIcon size={24} style={{ color: "oklch(0.4 0.02 280)" }} />
+          <span className="label-mono">Nothing here yet — tap Capture</span>
         </div>
       ) : (
         <ul className="space-y-3">
-          {visible.map((item, i) => (
-            <CaptureCard
-              key={item.id}
-              item={item}
-              index={i}
-              onTriage={() => triage(item.id)}
-              onCycleSensitivity={() => cycleSensitivity(item.id)}
-              onToggleQueue={() => toggleQueue(item.id)}
-            />
+          {items.map((item, i) => (
+            <CaptureCard key={item.id} item={item} index={i} onOpen={() => setDetail(item)} />
           ))}
         </ul>
       )}
 
       <p className="label-mono mt-5" style={{ color: "oklch(0.4 0.02 280)" }}>
-        v0.1 — quick triage is a mock. No AI processing, no OneDrive/iCloud API, no network. The real
-        vault stays separate.
+        Local captures persist in this browser (localStorage) and survive reload + Airplane Mode.
       </p>
+
+      {showForm && <CaptureForm onClose={() => setShowForm(false)} onSaved={() => setShowForm(false)} />}
+
+      {detail && (
+        <CaptureDetail
+          item={detail}
+          onClose={() => setDetail(null)}
+          onDelete={
+            detail.local
+              ? () => {
+                  removeCapture(detail.id);
+                  toast.success("Capture deleted");
+                  setDetail(null);
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {exportText !== null && (
+        <Sheet title="Export Captures" onClose={() => setExportText(null)}>
+          <p className="label-mono mb-2" style={{ color: "oklch(0.4 0.02 280)" }}>
+            {local.length} local capture(s). Copy the JSON (works on iPhone Safari) or download it.
+          </p>
+          <textarea readOnly value={exportText} onFocus={(e) => e.currentTarget.select()} className="w-full rounded-xl px-3 py-2.5 text-xs font-mono" style={{ background: "oklch(0.08 0.02 280)", border: "1px solid oklch(0.2 0.04 264 / 0.5)", color: "oklch(0.85 0.01 280)", minHeight: 200 }} />
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => copy(exportText)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold" style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}>
+              <Copy size={15} /> Copy JSON
+            </button>
+            <button onClick={() => download(exportText)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}>
+              <Download size={15} /> Download
+            </button>
+          </div>
+        </Sheet>
+      )}
+
+      {showImport && (
+        <Sheet title="Import Captures" onClose={() => setShowImport(false)}>
+          <p className="label-mono mb-2" style={{ color: "oklch(0.4 0.02 280)" }}>
+            Paste capture JSON (or pick a file). Existing ids are kept; new ones are added.
+          </p>
+          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder='{"captures":[…]}' className="w-full rounded-xl px-3 py-2.5 text-xs font-mono" style={{ background: "oklch(0.08 0.02 280)", border: "1px solid oklch(0.2 0.04 264 / 0.5)", color: "oklch(0.85 0.01 280)", minHeight: 160 }} />
+          <input type="file" accept="application/json,.json" onChange={onFile} className="mt-2 text-xs" style={{ color: "oklch(0.55 0.02 280)" }} />
+          <button onClick={doImport} className="w-full rounded-xl py-3 text-sm font-semibold mt-3" style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}>
+            Import
+          </button>
+        </Sheet>
+      )}
     </div>
   );
 }
 
 function FilterChip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
-    <button
-      onClick={onClick}
-      className="shrink-0 text-[11px] px-2.5 py-1 rounded-full font-mono transition-glow"
-      style={
-        active
-          ? { background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.6 0.2 264)" }
-          : { background: "oklch(0.11 0.02 280)", color: "oklch(0.5 0.02 280)" }
-      }
-    >
+    <button onClick={onClick} className="shrink-0 text-[11px] px-2.5 py-1 rounded-full font-mono" style={active ? { background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.6 0.2 264)" } : { background: "oklch(0.11 0.02 280)", color: "oklch(0.5 0.02 280)" }}>
       {label}
     </button>
   );
 }
 
-function CaptureCard({
-  item,
-  index,
-  onTriage,
-  onCycleSensitivity,
-  onToggleQueue,
-}: {
-  item: Capture;
-  index: number;
-  onTriage: () => void;
-  onCycleSensitivity: () => void;
-  onToggleQueue: () => void;
-}) {
+function CaptureCard({ item, index, onOpen }: { item: DetailItem; index: number; onOpen: () => void }) {
   const TypeIcon = TYPE_ICON[item.type];
   const sens = SENSITIVITY_COLOR[item.sensitivity];
   const proc = PROCESSING_META[item.processing_status];
-
+  const preview = item.user_note || item.body || item.note || item.url || "";
   return (
     <li
-      className="rounded-2xl p-4 border-glow animate-fade-in-up"
-      style={{ background: "oklch(0.11 0.02 280)", animationDelay: `${index * 50}ms` }}
+      onClick={onOpen}
+      className="rounded-2xl p-4 border-glow animate-fade-in-up cursor-pointer"
+      style={{ background: "oklch(0.11 0.02 280)", animationDelay: `${Math.min(index, 8) * 50}ms` }}
     >
-      {/* badges */}
       <div className="flex items-center gap-2 mb-2 flex-wrap">
-        <span
-          className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-mono"
-          style={{ background: "oklch(0.45 0.22 264 / 0.15)", color: "oklch(0.6 0.2 264)" }}
-        >
+        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.45 0.22 264 / 0.15)", color: "oklch(0.6 0.2 264)" }}>
           <TypeIcon size={11} /> {CAPTURE_TYPE_LABEL[item.type]}
         </span>
         <span className="label-mono">{item.source}</span>
-        <span
-          className="ml-auto flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wide"
-          style={{ color: sens, border: `1px solid ${sens}` }}
-        >
-          <Shield size={10} /> {item.sensitivity}
+        {item.local && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.78 0.14 85 / 0.18)", color: "oklch(0.78 0.14 85)" }}>local</span>}
+        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wide" style={{ color: sens, border: `1px solid ${sens}` }}>
+          {item.sensitivity}
         </span>
       </div>
-
       <h3 className="text-sm font-semibold mb-1">{item.title}</h3>
-      <p className="text-xs leading-relaxed mb-2" style={{ color: "oklch(0.55 0.02 280)" }}>
-        {item.note}
-      </p>
-
-      {/* attachments */}
-      {(item.url || item.screenshot_ref) && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {item.url && (
-            <span
-              className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-mono max-w-full truncate"
-              style={{ background: "oklch(0.14 0.02 280)", color: "oklch(0.55 0.02 280)" }}
-            >
-              <Link2 size={10} /> <span className="truncate">{item.url}</span>
-            </span>
-          )}
-          {item.screenshot_ref && (
-            <span
-              className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-mono"
-              style={{ background: "oklch(0.14 0.02 280)", color: "oklch(0.55 0.02 280)" }}
-            >
-              <Camera size={10} /> {item.screenshot_ref}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* footer: processing + quick triage controls */}
+      {preview && <p className="text-xs leading-relaxed mb-2 line-clamp-2" style={{ color: "oklch(0.55 0.02 280)" }}>{preview}</p>}
       <div className="flex items-center gap-2">
-        <span className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: proc.color }} />
-          <span className="label-mono" style={{ color: proc.color }}>
-            {proc.label}
-          </span>
+        <span className="w-1.5 h-1.5 rounded-full" style={{ background: proc.color }} />
+        <span className="label-mono" style={{ color: proc.color }}>{proc.label}</span>
+        <span className="label-mono ml-auto flex items-center gap-1" style={{ color: "oklch(0.4 0.02 280)" }}>
+          <Clock size={10} /> {timeAgo(item.captured_at)}
         </span>
-        <span className="label-mono ml-1" style={{ color: "oklch(0.4 0.02 280)" }}>
-          · {timeAgo(item.captured_at)}
-        </span>
-
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            onClick={onCycleSensitivity}
-            aria-label="Cycle sensitivity"
-            className="p-1.5 rounded-lg"
-            style={{ background: "oklch(0.14 0.02 280)", color: sens }}
-          >
-            <Shield size={14} />
-          </button>
-          <button
-            onClick={onToggleQueue}
-            aria-label="Toggle processing queue"
-            className="p-1.5 rounded-lg"
-            style={{
-              background: "oklch(0.14 0.02 280)",
-              color: item.processing_status === "queued" ? "oklch(0.75 0.16 60)" : "oklch(0.5 0.02 280)",
-            }}
-          >
-            <Clock size={14} />
-          </button>
-          <button
-            onClick={onTriage}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-glow"
-            style={{ background: "oklch(0.45 0.22 264 / 0.15)", color: "oklch(0.6 0.2 264)" }}
-          >
-            <Check size={13} /> Triage
-          </button>
-        </div>
       </div>
     </li>
   );
