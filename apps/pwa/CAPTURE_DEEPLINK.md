@@ -36,18 +36,34 @@ no Shortcut needed.
 > iPhone the share sheet won't list the PWA directly. Use the Apple Shortcut below
 > (it targets `/share`, so it's still zero-tap after you pick the shortcut).
 
-## Apple Shortcut recipe (iPhone, one-tap)
-1. Shortcuts → **+** → **Receive** *URLs and Text* from **Share Sheet**.
-2. Add **URL Encode** on the **Shortcut Input** (safety).
-3. **Text**:
-   ```
-   https://<your-pwa>.onrender.com/share?url=[Encoded Shortcut Input]
-   ```
-   (For Notes/text, use `…/share?text=[Encoded Shortcut Input]` instead.)
-4. **Open URLs** → the Text.
-5. Settings → **Show in Share Sheet** ON. Name it "Indigold".
+## The one shortcut: "Indigold Capture" (iPhone)
 
-Now: any app → **Share → Indigold** → it's captured and classified. No form.
+Build a single accept-anything shortcut. The endpoint auto-detects platform/type
+and pre-fills every field, so it's **Share → Indigold Capture → Save**.
+
+1. **Shortcuts → +**, name it **Indigold Capture**.
+2. Top dropdown → **Details**: ✓ **Show in Share Sheet**; **Accepted types = Any**
+   (URLs, Text, Safari pages, Images, PDFs, …).
+3. Add **Get URLs from Input** (Shortcut Input).
+4. Add **URL Encode** → input the **Shortcut Input** (handles spaces/symbols).
+5. Add **Text** and paste (insert the magic variables where shown):
+   ```
+   https://indigold-pwa.onrender.com/capture?url=[URLs]&content=[URL-Encoded Shortcut Input]&title=[Shortcut Input Name]
+   ```
+   - `[URLs]` = output of step 3
+   - `[URL-Encoded Shortcut Input]` = output of step 4
+   - `[Shortcut Input Name]` = optional (use **Get Details of Shortcut Input → Name**)
+6. Add **Open URLs** → the **Text** from step 5.
+
+Now: Instagram/TikTok/YouTube/X/Threads/Facebook/Safari/Notes → **Share → Indigold
+Capture** → Indigold opens with the form already filled (type + source auto-detected
+from the URL, tags generated) → tap **Save**.
+
+**Want zero taps (no Save)?** Change the URL in step 5 from `/capture` to `/share`
+— it auto-classifies and files instantly, no form.
+
+**You only need `url` and `content`.** Everything else (type, source, title, tags,
+domain) is inferred. Sending a bare `?url=` for a shared link is enough.
 
 ## Manual fallback
 `/capture?type=…&title=…&url=…&body=…&source=…&note=…&tags=…` opens a pre-filled

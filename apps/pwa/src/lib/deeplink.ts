@@ -33,11 +33,54 @@ export function parseCaptureParams(search: string): CaptureParams {
     const v = q.get(k);
     if (v != null) out[k] = v;
   }
+  // Accept the Apple Shortcut param names: `content` / `text` alias `body`.
+  if (out.body == null) {
+    const alt = q.get("content") ?? q.get("text");
+    if (alt != null) out.body = alt;
+  }
   return out;
 }
 
+// Friendly type aliases the shortcut (or anyone) may send -> canonical CaptureType.
+const TYPE_ALIASES: Record<string, CaptureType> = {
+  "short-form-video": "instagram_reel",
+  "short_form_video": "instagram_reel",
+  reel: "instagram_reel",
+  video: "instagram_reel",
+  note: "apple_note",
+  "apple-note": "apple_note",
+  "web-resource": "web_link",
+  "web_resource": "web_link",
+  article: "web_link",
+  link: "web_link",
+  url: "web_link",
+  thread: "threads_post",
+  "threads-post": "threads_post",
+  image: "screenshot",
+  photo: "screenshot",
+  screenshot: "screenshot",
+  audio: "voice_memo",
+  voice: "voice_memo",
+  "voice-memo": "voice_memo",
+  conversation: "llm_conversation",
+  llm: "llm_conversation",
+  chat: "llm_conversation",
+  document: "document",
+  pdf: "document",
+  text: "manual_text",
+  manual: "manual_text",
+};
+
+/** Map a raw/aliased type string to a canonical CaptureType, or undefined. */
+export function normalizeType(t?: string): CaptureType | undefined {
+  if (!t) return undefined;
+  const k = t.trim().toLowerCase();
+  if ((VALID_TYPES as string[]).includes(k)) return k as CaptureType;
+  return TYPE_ALIASES[k];
+}
+
 export function coerceType(t?: string): CaptureType {
-  return t && (VALID_TYPES as string[]).includes(t) ? (t as CaptureType) : "manual_text";
+  return normalizeType(t) ?? "manual_text";
 }
 
 export function hasAnyParams(p: CaptureParams): boolean {
