@@ -13,6 +13,7 @@ import Atlas from "./pages/Atlas";
 import ContextPack from "./pages/ContextPack";
 import WeeklyBrief from "./pages/WeeklyBrief";
 import ImportExport from "./pages/ImportExport";
+import CaptureDeepLink from "./pages/CaptureDeepLink";
 
 // When opened directly from disk (the self-contained single-file build),
 // the page is file:// and pushState is forbidden — so use hash routing there.
@@ -29,6 +30,7 @@ function Routes() {
       <Route path="/context" component={ContextPack} />
       <Route path="/brief" component={WeeklyBrief} />
       <Route path="/io" component={ImportExport} />
+      <Route path="/capture" component={CaptureDeepLink} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

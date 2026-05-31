@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { Link2, Wand2 } from "lucide-react";
 import Sheet from "./Sheet";
 import {
   type CaptureType,
@@ -8,6 +9,7 @@ import {
   CAPTURE_TYPE_LABEL,
 } from "@/lib/types";
 import { saveCapture, newCaptureId, detectDevice, type LocalCapture } from "@/lib/captureStore";
+import { type CaptureParams, coerceType, buildDeepLink, buildShortcutTemplate } from "@/lib/deeplink";
 
 // The 8 capture types supported in test mode.
 const TYPES: CaptureType[] = [
@@ -44,21 +46,45 @@ const inputStyle = {
 } as const;
 const labelCls = "label-mono block mb-1";
 
-export default function CaptureForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [type, setType] = useState<CaptureType>("manual_text");
-  const [title, setTitle] = useState("");
-  const [url, setUrl] = useState("");
-  const [body, setBody] = useState("");
-  const [source, setSource] = useState(DEFAULT_SOURCE.manual_text);
-  const [sourceTouched, setSourceTouched] = useState(false);
-  const [userNote, setUserNote] = useState("");
+export default function CaptureForm({
+  onClose,
+  onSaved,
+  initial,
+}: {
+  onClose: () => void;
+  onSaved: () => void;
+  initial?: CaptureParams;
+}) {
+  const init = initial || {};
+  const initialType = coerceType(init.type);
+  const [type, setType] = useState<CaptureType>(initialType);
+  const [title, setTitle] = useState(init.title ?? "");
+  const [url, setUrl] = useState(init.url ?? "");
+  const [body, setBody] = useState(init.body ?? "");
+  const [source, setSource] = useState(init.source ?? DEFAULT_SOURCE[initialType]);
+  const [sourceTouched, setSourceTouched] = useState(Boolean(init.source));
+  const [userNote, setUserNote] = useState(init.note ?? "");
   const [sensitivity, setSensitivity] = useState<Sensitivity>("internal");
   const [processing, setProcessing] = useState<ProcessingStatus>("unprocessed");
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState(init.tags ?? "");
+
+  const prefilled = Boolean(init.type || init.title || init.url || init.body || init.note || init.tags || init.source);
 
   function onTypeChange(t: CaptureType) {
     setType(t);
     if (!sourceTouched) setSource(DEFAULT_SOURCE[t]);
+  }
+
+  function currentParams(): CaptureParams {
+    return { type, title, url, body, source, note: userNote, tags };
+  }
+  async function copyText(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`, { description: text.length > 64 ? text.slice(0, 64) + "…" : text });
+    } catch {
+      toast(label, { description: text });
+    }
   }
 
   function save() {
@@ -80,7 +106,11 @@ export default function CaptureForm({ onClose, onSaved }: { onClose: () => void;
       sensitivity,
       processing_status: processing,
       tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-      provenance: { capture_method: "manual_paste", device: detectDevice(), app_context: "pwa" },
+      provenance: {
+        capture_method: prefilled ? "deep_link" : "manual_paste",
+        device: detectDevice(),
+        app_context: "pwa",
+      },
     };
     saveCapture(capture);
     toast.success("Capture saved", { description: `${CAPTURE_TYPE_LABEL[type]} added to your Inbox (local).` });
@@ -90,8 +120,14 @@ export default function CaptureForm({ onClose, onSaved }: { onClose: () => void;
   const isReel = type === "instagram_reel";
 
   return (
-    <Sheet title="New Capture" onClose={onClose}>
+    <Sheet title={prefilled ? "Confirm Capture" : "New Capture"} onClose={onClose}>
       <div className="space-y-3">
+        {prefilled && (
+          <p className="label-mono" style={{ color: "oklch(0.78 0.14 85)" }}>
+            Pre-filled from a deep link — review and tap Save.
+          </p>
+        )}
+
         <div>
           <label className={labelCls}>Capture Type</label>
           <select className={inputCls} style={inputStyle} value={type} onChange={(e) => onTypeChange(e.target.value as CaptureType)}>
@@ -153,6 +189,16 @@ export default function CaptureForm({ onClose, onSaved }: { onClose: () => void;
             Instagram: only URL + note + optional caption/screenshot text are stored. No video scraping or summarization.
           </p>
         )}
+
+        {/* Deep-link test tools */}
+        <div className="flex gap-2">
+          <button onClick={() => copyText(buildDeepLink(window.location.origin, currentParams()), "Deep link")} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.72 0.15 195)" }}>
+            <Link2 size={13} /> Copy Deep Link
+          </button>
+          <button onClick={() => copyText(buildShortcutTemplate(window.location.origin), "Shortcut URL")} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.6 0.2 264)" }}>
+            <Wand2 size={13} /> Generate Shortcut URL
+          </button>
+        </div>
 
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="flex-1 rounded-xl py-3 text-sm font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}>
