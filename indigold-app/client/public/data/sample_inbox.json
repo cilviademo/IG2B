@@ -1,0 +1,11 @@
+{
+  "_comment": "SYNTHETIC — 6 capture items awaiting triage.",
+  "items": [
+    { "id": "i1", "source": "Web Clipper", "type": "research", "priority": "high", "title": "Survey on graph-memory systems", "snippet": "Synthetic survey comparing temporal knowledge-graph approaches for agent memory.", "timestamp": "2026-05-31T06:40:00Z" },
+    { "id": "i2", "source": "Email", "type": "article", "priority": "medium", "title": "Newsletter: context windows", "snippet": "Placeholder digest on context-budget strategies and compaction.", "timestamp": "2026-05-30T18:05:00Z" },
+    { "id": "i3", "source": "Voice Capture", "type": "idea", "priority": "high", "title": "Idea: temporal decay heuristic", "snippet": "What if MVS recency decayed on a logarithmic curve per access? (synthetic)", "timestamp": "2026-05-30T08:12:00Z" },
+    { "id": "i4", "source": "MarkItDown", "type": "document", "priority": "medium", "title": "PDF: synthetic whitepaper", "snippet": "Converted placeholder whitepaper on knowledge economics.", "timestamp": "2026-05-29T14:20:00Z" },
+    { "id": "i5", "source": "Web Clipper", "type": "reference", "priority": "low", "title": "Bookmark: OKLCH color tool", "snippet": "Reference link for the observatory palette (synthetic placeholder).", "timestamp": "2026-05-28T21:50:00Z" },
+    { "id": "i6", "source": "Voice Capture", "type": "idea", "priority": "low", "title": "Idea: Atlas clustering", "snippet": "Cluster the Liminal Atlas by truth layer at high node counts. (synthetic)", "timestamp": "2026-05-28T09:30:00Z" }
+  ]
+}

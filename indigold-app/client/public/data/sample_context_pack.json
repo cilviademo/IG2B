@@ -1,0 +1,34 @@
+{
+  "_comment": "SYNTHETIC — Encompass-assembled context pack.",
+  "title": "Project Quartz — Status Brief",
+  "purpose": "Assemble the smallest high-signal context to review Project Quartz status.",
+  "token_budget": { "total": 4200, "used": 3847 },
+  "source_nodes": ["n1", "n2", "n3", "n9"],
+  "updated_at": "2026-05-31T07:05:00Z",
+  "sections": [
+    {
+      "heading": "Project Overview",
+      "content": "Project Quartz is the flagship synthetic initiative. It depends on Sample Person A and was derived from the Field Notes 2026-01 raw source.",
+      "truth_layer": "C",
+      "provenance": "n1 / n7"
+    },
+    {
+      "heading": "Method",
+      "content": "Quartz applies Context Engineering — Hot Cache, Context Packs, and just-in-time loading — to keep retrieval lean.",
+      "truth_layer": "C",
+      "provenance": "n3"
+    },
+    {
+      "heading": "Inferred Pattern",
+      "content": "Rising relevance plus the Q1 scope pivot suggest a productization window is opening.",
+      "truth_layer": "D",
+      "provenance": "n1 / n10"
+    },
+    {
+      "heading": "Recommendation",
+      "content": "Proceed to a bounded synthetic pilot ahead of the 2026-06-10 forecast checkpoint.",
+      "truth_layer": "E",
+      "provenance": "n9"
+    }
+  ]
+}

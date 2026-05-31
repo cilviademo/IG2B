@@ -1,0 +1,22 @@
+{
+  "_comment": "SYNTHETIC — Mission Control surface.",
+  "brief": "Two active synthetic projects in motion. Radian is promoting one opportunity to the top of the queue, and one node is overdue for lifecycle review. No urgent risks detected this morning.",
+  "urgent_actions": [
+    { "text": "Review Quartz Productization before its 2026-06-10 window", "priority": "high" },
+    { "text": "Decide promote vs. archive for Sample Person B by 2026-06-05", "priority": "medium" },
+    { "text": "Clear the 6-item capture inbox", "priority": "medium" }
+  ],
+  "stats": {
+    "nodes": 12,
+    "projects": 2,
+    "inbox": 6,
+    "avg_mvs": 73,
+    "review": 1,
+    "edges": 12
+  },
+  "insights": [
+    "Context Engineering MVS is climbing as Quartz leans on it.",
+    "Opportunity Alpha holds the strongest revenue-potential signal (96).",
+    "Field Notes 2026-01 has decayed into archive territory."
+  ]
+}

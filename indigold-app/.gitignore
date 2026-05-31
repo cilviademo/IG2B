@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Local export artifacts (from the Import/Export view)
+indigold_export.json
+
+# Secrets — NEVER commit (none should exist in v0.1)
+.env
+.env.*
+*.key
+*.pem
+*secret*
+*token*
+*credentials*
+
+# Real vault — NEVER commit (synthetic data only in this prototype)
+*Indigold_Vault*/
+OneDrive/
+iCloud*/
+*real_vault*
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+__pycache__/
+*.pyc

@@ -1,0 +1,24 @@
+{
+  "_comment": "SYNTHETIC — Radian directional intelligence.",
+  "period": "2026-05-25 / 2026-05-31",
+  "summary": "The Quartz Productization thread is converging. Three signals — rising project relevance, the Q1 scope pivot, and advisor input — point to a viable productization window around 2026-06-10.",
+  "forecasts": [
+    { "type": "Opportunity", "title": "Productization window opens", "detail": "Bounded pilot could capture the synthetic revenue stream before momentum decays.", "confidence": 72 },
+    { "type": "Risk", "title": "Knowledge base drift", "detail": "One node is overdue for review; left unattended it lowers average signal quality.", "confidence": 38 },
+    { "type": "Opportunity", "title": "Atlas reuse", "detail": "Liminal Atlas work in Project Atlas could feed back into Quartz exploration.", "confidence": 55 }
+  ],
+  "knowledge_evolution": {
+    "new_nodes": 3,
+    "new_edges": 5,
+    "strongest_cluster": "Context Engineering (n3, n8, n11)",
+    "emerging_bridge": "Generative Metaphors now bridges Project Atlas and the Liminal Atlas concept.",
+    "decay_alerts": ["Field Notes 2026-01 (Raw) trending toward archive", "Sample Person B due for review"]
+  },
+  "boardroom_synthesis": "Strategist favors productization on the strongest revenue signal; Skeptic flags novelty risk and recommends a bounded pilot first; Operator confirms the scope pivot freed capacity. Resolved: proceed to a bounded pilot, escalate after the 06-10 checkpoint.",
+  "actions": [
+    { "text": "Draft a one-page synthetic offer for Quartz Productization", "priority": "high" },
+    { "text": "Triage the research item on graph-memory systems", "priority": "medium" },
+    { "text": "Run lifecycle review on Sample Person B", "priority": "medium" },
+    { "text": "Archive Field Notes 2026-01", "priority": "low" }
+  ]
+}
