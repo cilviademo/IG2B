@@ -45,7 +45,7 @@ g.fetch = async (url: string) => {
 
 const routes = [
   { path: "/", expect: ["Mission Control", "Daily Brief"] },
-  { path: "/inbox", expect: ["Capture Inbox", "Triage"] },
+  { path: "/inbox", expect: ["Capture Inbox", "Apple Note", "Instagram Reel", "Triage"] },
   { path: "/timeline", expect: ["Temporal View"] },
   { path: "/atlas", expect: ["Liminal Atlas", "nodes"] },
   { path: "/context", expect: ["Context Pack", "Token Budget"] },

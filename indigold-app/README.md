@@ -44,6 +44,17 @@ Per the build decision, this app uses a **hybrid** offline strategy:
 python3 scripts/generate_assets.py   # icons + cosmic backgrounds
 ```
 
+## Capture workflow (iPhone-first)
+Indigold is the **mobile mission-control** surface; **Apple Shortcuts** are the
+capture bridge. Capture fast on iPhone → review in the PWA → process later with AI
+→ promote only valuable items into memory. The Inbox renders nine synthetic
+capture types (`apple_note`, `web_link`, `instagram_reel`, `threads_post`,
+`screenshot`, `voice_memo`, `document`, `llm_conversation`, `manual_text`) with
+type/source/sensitivity badges, processing status, and quick triage. v0.1 has **no
+capture automation, no OneDrive/iCloud API, and no AI processing** — the real vault
+stays separate. See [`docs/CAPTURE_WORKFLOW.md`](docs/CAPTURE_WORKFLOW.md) and the
+Shortcut output examples in [`docs/sample_captures/`](docs/sample_captures).
+
 ## Data schema
 `client/src/lib/types.ts` defines the contracts; fixtures live in
 `client/public/data/`. Nodes carry a single `truth_layer` (A–F) and an `mvs`

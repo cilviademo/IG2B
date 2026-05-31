@@ -1,11 +1,121 @@
 {
-  "_comment": "SYNTHETIC — 6 capture items awaiting triage.",
+  "_comment": "SYNTHETIC — raw captures as an Apple Shortcut would drop into 00_INBOX. All Truth Layer A, status inbox, unprocessed/queued. No real URLs, files, or personal data.",
   "items": [
-    { "id": "i1", "source": "Web Clipper", "type": "research", "priority": "high", "title": "Survey on graph-memory systems", "snippet": "Synthetic survey comparing temporal knowledge-graph approaches for agent memory.", "timestamp": "2026-05-31T06:40:00Z" },
-    { "id": "i2", "source": "Email", "type": "article", "priority": "medium", "title": "Newsletter: context windows", "snippet": "Placeholder digest on context-budget strategies and compaction.", "timestamp": "2026-05-30T18:05:00Z" },
-    { "id": "i3", "source": "Voice Capture", "type": "idea", "priority": "high", "title": "Idea: temporal decay heuristic", "snippet": "What if MVS recency decayed on a logarithmic curve per access? (synthetic)", "timestamp": "2026-05-30T08:12:00Z" },
-    { "id": "i4", "source": "MarkItDown", "type": "document", "priority": "medium", "title": "PDF: synthetic whitepaper", "snippet": "Converted placeholder whitepaper on knowledge economics.", "timestamp": "2026-05-29T14:20:00Z" },
-    { "id": "i5", "source": "Web Clipper", "type": "reference", "priority": "low", "title": "Bookmark: OKLCH color tool", "snippet": "Reference link for the observatory palette (synthetic placeholder).", "timestamp": "2026-05-28T21:50:00Z" },
-    { "id": "i6", "source": "Voice Capture", "type": "idea", "priority": "low", "title": "Idea: Atlas clustering", "snippet": "Cluster the Liminal Atlas by truth layer at high node counts. (synthetic)", "timestamp": "2026-05-28T09:30:00Z" }
+    {
+      "id": "cap_20260531_apple_note_001",
+      "type": "apple_note",
+      "source": "apple_notes",
+      "captured_at": "2026-05-31T21:44:00Z",
+      "truth_layer": "A",
+      "status": "inbox",
+      "sensitivity": "private",
+      "processing_status": "unprocessed",
+      "title": "Sample Apple Note",
+      "note": "Fake sample content representing a captured Apple Note — a few lines of jotted thinking to triage later."
+    },
+    {
+      "id": "cap_20260531_web_link_001",
+      "type": "web_link",
+      "source": "safari",
+      "captured_at": "2026-05-31T20:10:00Z",
+      "truth_layer": "A",
+      "status": "inbox",
+      "sensitivity": "internal",
+      "processing_status": "queued",
+      "title": "Article: agentic retrieval patterns",
+      "note": "Saved from Safari Share Sheet. Read + summarize later.",
+      "url": "https://example.com/sample-placeholder-article"
+    },
+    {
+      "id": "cap_20260531_ig_reel_001",
+      "type": "instagram_reel",
+      "source": "instagram",
+      "captured_at": "2026-05-31T21:48:00Z",
+      "truth_layer": "A",
+      "status": "inbox",
+      "sensitivity": "internal",
+      "processing_status": "queued",
+      "title": "Instagram Reel Capture",
+      "note": "Potential aesthetic reference / sound-design idea. URL + user note only — video is NOT scraped or transcribed in v0.1.",
+      "url": "https://instagram.com/reel/sample-placeholder",
+      "screenshot_ref": "reel_frame_placeholder.png"
+    },
+    {
+      "id": "cap_20260531_threads_001",
+      "type": "threads_post",
+      "source": "threads",
+      "captured_at": "2026-05-31T19:30:00Z",
+      "truth_layer": "A",
+      "status": "inbox",
+      "sensitivity": "public",
+      "processing_status": "unprocessed",
+      "title": "Threads Post Capture",
+      "note": "Trend observation worth tracking. Saved URL + note.",
+      "url": "https://threads.net/@sample/post/placeholder"
+    },
+    {
+      "id": "cap_20260531_screenshot_001",
+      "type": "screenshot",
+      "source": "screenshot",
+      "captured_at": "2026-05-31T18:05:00Z",
+      "truth_layer": "A",
+      "status": "inbox",
+      "sensitivity": "private",
+      "processing_status": "unprocessed",
+      "title": "Screenshot Capture",
+      "note": "Screenshot reference only. OCR happens in a later phase.",
+      "screenshot_ref": "screenshot_placeholder.png"
+    },
+    {
+      "id": "cap_20260531_voice_memo_001",
+      "type": "voice_memo",
+      "source": "voice_memos",
+      "captured_at": "2026-05-31T17:20:00Z",
+      "truth_layer": "A",
+      "status": "inbox",
+      "sensitivity": "private",
+      "processing_status": "queued",
+      "title": "Voice Memo Capture",
+      "note": "Audio file reference. Transcription queued for future processing.",
+      "url": "memo_placeholder.m4a"
+    },
+    {
+      "id": "cap_20260531_document_001",
+      "type": "document",
+      "source": "files",
+      "captured_at": "2026-05-31T16:00:00Z",
+      "truth_layer": "A",
+      "status": "inbox",
+      "sensitivity": "secret",
+      "processing_status": "unprocessed",
+      "title": "Document Capture (synthetic)",
+      "note": "Placeholder document marked secret to exercise the highest sensitivity tier.",
+      "url": "document_placeholder.pdf"
+    },
+    {
+      "id": "cap_20260531_llm_convo_001",
+      "type": "llm_conversation",
+      "source": "assistant_export",
+      "captured_at": "2026-05-31T15:10:00Z",
+      "truth_layer": "A",
+      "status": "inbox",
+      "sensitivity": "internal",
+      "processing_status": "queued",
+      "title": "LLM Conversation Export",
+      "note": "Exported synthetic chat transcript. Entity extraction + summarization later.",
+      "url": "conversation_placeholder.md"
+    },
+    {
+      "id": "cap_20260531_manual_text_001",
+      "type": "manual_text",
+      "source": "manual",
+      "captured_at": "2026-05-31T14:00:00Z",
+      "truth_layer": "A",
+      "status": "inbox",
+      "sensitivity": "private",
+      "processing_status": "unprocessed",
+      "title": "Manual Text Capture",
+      "note": "Typed directly into the capture Shortcut. Pure synthetic placeholder text."
+    }
   ]
 }
