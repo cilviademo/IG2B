@@ -48,7 +48,13 @@ export type CaptureType =
   | "voice_memo"
   | "document"
   | "llm_conversation"
-  | "manual_text";
+  | "manual_text"
+  // richer semantic types produced by Share Sheet auto-classification
+  | "short_form_video"
+  | "long_form_video"
+  | "social_post"
+  | "web_resource"
+  | "note";
 
 export type Sensitivity = "public" | "internal" | "private" | "secret";
 export type ProcessingStatus = "unprocessed" | "queued" | "processing" | "processed";
