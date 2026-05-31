@@ -16,6 +16,9 @@ export interface LocalCapture {
   sensitivity: Sensitivity;
   processing_status: ProcessingStatus;
   tags: string[];
+  domain?: string;
+  media?: string;
+  auto_classified?: boolean;
   provenance: { capture_method: string; device: string; app_context: string };
 }
 

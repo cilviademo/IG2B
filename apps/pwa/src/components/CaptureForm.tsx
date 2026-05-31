@@ -10,6 +10,7 @@ import {
 } from "@/lib/types";
 import { saveCapture, newCaptureId, detectDevice, type LocalCapture } from "@/lib/captureStore";
 import { type CaptureParams, coerceType, buildDeepLink, buildShortcutTemplate } from "@/lib/deeplink";
+import { deriveDomainMedia } from "@/lib/classify";
 
 // The 8 capture types supported in test mode.
 const TYPES: CaptureType[] = [
@@ -106,6 +107,8 @@ export default function CaptureForm({
       sensitivity,
       processing_status: processing,
       tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+      ...deriveDomainMedia(type, url.trim()),
+      auto_classified: false,
       provenance: {
         capture_method: prefilled ? "deep_link" : "manual_paste",
         device: detectDevice(),

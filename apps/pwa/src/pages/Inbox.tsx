@@ -144,21 +144,21 @@ export default function Inbox() {
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <InboxIcon size={18} style={{ color: "oklch(0.6 0.2 264)" }} />
-          <h1 className="text-xl">Capture Inbox</h1>
+          <h1 className="text-xl">Universal Intake Queue</h1>
         </div>
         <span className="label-mono">{items.length} items · {local.length} local</span>
       </div>
       <p className="label-mono mb-3" style={{ color: "oklch(0.4 0.02 280)" }}>
-        Paste from iPhone → choose a type → save locally. No backend, no login.
+        Share anything → Indigold auto-classifies it into RAW_CAPTURE. No questions.
       </p>
 
-      {/* + Capture (prominent) */}
+      {/* manual fallback only */}
       <button
         onClick={() => setShowForm(true)}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold mb-2.5"
-        style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}
+        className="w-full flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold mb-2.5 border-glow"
+        style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}
       >
-        <Plus size={17} /> Capture
+        <Plus size={16} /> Add manually (fallback)
       </button>
 
       {/* Export / Import */}
@@ -271,7 +271,8 @@ function CaptureCard({ item, index, onOpen }: { item: DetailItem; index: number;
           <TypeIcon size={11} /> {CAPTURE_TYPE_LABEL[item.type]}
         </span>
         <span className="label-mono">{item.source}</span>
-        {item.local && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.78 0.14 85 / 0.18)", color: "oklch(0.78 0.14 85)" }}>local</span>}
+        {item.domain && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.72 0.15 195 / 0.16)", color: "oklch(0.72 0.15 195)" }}>{item.domain}</span>}
+        {item.auto_classified && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.78 0.14 85 / 0.18)", color: "oklch(0.78 0.14 85)" }}>auto</span>}
         <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wide" style={{ color: sens, border: `1px solid ${sens}` }}>
           {item.sensitivity}
         </span>

@@ -23,6 +23,9 @@ export interface DetailItem {
   user_note?: string;
   note?: string;
   tags?: string[];
+  domain?: string;
+  media?: string;
+  auto_classified?: boolean;
   provenance?: { capture_method?: string; device?: string; app_context?: string };
 }
 
@@ -38,6 +41,16 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
             {CAPTURE_TYPE_LABEL[item.type]}
           </span>
           <span className="label-mono">{item.source}</span>
+          {item.domain && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.72 0.15 195 / 0.18)", color: "oklch(0.72 0.15 195)" }}>
+              {item.domain}{item.media ? ` · ${item.media}` : ""}
+            </span>
+          )}
+          {item.auto_classified && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.78 0.14 85 / 0.18)", color: "oklch(0.78 0.14 85)" }}>
+              auto
+            </span>
+          )}
           <span className="text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wide" style={{ color: sens, border: `1px solid ${sens}` }}>
             {item.sensitivity}
           </span>
