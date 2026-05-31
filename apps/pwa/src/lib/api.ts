@@ -2,7 +2,10 @@
 // If VITE_API_URL is unset the PWA runs fully standalone on the bundled
 // synthetic fixtures (public/data/*.json) — so the Static Site works with or
 // without the backend. When set, these helpers talk to the live API.
-const BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
+// Render's `fromService … property: host` injects a bare hostname (no scheme),
+// so normalize to an absolute https URL. Empty => standalone fixtures mode.
+const RAW = (import.meta.env.VITE_API_URL || "").trim();
+const BASE = RAW ? (/^https?:\/\//.test(RAW) ? RAW : `https://${RAW}`).replace(/\/$/, "") : "";
 
 export const apiEnabled = () => BASE !== "";
 
