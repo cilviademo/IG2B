@@ -137,3 +137,21 @@ CREATE TABLE IF NOT EXISTS api_usage (
   cost_cents BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, day)
 );
+
+-- Uploaded binary assets (images, PDFs, video, docs). The bytes live in PRIVATE
+-- object storage; this row holds only metadata + the storage key. Never a public URL.
+CREATE TABLE IF NOT EXISTS assets (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  capture_id   TEXT REFERENCES captures(id) ON DELETE CASCADE,
+  storage_key  TEXT NOT NULL,
+  filename     TEXT NOT NULL,
+  mime         TEXT NOT NULL DEFAULT 'application/octet-stream',
+  size_bytes   BIGINT NOT NULL DEFAULT 0,
+  visibility   TEXT NOT NULL DEFAULT 'private',
+  status       TEXT NOT NULL DEFAULT 'stored',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS assets_user_idx ON assets(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS assets_capture_idx ON assets(capture_id);
+

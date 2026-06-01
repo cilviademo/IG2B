@@ -132,6 +132,48 @@ export async function syncCaptureToApi(cap: SyncableCapture): Promise<boolean> {
   }
 }
 
+export interface UploadResult {
+  capture: { id: string; type: string; title: string; source: string };
+  asset: { id: string; filename: string; mime: string; size_bytes: number; kind: string };
+  signed_url: string;
+}
+
+/** Upload a shared file's bytes to the authenticated /capture/upload endpoint.
+ *  Requires connectivity + an API. Returns the created capture/asset + a signed
+ *  URL, or throws (so the caller can fall back to a local file-reference capture). */
+export async function uploadFileToApi(
+  file: Blob,
+  filename: string,
+  meta: { title?: string; source?: string; note?: string } = {},
+): Promise<UploadResult> {
+  if (!apiEnabled()) throw new Error("api_disabled");
+  if (!getToken() && !(await ensureSession())) throw new Error("no_session");
+  const form = new FormData();
+  if (meta.title) form.append("title", meta.title);
+  if (meta.source) form.append("source", meta.source);
+  if (meta.note) form.append("note", meta.note);
+  form.append("file", file, filename); // field name MUST be "file"
+  const res = await fetch(`${BASE}/capture/upload`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${getToken()}` }, // do NOT set content-type; browser sets the multipart boundary
+    body: form,
+  });
+  if (!res.ok) throw new Error(`upload_failed_${res.status}`);
+  return (await res.json()) as UploadResult;
+}
+
+/** Fetch a fresh signed URL for an owned asset (links expire). */
+export async function assetSignedUrl(assetId: string): Promise<string | null> {
+  if (!apiEnabled() || !getToken()) return null;
+  try {
+    const res = await fetch(`${BASE}/assets/${assetId}/url`, { headers: { authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) return null;
+    return ((await res.json()) as { url: string }).url;
+  } catch {
+    return null;
+  }
+}
+
 /** Load a resource from the API when enabled, else fall back to a local fixture. */
 export async function loadOrFixture<T>(apiCall: () => Promise<T>, fixturePath: string): Promise<T> {
   if (apiEnabled()) {

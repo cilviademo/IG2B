@@ -86,6 +86,21 @@ services:
           type: web
           name: indigold-pwa
           property: host
+      # File upload -> PRIVATE S3-compatible object storage (set in dashboard).
+      - key: STORAGE_ENDPOINT
+        sync: false
+      - key: STORAGE_REGION
+        value: auto
+      - key: STORAGE_BUCKET
+        sync: false
+      - key: STORAGE_ACCESS_KEY_ID
+        sync: false
+      - key: STORAGE_SECRET_ACCESS_KEY
+        sync: false
+      - key: STORAGE_SIGNED_URL_TTL
+        value: "900"
+      - key: UPLOAD_MAX_BYTES
+        value: "52428800"
 
   # --------------------------------------------------------- Background Worker
   - type: worker

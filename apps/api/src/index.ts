@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth";
 import { capturesRouter, nodesRouter, edgesRouter, timelineRouter } from "./routes/data";
 import { contextRouter, briefsRouter, usageRouter } from "./routes/intelligence";
 import { ioRouter } from "./routes/io";
+import { uploadRouter } from "./routes/upload";
 import { requireAuth } from "./middleware/auth";
 import { limit } from "./middleware/ratelimit";
 
@@ -37,6 +38,9 @@ app.use("/timeline", requireAuth, timelineRouter);
 app.use("/context-packs", requireAuth, contextRouter);
 app.use("/briefs", requireAuth, briefsRouter);
 app.use("/usage", requireAuth, usageRouter);
+// File upload (multipart) + signed asset URLs. requireAuth rejects anonymous
+// requests; busboy reads the raw stream (express.json ignores multipart bodies).
+app.use("/", requireAuth, uploadRouter);
 app.use("/", requireAuth, ioRouter);
 
 app.use((_req, res) => res.status(404).json({ error: "not_found" }));
@@ -74,6 +78,16 @@ async function boot() {
       console.error("[api] migration skipped/failed:", (e as Error).message);
     }
   }
+  // PII safeguard: if storage is configured, refuse to serve uploads from a
+  // public location. A tripped guard logs loudly but doesn't crash the API
+  // (uploads return 503/500; everything else keeps working).
+  try {
+    const { storageConfigured, assertPrivateOrThrow } = await import("./lib/storage");
+    if (storageConfigured()) await assertPrivateOrThrow();
+  } catch (e) {
+    console.error("[api] STORAGE GUARD:", (e as Error).message);
+  }
+
   app.listen(port, () => console.log(`[indigold-api] listening on :${port}`));
   await startEmbedded();
 }

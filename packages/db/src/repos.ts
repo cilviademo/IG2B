@@ -181,6 +181,37 @@ export const audit = {
   },
 };
 
+export interface Asset {
+  id: string;
+  user_id: string;
+  capture_id: string | null;
+  storage_key: string;
+  filename: string;
+  mime: string;
+  size_bytes: number;
+  visibility: string;
+  status: string;
+  created_at?: string;
+}
+
+export const assets = {
+  async create(a: Omit<Asset, "created_at">) {
+    await query(
+      `INSERT INTO assets (id,user_id,capture_id,storage_key,filename,mime,size_bytes,visibility,status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [a.id, a.user_id, a.capture_id, a.storage_key, a.filename, a.mime, a.size_bytes, a.visibility, a.status],
+    );
+  },
+  async get(userId: string, id: string) {
+    const r = await query<Asset>(`SELECT * FROM assets WHERE user_id=$1 AND id=$2`, [userId, id]);
+    return r.rows[0] || null;
+  },
+  async byCapture(userId: string, captureId: string) {
+    const r = await query<Asset>(`SELECT * FROM assets WHERE user_id=$1 AND capture_id=$2`, [userId, captureId]);
+    return r.rows;
+  },
+};
+
 export const usage = {
   async add(userId: string, d: { tokens?: number; apiCalls?: number; costCents?: number }) {
     const day = new Date().toISOString().slice(0, 10);

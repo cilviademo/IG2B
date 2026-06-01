@@ -5,7 +5,7 @@ import { Sparkles } from "lucide-react";
 import { classifyShared, CONFIDENCE_THRESHOLD, type ShareInput } from "@/lib/classify";
 import { saveCapture, newCaptureId, detectDevice, type LocalCapture } from "@/lib/captureStore";
 import { getPending, delPending, putFile, type PendingFile } from "@/lib/idbShare";
-import { syncCaptureToApi, apiEnabled } from "@/lib/api";
+import { syncCaptureToApi, uploadFileToApi, apiEnabled } from "@/lib/api";
 import { markSynced } from "@/lib/captureStore";
 import CaptureForm from "@/components/CaptureForm";
 import { parseCaptureParams, type CaptureParams } from "@/lib/deeplink";
@@ -77,8 +77,23 @@ export default function Share() {
       const filesMeta: { name: string; type: string; size: number }[] = [];
       for (let i = 0; i < fileBlobs.length; i++) {
         const f = fileBlobs[i];
+        // Keep the blob locally so the file is available offline via the cache.
         await putFile(`${capId}:${i}`, { name: f.name, type: f.type, size: f.size, blob: f.blob });
         filesMeta.push({ name: f.name, type: f.type, size: f.size });
+      }
+
+      // New file uploads require connectivity: push bytes to the private,
+      // authenticated /capture/upload endpoint. On success the capture is synced;
+      // on failure we keep the local file-reference capture so nothing is lost.
+      let uploadedSynced = false;
+      if (fileBlobs.length && apiEnabled()) {
+        try {
+          const first = fileBlobs[0];
+          await uploadFileToApi(first.blob, first.name, { title: c.title, source: c.source, note: c.note });
+          uploadedSynced = true;
+        } catch {
+          /* offline/asleep -> stays a local file-reference capture, re-syncs later */
+        }
       }
 
       const cap: LocalCapture = {
@@ -99,6 +114,7 @@ export default function Share() {
         media: c.media,
         auto_classified: true,
         files: filesMeta.length ? filesMeta : undefined,
+        synced: uploadedSynced || undefined,
         provenance: {
           capture_method: q.get("method") || (pendingId ? "share_target" : "share_link"),
           device: q.get("device") || detectDevice(),
@@ -107,10 +123,14 @@ export default function Share() {
       };
       saveCapture(cap);
       if (pendingId) await delPending(pendingId);
-      toast.success("Captured", { description: `Auto-classified: ${c.type.replace(/_/g, " ")} · ${c.domain}` });
+      toast.success("Captured", {
+        description: filesMeta.length
+          ? `${filesMeta[0].name}${uploadedSynced ? " · uploaded" : " · saved locally"}`
+          : `Auto-classified: ${c.type.replace(/_/g, " ")} · ${c.domain}`,
+      });
 
-      // Best-effort backend sync (non-blocking).
-      if (apiEnabled()) {
+      // Best-effort backend sync for non-file captures (files already uploaded above).
+      if (apiEnabled() && !fileBlobs.length) {
         syncCaptureToApi(cap).then((ok) => ok && markSynced(cap.id)).catch(() => {});
       }
       navigate("/inbox", { replace: true });
