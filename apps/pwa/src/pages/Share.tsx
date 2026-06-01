@@ -5,7 +5,7 @@ import { Sparkles } from "lucide-react";
 import { classifyShared, CONFIDENCE_THRESHOLD, type ShareInput } from "@/lib/classify";
 import { saveCapture, newCaptureId, detectDevice, type LocalCapture } from "@/lib/captureStore";
 import { getPending, delPending, putFile, type PendingFile } from "@/lib/idbShare";
-import { syncCaptureToApi, uploadFileToApi, apiEnabled } from "@/lib/api";
+import { syncCaptureToApi, uploadFileToApi, apiEnabled, ensureSession } from "@/lib/api";
 import { markSynced } from "@/lib/captureStore";
 import CaptureForm from "@/components/CaptureForm";
 import { parseCaptureParams, type CaptureParams } from "@/lib/deeplink";
@@ -123,16 +123,28 @@ export default function Share() {
       };
       saveCapture(cap);
       if (pendingId) await delPending(pendingId);
+
+      // Backend sync for non-file captures (files already uploaded above). AWAIT
+      // it (with re-mint-on-401 inside syncCaptureToApi) before navigating, so the
+      // capture is confirmed in the DB and marked synced — not left local-only by
+      // a navigate() race. ensureSession() first so the very first share has a token.
+      let synced = uploadedSynced;
+      if (apiEnabled() && !fileBlobs.length) {
+        try {
+          await ensureSession();
+          if (await syncCaptureToApi(cap)) {
+            markSynced(cap.id);
+            synced = true;
+          }
+        } catch {
+          /* offline -> stays local, Inbox sync loop retries later */
+        }
+      }
       toast.success("Captured", {
         description: filesMeta.length
           ? `${filesMeta[0].name}${uploadedSynced ? " · uploaded" : " · saved locally"}`
-          : `Auto-classified: ${c.type.replace(/_/g, " ")} · ${c.domain}`,
+          : `${c.type.replace(/_/g, " ")} · ${synced ? "synced" : "saved locally"}`,
       });
-
-      // Best-effort backend sync for non-file captures (files already uploaded above).
-      if (apiEnabled() && !fileBlobs.length) {
-        syncCaptureToApi(cap).then((ok) => ok && markSynced(cap.id)).catch(() => {});
-      }
       navigate("/inbox", { replace: true });
     })();
   }, [navigate]);

@@ -19,6 +19,11 @@ export function useJson<T>(path: string): JsonState<T> {
 
   useEffect(() => {
     let cancelled = false;
+    if (!path) {
+      // Empty path = intentionally disabled (e.g. fixtures off in production).
+      setState({ data: null, loading: false, error: null });
+      return;
+    }
     setState({ data: null, loading: true, error: null });
     fetch(path)
       .then((r) => {

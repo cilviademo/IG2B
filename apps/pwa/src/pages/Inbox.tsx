@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useJson } from "@/hooks/useJson";
 import {
   type Capture,
@@ -27,6 +27,7 @@ import {
   PenLine,
   Video,
   Globe2,
+  RefreshCw,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -92,7 +93,10 @@ function backendToDetail(c: BackendCapture): DetailItem {
 export default function Inbox() {
   // When the API is unavailable we fall back to the synthetic demo fixture so the
   // UI isn't empty in standalone/offline mode; live data replaces it when present.
-  const { data } = useJson<{ items: Capture[] }>("/data/sample_inbox.json");
+  // Synthetic demo fixtures only render when the API is OFF (standalone/offline
+  // preview). With a live backend, production shows real DB + local-unsynced only.
+  const showFixtures = !apiEnabled();
+  const { data } = useJson<{ items: Capture[] }>(showFixtures ? "/data/sample_inbox.json" : "");
   const loading = false;
   const error = null as string | null;
   const [local, setLocal] = useState<LocalCapture[]>([]);
@@ -103,31 +107,44 @@ export default function Inbox() {
   const [exportText, setExportText] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     setLocal(listCaptures());
     return subscribeCaptures(() => setLocal(listCaptures()));
   }, []);
 
-  // Live vault read: sync unsynced local items up, then pull the authoritative
-  // list from the database. Reload-safe (DB-backed). Silent fallback to local
-  // cache + fixture if the API is unset/asleep/offline.
-  useEffect(() => {
+  // Live vault refresh: push unsynced local items up (re-mint-on-401 inside
+  // syncCaptureToApi), then pull the authoritative DB list. Callable for the
+  // manual Refresh button + auto-run on mount and when the tab regains focus.
+  const refresh = useCallback(async () => {
     if (!apiEnabled()) return;
-    let cancelled = false;
-    (async () => {
-      if (!(await ensureSession()) || cancelled) return;
+    setRefreshing(true);
+    try {
+      if (!(await ensureSession())) return;
       for (const c of listCaptures()) {
-        if (c.synced || cancelled) continue;
+        if (c.synced) continue;
         if (await syncCaptureToApi(c)) markSynced(c.id);
       }
-      const items = await fetchCaptures();
-      if (!cancelled) setRemote(items);
-    })();
-    return () => {
-      cancelled = true;
+      setLocal(listCaptures());
+      setRemote(await fetchCaptures());
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh(); // on mount
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void refresh();
     };
-  }, [local.length]);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [refresh]);
 
   const items: DetailItem[] = useMemo(() => {
     // Local items not yet confirmed synced (offline cache); once a capture exists
@@ -137,15 +154,15 @@ export default function Inbox() {
     if (remote !== null) {
       backendOrFixture = remote.map(backendToDetail); // live DB read
     } else {
-      // API not reachable yet: synced-local cache + demo fixture as a placeholder.
+      // API not reachable yet: synced-local cache + (dev-only) demo fixtures.
       backendOrFixture = [
         ...local.filter((c) => c.synced).map(localToDetail),
-        ...(data?.items ?? []).map(sampleToDetail),
+        ...(showFixtures ? (data?.items ?? []).map(sampleToDetail) : []),
       ];
     }
     const all = [...unsynced, ...backendOrFixture];
     return filter === "all" ? all : all.filter((i) => i.type === filter);
-  }, [local, remote, data, filter]);
+  }, [local, remote, data, filter, showFixtures]);
 
   const presentTypes = useMemo(() => {
     const set = new Set<CaptureType>();
@@ -154,8 +171,10 @@ export default function Inbox() {
     return [...set];
   }, [local, data]);
 
-  if (loading) return <Loading label="Capture Inbox" />;
-  if (error || !data) return <ErrorState message={error ?? "no data"} />;
+  // Only the fixture-fallback mode depends on `data`; with a live API the queue
+  // renders from `remote`/local, so never block on the (intentionally absent) fixture.
+  if (showFixtures && loading) return <Loading label="Capture Inbox" />;
+  if (showFixtures && (error || !data)) return <ErrorState message={error ?? "no data"} />;
 
   function doExport() {
     setExportText(exportCaptures());
@@ -208,7 +227,14 @@ export default function Inbox() {
           <InboxIcon size={18} style={{ color: "oklch(0.6 0.2 264)" }} />
           <h1 className="text-xl">Universal Intake Queue</h1>
         </div>
-        <span className="label-mono">{items.length} items · {local.length} local</span>
+        <div className="flex items-center gap-2">
+          <span className="label-mono">{items.length} items · {local.length} local</span>
+          {apiEnabled() && (
+            <button onClick={() => void refresh()} aria-label="Refresh" disabled={refreshing} className="p-1 rounded-lg disabled:opacity-50" style={{ color: "oklch(0.6 0.2 264)" }}>
+              <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+            </button>
+          )}
+        </div>
       </div>
       <p className="label-mono mb-3" style={{ color: "oklch(0.4 0.02 280)" }}>
         Share anything → Indigold auto-classifies it into RAW_CAPTURE. No questions.
