@@ -8,8 +8,9 @@ import {
   type ProcessingStatus,
   CAPTURE_TYPE_LABEL,
 } from "@/lib/types";
-import { persistCaptureFromParams } from "@/lib/captureStore";
+import { persistCaptureFromParams, markSynced } from "@/lib/captureStore";
 import { type CaptureParams, coerceType, buildDeepLink, buildShortcutTemplate } from "@/lib/deeplink";
+import { apiEnabled, ensureSession, syncCaptureToApi, lastSyncError } from "@/lib/api";
 
 // The 8 capture types supported in test mode.
 const TYPES: CaptureType[] = [
@@ -82,6 +83,10 @@ export default function CaptureForm({
   const [sensitivity, setSensitivity] = useState<Sensitivity>("internal");
   const [processing, setProcessing] = useState<ProcessingStatus>(defaultProcessing ?? "unprocessed");
   const [tags, setTags] = useState(init.tags ?? "");
+  const [saving, setSaving] = useState(false);
+  // On-screen result of the backend sync — shown verbatim so the real status is
+  // visible (no more "verified locally" guessing). e.g. "synced ✓" or "HTTP 401".
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   const prefilled = Boolean(init.type || init.title || init.url || init.body || init.note || init.tags || init.source);
 
@@ -102,7 +107,7 @@ export default function CaptureForm({
     }
   }
 
-  function save() {
+  async function save() {
     const capture = persistCaptureFromParams(
       { type, title, url, body, source: source.trim() || DEFAULT_SOURCE[type], note: userNote, tags, sensitivity, processing },
       { method: prefilled ? "deep_link" : "manual_paste", autoClassified: false },
@@ -111,8 +116,44 @@ export default function CaptureForm({
       toast.error("Add a title, body, or URL first");
       return;
     }
-    toast.success("Capture saved", { description: `${CAPTURE_TYPE_LABEL[type]} added to your Inbox (local).` });
-    onSaved();
+
+    // Saved locally first (offline-safe). Then push to the backend and SHOW the
+    // real result on screen — this is the path the iOS Shortcut /capture route hits.
+    if (!apiEnabled()) {
+      setSaveStatus("saved locally (API not configured)");
+      toast.success("Capture saved", { description: `${CAPTURE_TYPE_LABEL[type]} saved locally.` });
+      onSaved();
+      return;
+    }
+
+    setSaving(true);
+    setSaveStatus("syncing…");
+    try {
+      await ensureSession();
+      const ok = await syncCaptureToApi({
+        type: capture.type,
+        source: capture.source,
+        title: capture.title,
+        user_note: capture.user_note,
+        body: capture.body,
+        url: capture.url,
+        sensitivity: capture.sensitivity,
+      });
+      if (ok) {
+        markSynced(capture.id);
+        setSaveStatus("synced ✓ (saved to database)");
+        toast.success("Capture synced", { description: `${CAPTURE_TYPE_LABEL[type]} saved to your vault.` });
+        onSaved();
+      } else {
+        // Stay on the form and show the exact failure so it can be read back.
+        setSaveStatus(`NOT synced — ${lastSyncError() || "unknown error"} (kept locally)`);
+        toast.error("Sync failed", { description: lastSyncError() || "kept locally" });
+      }
+    } catch (e) {
+      setSaveStatus(`NOT synced — ${e instanceof Error ? e.message : "error"} (kept locally)`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   const isReel = type === "instagram_reel";
@@ -198,12 +239,24 @@ export default function CaptureForm({
           </button>
         </div>
 
+        {saveStatus && (
+          <p
+            className="text-xs font-mono break-words rounded-lg px-3 py-2"
+            style={{
+              background: "oklch(0.08 0.02 280)",
+              color: saveStatus.startsWith("synced") ? "oklch(0.7 0.16 150)" : saveStatus.startsWith("NOT") ? "oklch(0.78 0.16 35)" : "oklch(0.6 0.2 264)",
+            }}
+          >
+            sync status: {saveStatus}
+          </p>
+        )}
+
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="flex-1 rounded-xl py-3 text-sm font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}>
             Cancel
           </button>
-          <button onClick={save} className="flex-1 rounded-xl py-3 text-sm font-semibold" style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}>
-            Save Capture
+          <button onClick={() => void save()} disabled={saving} className="flex-1 rounded-xl py-3 text-sm font-semibold disabled:opacity-50" style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}>
+            {saving ? "Saving…" : "Save Capture"}
           </button>
         </div>
       </div>
