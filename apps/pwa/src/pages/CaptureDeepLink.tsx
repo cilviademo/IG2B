@@ -1,20 +1,28 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Sparkles, Bug, ChevronDown, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
+import { Sparkles, Bug, ChevronDown, ChevronRight, Check } from "lucide-react";
 import CaptureForm from "@/components/CaptureForm";
 import { parseCaptureParams, normalizeType, type CaptureParams } from "@/lib/deeplink";
 import { classifyShared } from "@/lib/classify";
+import { persistCaptureFromParams, markSynced } from "@/lib/captureStore";
+import { CAPTURE_TYPE_LABEL } from "@/lib/types";
+import { apiEnabled, syncCaptureToApi } from "@/lib/api";
 
 // /capture?raw=&url=&content=&title=&type=&source=&note=&tags=&method=&device=
 // Apple Shortcut / Share Sheet entry. Accepts a generic `raw` payload (URL, text,
 // or title) plus explicit fields, auto-detects platform/type, and fills every
-// field so it's a single Save tap. Includes a hideable "Debug Intake" panel to
-// confirm exactly what the Shortcut sent.
+// field. When opened from the Share Sheet (source=ios_share_sheet) with non-empty
+// content, it AUTO-SAVES once on mount (zero taps), shows "Captured ✓", and
+// redirects. Manual opens keep the Confirm form. A hideable "Debug Intake" panel
+// shows exactly what the Shortcut sent.
 export default function CaptureDeepLink() {
   const [, navigate] = useLocation();
   const [showDebug, setShowDebug] = useState(false);
+  const [autoSaved, setAutoSaved] = useState(false);
+  const didAutoSave = useRef(false);
 
-  const { initial, debug } = useMemo(() => {
+  const { initial, debug, parsed } = useMemo(() => {
     const search = window.location.search;
     const raw = new URLSearchParams(search);
     const queryParams: Record<string, string> = {};
@@ -44,11 +52,67 @@ export default function CaptureDeepLink() {
       received_raw: raw.get("raw") ?? "",
       confidence: c.confidence,
     };
-    return { initial: init, debug };
+    return { initial: init, debug, parsed };
   }, []);
 
   const go = () => navigate("/inbox");
   const empty = !initial.url && !initial.body && !initial.title;
+
+  // Auto-save for Share Sheet captures: source=ios_share_sheet AND non-empty
+  // content. Fires once (ref guard); empty payloads fall through to the form.
+  const shouldAutoSave =
+    parsed.source === "ios_share_sheet" && !!((parsed.body ?? "").trim() || (parsed.url ?? "").trim());
+
+  useEffect(() => {
+    if (!shouldAutoSave || didAutoSave.current) return;
+    didAutoSave.current = true;
+    const cap = persistCaptureFromParams(
+      {
+        type: initial.type as never,
+        title: initial.title,
+        url: initial.url,
+        body: initial.body,
+        source: initial.source,
+        note: initial.note,
+        tags: initial.tags,
+        sensitivity: "internal",
+        processing: "queued",
+      },
+      { method: initial.method || "share_sheet", autoClassified: true },
+    );
+    if (!cap) return; // nothing saved -> render the form as a fallback
+    setAutoSaved(true);
+    toast.success("Captured ✓", { description: `${CAPTURE_TYPE_LABEL[cap.type]} filed to your Intake Queue.` });
+    if (apiEnabled()) syncCaptureToApi(cap).then((ok) => ok && markSynced(cap.id)).catch(() => {});
+    const t = setTimeout(() => navigate("/inbox", { replace: true }), 700);
+    return () => clearTimeout(t);
+  }, [shouldAutoSave, initial, navigate]);
+
+  // Auto-save success screen (no form)
+  if (autoSaved) {
+    return (
+      <div className="px-5 pt-24 flex flex-col items-center gap-3 text-center">
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center"
+          style={{ background: "oklch(0.6 0.18 145 / 0.18)", color: "oklch(0.7 0.16 150)" }}
+        >
+          <Check size={24} />
+        </div>
+        <p className="text-lg" style={{ color: "oklch(0.92 0.01 280)" }}>Captured ✓</p>
+        <p className="label-mono">Filed to your Intake Queue…</p>
+      </div>
+    );
+  }
+
+  // If we're going to auto-save, don't flash the form first.
+  if (shouldAutoSave) {
+    return (
+      <div className="px-5 pt-24 flex flex-col items-center gap-2 text-center">
+        <Sparkles size={24} style={{ color: "oklch(0.78 0.14 85)" }} className="pulse-dot" />
+        <p className="label-mono">Capturing…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="px-5 pt-12 flex flex-col items-center text-center gap-2">

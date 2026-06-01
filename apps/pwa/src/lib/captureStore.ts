@@ -1,6 +1,7 @@
 // Local-only capture store (browser localStorage). No backend, no login, no API.
 // This is the first capture-and-review test layer for the PWA.
-import type { CaptureType, Sensitivity, ProcessingStatus } from "./types";
+import { type CaptureType, type Sensitivity, type ProcessingStatus, CAPTURE_TYPE_LABEL } from "./types";
+import { deriveDomainMedia } from "./classify";
 
 export interface LocalCapture {
   id: string;
@@ -70,6 +71,50 @@ export function saveCapture(c: LocalCapture) {
   if (idx >= 0) list[idx] = c;
   else list.push(c);
   write(list);
+}
+
+/** Build + persist a capture from already-classified fields. Single source of
+ *  truth shared by the manual Save button and share-sheet auto-save, so both
+ *  produce byte-identical records. Returns null if there's nothing to save. */
+export function persistCaptureFromParams(
+  p: {
+    type: CaptureType;
+    title?: string;
+    url?: string;
+    body?: string;
+    source?: string;
+    note?: string;
+    tags?: string;
+    sensitivity?: Sensitivity;
+    processing?: ProcessingStatus;
+  },
+  opts: { method: string; autoClassified: boolean },
+): LocalCapture | null {
+  const url = (p.url ?? "").trim();
+  const body = (p.body ?? "").trim();
+  const title = (p.title ?? "").trim();
+  if (!title && !body && !url) return null;
+
+  const capture: LocalCapture = {
+    id: newCaptureId(),
+    type: p.type,
+    title: title || (url || `${CAPTURE_TYPE_LABEL[p.type]} capture`),
+    source: (p.source ?? "").trim() || "ios_share_sheet",
+    url,
+    body,
+    user_note: (p.note ?? "").trim(),
+    captured_at: new Date().toISOString(),
+    truth_layer: "A",
+    status: "inbox",
+    sensitivity: p.sensitivity ?? "internal",
+    processing_status: p.processing ?? "unprocessed",
+    tags: (p.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean),
+    ...deriveDomainMedia(p.type, url),
+    auto_classified: opts.autoClassified,
+    provenance: { capture_method: opts.method, device: detectDevice(), app_context: "pwa" },
+  };
+  saveCapture(capture);
+  return capture;
 }
 
 export function markSynced(id: string) {

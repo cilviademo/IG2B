@@ -8,9 +8,8 @@ import {
   type ProcessingStatus,
   CAPTURE_TYPE_LABEL,
 } from "@/lib/types";
-import { saveCapture, newCaptureId, detectDevice, type LocalCapture } from "@/lib/captureStore";
+import { persistCaptureFromParams } from "@/lib/captureStore";
 import { type CaptureParams, coerceType, buildDeepLink, buildShortcutTemplate } from "@/lib/deeplink";
-import { deriveDomainMedia } from "@/lib/classify";
 
 // The 8 capture types supported in test mode.
 const TYPES: CaptureType[] = [
@@ -104,33 +103,14 @@ export default function CaptureForm({
   }
 
   function save() {
-    if (!title.trim() && !body.trim() && !url.trim()) {
+    const capture = persistCaptureFromParams(
+      { type, title, url, body, source: source.trim() || DEFAULT_SOURCE[type], note: userNote, tags, sensitivity, processing },
+      { method: prefilled ? "deep_link" : "manual_paste", autoClassified: false },
+    );
+    if (!capture) {
       toast.error("Add a title, body, or URL first");
       return;
     }
-    const capture: LocalCapture = {
-      id: newCaptureId(),
-      type,
-      title: title.trim() || (url.trim() ? url.trim() : `${CAPTURE_TYPE_LABEL[type]} capture`),
-      source: source.trim() || DEFAULT_SOURCE[type],
-      url: url.trim(),
-      body: body.trim(),
-      user_note: userNote.trim(),
-      captured_at: new Date().toISOString(),
-      truth_layer: "A",
-      status: "inbox",
-      sensitivity,
-      processing_status: processing,
-      tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-      ...deriveDomainMedia(type, url.trim()),
-      auto_classified: false,
-      provenance: {
-        capture_method: prefilled ? "deep_link" : "manual_paste",
-        device: detectDevice(),
-        app_context: "pwa",
-      },
-    };
-    saveCapture(capture);
     toast.success("Capture saved", { description: `${CAPTURE_TYPE_LABEL[type]} added to your Inbox (local).` });
     onSaved();
   }

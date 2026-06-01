@@ -117,9 +117,14 @@ export function classifyShared(input: ShareInput): Classified {
   const file = input.files?.find((f) => f && (f.type || f.name));
   if (file) return classifyFile(file, input);
 
-  const rawUrl = input.url?.trim() || (looksLikeUrl(input.text) ? input.text!.trim() : "");
+  const text = input.text || "";
+  // Tolerate trailing newlines / surrounding text (e.g. Instagram shares append
+  // "\n" or extra words): if the text isn't a bare URL, extract the first URL.
+  const rawUrl =
+    input.url?.trim() ||
+    (looksLikeUrl(text) ? text.trim() : (text.match(/https?:\/\/\S+/i)?.[0] ?? ""));
   const host = rawUrl ? hostOf(rawUrl) : "";
-  const body = (input.text && input.text.trim() !== rawUrl ? input.text : "") || "";
+  const body = (text && text.trim() !== rawUrl ? text : "") || "";
   const note = input.note?.trim() || "";
   const srcHint = (input.source || "").toLowerCase();
 
