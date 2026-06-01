@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useJson } from "@/hooks/useJson";
 import {
   type Capture,
@@ -109,7 +109,8 @@ export default function Inbox() {
   const [importText, setImportText] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
-  const [pull, setPull] = useState(0); // pull-to-refresh drag distance (px)
+  const [pull, setPull] = useState(0); // pull-to-refresh drag distance (px, for UI)
+  const pullRef = useRef({ active: false, startY: 0, dist: 0 }); // live gesture state
 
   useEffect(() => {
     setLocal(listCaptures());
@@ -239,22 +240,35 @@ export default function Inbox() {
     reader.readAsText(f);
   }
 
-  // Pull-to-refresh: only engages when scrolled to the very top. Drag down past
-  // ~70px and release to trigger refresh().
-  const pullStart = { y: 0, active: false };
+  // Pull-to-refresh. State for the gesture lives in a ref (NOT a per-render
+  // object/closure) so the handlers read live values across the re-renders that
+  // setPull triggers — otherwise the gesture intermittently reset to inactive.
+  const TRIGGER = 64; // px of pull (after damping) needed to fire
   const onTouchStart = (e: React.TouchEvent) => {
-    pullStart.active = window.scrollY <= 0;
-    pullStart.y = e.touches[0].clientY;
+    const atTop = (document.scrollingElement?.scrollTop ?? window.scrollY) <= 0;
+    pullRef.current = { active: atTop, startY: e.touches[0].clientY, dist: 0 };
   };
   const onTouchMove = (e: React.TouchEvent) => {
-    if (!pullStart.active || refreshing) return;
-    const dy = e.touches[0].clientY - pullStart.y;
-    if (dy > 0 && window.scrollY <= 0) setPull(Math.min(90, dy * 0.5));
+    const pr = pullRef.current;
+    if (!pr.active || refreshing) return;
+    const dy = e.touches[0].clientY - pr.startY;
+    if (dy > 0) {
+      const dist = Math.min(90, dy * 0.5);
+      pr.dist = dist;
+      setPull(dist);
+    } else {
+      pr.dist = 0;
+      setPull(0);
+    }
   };
+  // Bound to BOTH touchend and touchcancel — the browser fires touchcancel
+  // (not touchend) if it reinterprets the drag as a scroll, which was dropping
+  // the gesture intermittently.
   const onTouchEnd = () => {
-    if (pull > 60) void refresh();
+    const fired = pullRef.current.dist >= TRIGGER;
+    pullRef.current = { active: false, startY: 0, dist: 0 };
     setPull(0);
-    pullStart.active = false;
+    if (fired) void refresh();
   };
 
   return (
@@ -263,12 +277,17 @@ export default function Inbox() {
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
-      style={{ transform: pull ? `translateY(${pull}px)` : undefined, transition: pull ? "none" : "transform 0.2s" }}
+      onTouchCancel={onTouchEnd}
+      style={{
+        transform: pull ? `translateY(${pull}px)` : undefined,
+        transition: pull ? "none" : "transform 0.2s",
+        overscrollBehaviorY: "contain",
+      }}
     >
       {(pull > 0 || refreshing) && (
         <div className="flex items-center justify-center gap-2 -mt-3 mb-1 label-mono" style={{ color: "oklch(0.5 0.2 264)" }}>
           <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
-          {refreshing ? "refreshing…" : pull > 60 ? "release to refresh" : "pull to refresh"}
+          {refreshing ? "refreshing…" : pull >= TRIGGER ? "release to refresh" : "pull to refresh"}
         </div>
       )}
       <div className="flex items-center justify-between mb-1">

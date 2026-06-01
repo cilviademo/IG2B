@@ -9,7 +9,7 @@
  *   the documented path to fully-local assets is to self-host the fonts.
  * - No analytics, no telemetry, no data exfiltration. */
 
-const CACHE = "indigold-v0.19.0";
+const CACHE = "indigold-v0.21.0";
 
 const PRECACHE = [
   "/",
@@ -110,6 +110,18 @@ self.addEventListener("fetch", (event) => {
 
   const url = reqUrl;
   const sameOrigin = url.origin === self.location.origin;
+
+  // NEVER cache API traffic — it must always hit the network so the vault shows
+  // live data (caching it made refresh return stale/no data intermittently).
+  // Matches the API host (any *onrender.com that isn't this PWA) and API paths.
+  const isApi =
+    /(^|\.)indigold-api\./.test(url.hostname) ||
+    (url.hostname.endsWith(".onrender.com") && url.hostname !== self.location.hostname) ||
+    /^\/(captures|auth|assets|capture|ready|health|nodes|edges|timeline|context-packs|briefs|usage)(\/|$)/.test(url.pathname);
+  if (isApi) {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   // Cross-origin (fonts): stale-while-revalidate, best-effort.
   if (!sameOrigin) {
