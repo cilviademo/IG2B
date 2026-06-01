@@ -2,10 +2,19 @@
 // If VITE_API_URL is unset the PWA runs fully standalone on the bundled
 // synthetic fixtures (public/data/*.json) — so the Static Site works with or
 // without the backend. When set, these helpers talk to the live API.
-// Render's `fromService … property: host` injects a bare hostname (no scheme),
-// so normalize to an absolute https URL. Empty => standalone fixtures mode.
-const RAW = ((import.meta as { env?: Record<string, string> }).env?.VITE_API_URL || "").trim();
-const BASE = RAW ? (/^https?:\/\//.test(RAW) ? RAW : `https://${RAW}`).replace(/\/$/, "") : "";
+// Render's `fromService … property: host` injects a full hostname
+// (indigold-api.onrender.com). Normalize whatever is provided to an absolute,
+// valid https URL. Empty => standalone fixtures mode.
+function normalizeApiBase(raw: string): string {
+  let v = raw.trim().replace(/\/+$/, "");
+  if (!v) return "";
+  v = v.replace(/^https?:\/\//, ""); // strip scheme; we re-add https below
+  // Guard against a bare Render service name (e.g. "indigold-api") that has no
+  // dot — a non-routable host. Expand it to the public *.onrender.com domain.
+  if (!v.includes(".") && !v.includes(":")) v = `${v}.onrender.com`;
+  return `https://${v}`;
+}
+const BASE = normalizeApiBase(((import.meta as { env?: Record<string, string> }).env?.VITE_API_URL || ""));
 
 export const apiEnabled = () => BASE !== "";
 export const apiBaseUrl = () => BASE;
