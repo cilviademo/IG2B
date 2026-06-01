@@ -127,7 +127,10 @@ export default function Inbox() {
         if (await syncCaptureToApi(c)) markSynced(c.id);
       }
       setLocal(listCaptures());
-      setRemote(await fetchCaptures());
+      const fresh = await fetchCaptures();
+      // Only replace the list when the fetch actually succeeded; on failure
+      // (cold start / transient / auth) keep the last good data, don't blank it.
+      if (fresh !== null) setRemote(fresh);
     } finally {
       setRefreshing(false);
     }

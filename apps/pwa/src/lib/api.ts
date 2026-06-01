@@ -238,16 +238,24 @@ export interface BackendCapture {
 
 /** Live read of the user's captures from the database. Returns [] if the API is
  *  unreachable (caller falls back to the local cache). Ensures a session first. */
-export async function fetchCaptures(): Promise<BackendCapture[]> {
-  if (!apiEnabled()) return [];
-  if (!getToken() && !(await ensureSession())) return [];
+/** Live read of the user's captures. Returns the array on success, or NULL on
+ *  failure (unreachable / cold-start miss / auth) so callers can keep the last
+ *  good data instead of blanking the view. Re-mints once on 401. */
+export async function fetchCaptures(): Promise<BackendCapture[] | null> {
+  if (!apiEnabled()) return null;
+  if (!getToken() && !(await ensureSession())) return null;
+  const get = () => fetch(`${BASE}/captures`, { headers: { authorization: `Bearer ${getToken()}` } });
   try {
-    const res = await fetch(`${BASE}/captures`, { headers: { authorization: `Bearer ${getToken()}` } });
-    if (!res.ok) return [];
+    let res = await get();
+    if (res.status === 401) {
+      clearToken();
+      if (await ensureSession()) res = await get();
+    }
+    if (!res.ok) return null;
     const j = (await res.json()) as { items?: BackendCapture[] };
     return j.items ?? [];
   } catch {
-    return [];
+    return null;
   }
 }
 
