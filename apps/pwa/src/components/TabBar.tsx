@@ -26,12 +26,12 @@ export default function TabBar() {
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 safe-bottom"
       style={{
-        background: "oklch(0.06 0.02 280 / 0.95)",
+        background: "oklch(0.99 0.004 280 / 0.92)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
       }}
     >
-      <div className="border-t" style={{ borderColor: "oklch(0.2 0.04 264 / 0.4)" }}>
+      <div className="border-t" style={{ borderColor: "oklch(0.55 0.03 264 / 0.3)" }}>
         <div className="flex items-center justify-around px-1 pt-1.5 pb-1">
           {tabs.map((tab) => {
             const isActive = location === tab.path;

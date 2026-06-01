@@ -6,14 +6,14 @@ export default function Sheet({ title, onClose, children }: { title: string; onC
   return (
     <div
       className="fixed inset-0 flex items-end"
-      style={{ background: "oklch(0.04 0.02 280 / 0.6)", zIndex: 60 }}
+      style={{ background: "oklch(0.45 0.03 280 / 0.4)", zIndex: 60 }}
       onClick={onClose}
     >
       <div
         className="relative w-full rounded-t-3xl p-5 safe-bottom animate-fade-in-up"
         style={{
-          background: "oklch(0.12 0.02 280)",
-          border: "1px solid oklch(0.2 0.04 264 / 0.5)",
+          background: "oklch(0.955 0.006 280)",
+          border: "1px solid oklch(0.55 0.03 264 / 0.35)",
           maxHeight: "90vh",
           overflowY: "auto",
         }}
@@ -21,7 +21,7 @@ export default function Sheet({ title, onClose, children }: { title: string; onC
       >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg">{title}</h2>
-          <button onClick={onClose} aria-label="Close" style={{ color: "oklch(0.55 0.02 280)" }}>
+          <button onClick={onClose} aria-label="Close" style={{ color: "oklch(0.46 0.02 280)" }}>
             <X size={20} />
           </button>
         </div>

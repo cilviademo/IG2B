@@ -7,20 +7,20 @@
    =========================================================================== */
 
 :root {
-  --bg: oklch(0.08 0.02 280);
-  --surface: oklch(0.11 0.02 280);
-  --surface-elevated: oklch(0.14 0.02 280);
+  --bg: oklch(0.985 0.004 280);
+  --surface: oklch(0.965 0.006 280);
+  --surface-elevated: oklch(0.93 0.008 280);
   --indigo: oklch(0.45 0.22 264);
-  --indigo-light: oklch(0.6 0.2 264);
-  --gold: oklch(0.78 0.14 85);
-  --amber: oklch(0.75 0.16 60);
-  --teal: oklch(0.72 0.15 195);
+  --indigo-light: oklch(0.5 0.2 264);
+  --gold: oklch(0.62 0.13 85);
+  --amber: oklch(0.6 0.15 60);
+  --teal: oklch(0.5 0.12 195);
   --red: oklch(0.6 0.22 25);
-  --text-primary: oklch(0.92 0.01 280);
-  --text-secondary: oklch(0.75 0.01 280);
-  --text-muted: oklch(0.55 0.02 280);
-  --text-dim: oklch(0.4 0.02 280);
-  --border: oklch(0.2 0.04 264 / 0.4);
+  --text-primary: oklch(0.22 0.02 280);
+  --text-secondary: oklch(0.38 0.02 280);
+  --text-muted: oklch(0.46 0.02 280);
+  --text-dim: oklch(0.55 0.015 280);
+  --border: oklch(0.55 0.03 264 / 0.3);
 }
 
 * {
@@ -65,19 +65,19 @@ h1, h2, h3, h4 {
 
 /* ---- Glow border card ---- */
 .border-glow {
-  border: 1px solid oklch(0.2 0.04 264 / 0.3);
+  border: 1px solid oklch(0.55 0.03 264 / 0.25);
   transition: box-shadow 200ms, border-color 200ms;
 }
 .border-glow:hover {
-  border-color: oklch(0.3 0.06 264 / 0.4);
+  border-color: oklch(0.5 0.06 264 / 0.4);
   box-shadow: 0 0 20px oklch(0.45 0.22 264 / 0.08);
 }
 
-.glow-text-gold { text-shadow: 0 0 30px oklch(0.78 0.14 85 / 0.3); }
+.glow-text-gold { text-shadow: 0 0 30px oklch(0.62 0.13 85 / 0.25); }
 
 /* ---- Tab states ---- */
-.tab-active { color: oklch(0.78 0.14 85); }
-.tab-inactive { color: oklch(0.4 0.02 280); }
+.tab-active { color: oklch(0.5 0.2 264); }
+.tab-inactive { color: oklch(0.42 0.02 280); }
 
 .transition-glow { transition: all 200ms cubic-bezier(0.23, 1, 0.32, 1); }
 

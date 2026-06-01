@@ -52,9 +52,9 @@ const PROC: ProcessingStatus[] = ["unprocessed", "queued", "processing", "proces
 
 const inputCls = "w-full rounded-xl px-3 py-2.5 text-sm";
 const inputStyle = {
-  background: "oklch(0.08 0.02 280)",
-  border: "1px solid oklch(0.2 0.04 264 / 0.5)",
-  color: "oklch(0.92 0.01 280)",
+  background: "oklch(0.985 0.004 280)",
+  border: "1px solid oklch(0.55 0.03 264 / 0.35)",
+  color: "oklch(0.22 0.02 280)",
 } as const;
 const labelCls = "label-mono block mb-1";
 
@@ -162,7 +162,7 @@ export default function CaptureForm({
     <Sheet title={prefilled ? "Confirm Capture" : "New Capture"} onClose={onClose}>
       <div className="space-y-3">
         {prefilled && (
-          <p className="label-mono" style={{ color: "oklch(0.78 0.14 85)" }}>
+          <p className="label-mono" style={{ color: "oklch(0.62 0.13 85)" }}>
             {prefilledLabel ?? "Pre-filled from a deep link — review and tap Save."}
           </p>
         )}
@@ -224,17 +224,17 @@ export default function CaptureForm({
         </div>
 
         {isReel && (
-          <p className="label-mono" style={{ color: "oklch(0.4 0.02 280)" }}>
+          <p className="label-mono" style={{ color: "oklch(0.55 0.015 280)" }}>
             Instagram: only URL + note + optional caption/screenshot text are stored. No video scraping or summarization.
           </p>
         )}
 
         {/* Deep-link test tools */}
         <div className="flex gap-2">
-          <button onClick={() => copyText(buildDeepLink(window.location.origin, currentParams()), "Deep link")} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.72 0.15 195)" }}>
+          <button onClick={() => copyText(buildDeepLink(window.location.origin, currentParams()), "Deep link")} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.12 195)" }}>
             <Link2 size={13} /> Copy Deep Link
           </button>
-          <button onClick={() => copyText(buildShortcutTemplate(window.location.origin), "Shortcut URL")} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.6 0.2 264)" }}>
+          <button onClick={() => copyText(buildShortcutTemplate(window.location.origin), "Shortcut URL")} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.2 264)" }}>
             <Wand2 size={13} /> Generate Shortcut URL
           </button>
         </div>
@@ -243,8 +243,8 @@ export default function CaptureForm({
           <p
             className="text-xs font-mono break-words rounded-lg px-3 py-2"
             style={{
-              background: "oklch(0.08 0.02 280)",
-              color: saveStatus.startsWith("synced") ? "oklch(0.7 0.16 150)" : saveStatus.startsWith("NOT") ? "oklch(0.78 0.16 35)" : "oklch(0.6 0.2 264)",
+              background: "oklch(0.985 0.004 280)",
+              color: saveStatus.startsWith("synced") ? "oklch(0.52 0.15 150)" : saveStatus.startsWith("NOT") ? "oklch(0.58 0.18 35)" : "oklch(0.5 0.2 264)",
             }}
           >
             sync status: {saveStatus}
@@ -252,10 +252,10 @@ export default function CaptureForm({
         )}
 
         <div className="flex gap-2 pt-1">
-          <button onClick={onClose} className="flex-1 rounded-xl py-3 text-sm font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}>
+          <button onClick={onClose} className="flex-1 rounded-xl py-3 text-sm font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}>
             Cancel
           </button>
-          <button onClick={() => void save()} disabled={saving} className="flex-1 rounded-xl py-3 text-sm font-semibold disabled:opacity-50" style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}>
+          <button onClick={() => void save()} disabled={saving} className="flex-1 rounded-xl py-3 text-sm font-semibold disabled:opacity-50" style={{ background: "oklch(0.62 0.13 85)", color: "oklch(0.16 0.04 280)" }}>
             {saving ? "Saving…" : "Save Capture"}
           </button>
         </div>

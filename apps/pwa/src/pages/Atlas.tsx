@@ -427,7 +427,7 @@ export default function Atlas() {
       <div
         ref={wrapRef}
         className="absolute inset-0 overflow-hidden"
-        style={{ background: "radial-gradient(120% 120% at 50% 0%, oklch(0.12 0.03 280), oklch(0.07 0.02 280))" }}
+        style={{ background: "radial-gradient(120% 120% at 50% 0%, oklch(0.95 0.01 280), oklch(0.96 0.006 280))" }}
       >
         <img
           src={GRAPH_IMG}
@@ -440,16 +440,16 @@ export default function Atlas() {
 
       <div
         className="absolute top-0 left-0 right-0 px-5 pt-4 pb-8 pointer-events-none"
-        style={{ background: "linear-gradient(to bottom, oklch(0.08 0.02 280 / 0.92), transparent)" }}
+        style={{ background: "linear-gradient(to bottom, oklch(0.985 0.004 280 / 0.9), transparent)" }}
       >
         <div className="flex items-center gap-2">
-          <Globe2 size={16} style={{ color: "oklch(0.78 0.14 85)" }} />
+          <Globe2 size={16} style={{ color: "oklch(0.62 0.13 85)" }} />
           <span className="label-mono">Liminal Atlas</span>
           <span className="label-mono ml-auto">
             {nodes.length} nodes · {edges.length} edges
           </span>
         </div>
-        <p className="label-mono mt-1" style={{ color: "oklch(0.4 0.02 280)" }}>
+        <p className="label-mono mt-1" style={{ color: "oklch(0.55 0.015 280)" }}>
           tap a globe · drag to move · pinch / scroll to zoom
         </p>
       </div>
@@ -460,8 +460,8 @@ export default function Atlas() {
           onClick={() => setCluster((c) => !c)}
           className="w-10 h-10 rounded-full flex items-center justify-center border-glow"
           style={{
-            background: cluster ? "oklch(0.45 0.22 264 / 0.85)" : "oklch(0.12 0.02 280 / 0.85)",
-            color: cluster ? "oklch(0.92 0.01 280)" : "oklch(0.75 0.01 280)",
+            background: cluster ? "oklch(0.45 0.22 264 / 0.85)" : "oklch(0.97 0.006 280 / 0.92)",
+            color: cluster ? "oklch(0.22 0.02 280)" : "oklch(0.38 0.02 280)",
             backdropFilter: "blur(8px)",
           }}
         >
@@ -477,7 +477,7 @@ export default function Atlas() {
             aria-label={label}
             onClick={fn}
             className="w-10 h-10 rounded-full flex items-center justify-center border-glow"
-            style={{ background: "oklch(0.12 0.02 280 / 0.85)", color: "oklch(0.75 0.01 280)", backdropFilter: "blur(8px)" }}
+            style={{ background: "oklch(0.97 0.006 280 / 0.92)", color: "oklch(0.38 0.02 280)", backdropFilter: "blur(8px)" }}
           >
             <Icon size={17} />
           </button>
@@ -548,19 +548,19 @@ function NodeSheet({ node, onClose }: { node: GraphNode; onClose: () => void }) 
   const color = TRUTH_LAYER_COLORS[node.truth_layer];
   return (
     <div className="absolute inset-0 z-40 flex items-end" onClick={onClose}>
-      <div className="absolute inset-0" style={{ background: "oklch(0.04 0.02 280 / 0.6)" }} />
+      <div className="absolute inset-0" style={{ background: "oklch(0.45 0.03 280 / 0.4)" }} />
       <div
         className="relative w-full rounded-t-3xl p-5 safe-bottom animate-fade-in-up"
-        style={{ background: "oklch(0.12 0.02 280)", border: "1px solid oklch(0.2 0.04 264 / 0.5)" }}
+        style={{ background: "oklch(0.955 0.006 280)", border: "1px solid oklch(0.55 0.03 264 / 0.35)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <button onClick={onClose} className="absolute top-4 right-4" style={{ color: "oklch(0.55 0.02 280)" }}>
+        <button onClick={onClose} className="absolute top-4 right-4" style={{ color: "oklch(0.46 0.02 280)" }}>
           <X size={20} />
         </button>
         <div className="flex items-center gap-2 mb-2">
           <span
             className="text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wide"
-            style={{ background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.6 0.2 264)" }}
+            style={{ background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.5 0.2 264)" }}
           >
             {node.type}
           </span>
@@ -569,13 +569,13 @@ function NodeSheet({ node, onClose }: { node: GraphNode; onClose: () => void }) 
           </span>
         </div>
         <h2 className="text-lg mb-1.5">{node.title}</h2>
-        <p className="text-sm leading-relaxed mb-4" style={{ color: "oklch(0.75 0.01 280)" }}>
+        <p className="text-sm leading-relaxed mb-4" style={{ color: "oklch(0.38 0.02 280)" }}>
           {node.summary}
         </p>
         <div className="flex items-center gap-4">
           <div>
             <div className="label-mono">Memory Value</div>
-            <div className="text-2xl glow-text-gold" style={{ color: "oklch(0.78 0.14 85)" }}>
+            <div className="text-2xl glow-text-gold" style={{ color: "oklch(0.62 0.13 85)" }}>
               {node.mvs}
             </div>
           </div>
@@ -586,7 +586,7 @@ function NodeSheet({ node, onClose }: { node: GraphNode; onClose: () => void }) 
                 <span
                   key={t}
                   className="text-[10px] px-2 py-0.5 rounded-full"
-                  style={{ background: "oklch(0.14 0.02 280)", color: "oklch(0.55 0.02 280)" }}
+                  style={{ background: "oklch(0.93 0.008 280)", color: "oklch(0.46 0.02 280)" }}
                 >
                   {t}
                 </span>

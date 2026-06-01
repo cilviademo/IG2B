@@ -137,22 +137,22 @@ export default function CaptureDeepLink() {
       value ? (
         <div className="w-full">
           <div className="label-mono">{label}</div>
-          <div className="text-sm break-words" style={{ color: "oklch(0.85 0.01 280)" }}>{value}</div>
+          <div className="text-sm break-words" style={{ color: "oklch(0.3 0.02 280)" }}>{value}</div>
         </div>
       ) : null;
     return (
       <div className="px-5 pt-20 flex flex-col items-center gap-4 text-center">
         <div
           className="w-14 h-14 rounded-full flex items-center justify-center"
-          style={{ background: "oklch(0.6 0.18 145 / 0.18)", color: "oklch(0.7 0.16 150)" }}
+          style={{ background: "oklch(0.52 0.15 145 / 0.16)", color: "oklch(0.52 0.15 150)" }}
         >
           <Check size={28} />
         </div>
-        <p className="text-xl" style={{ color: "oklch(0.92 0.01 280)" }}>Captured ✓</p>
+        <p className="text-xl" style={{ color: "oklch(0.22 0.02 280)" }}>Captured ✓</p>
 
         <div
           className="w-full rounded-2xl p-4 flex flex-col gap-3 text-left border-glow"
-          style={{ background: "oklch(0.11 0.02 280)" }}
+          style={{ background: "oklch(0.965 0.006 280)" }}
         >
           <Field label="Type" value={CAPTURE_TYPE_LABEL[saved.type]} />
           <Field label="Title" value={saved.title} />
@@ -163,19 +163,19 @@ export default function CaptureDeepLink() {
           <button
             onClick={() => setEditing(true)}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold border-glow"
-            style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}
+            style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}
           >
             <Pencil size={15} /> Edit
           </button>
           <button
             onClick={go}
             className="flex-1 rounded-xl py-3 text-sm font-semibold"
-            style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}
+            style={{ background: "oklch(0.62 0.13 85)", color: "oklch(0.16 0.04 280)" }}
           >
             Done
           </button>
         </div>
-        <p className="label-mono" style={{ color: "oklch(0.4 0.02 280)" }}>Filed to your Universal Intake Queue.</p>
+        <p className="label-mono" style={{ color: "oklch(0.55 0.015 280)" }}>Filed to your Universal Intake Queue.</p>
       </div>
     );
   }
@@ -184,7 +184,7 @@ export default function CaptureDeepLink() {
   if (shouldAutoSave && !attempted) {
     return (
       <div className="px-5 pt-24 flex flex-col items-center gap-2 text-center">
-        <Sparkles size={24} style={{ color: "oklch(0.78 0.14 85)" }} className="pulse-dot" />
+        <Sparkles size={24} style={{ color: "oklch(0.62 0.13 85)" }} className="pulse-dot" />
         <p className="label-mono">Capturing…</p>
       </div>
     );
@@ -193,13 +193,13 @@ export default function CaptureDeepLink() {
   // ---- Confirm form: manual opens, and the auto-save error/empty fallback.
   return (
     <div className="px-5 pt-12 flex flex-col items-center text-center gap-2">
-      <Sparkles size={22} style={{ color: "oklch(0.78 0.14 85)" }} />
-      <p className="label-mono" style={{ color: "oklch(0.55 0.02 280)" }}>Preparing your capture…</p>
+      <Sparkles size={22} style={{ color: "oklch(0.62 0.13 85)" }} />
+      <p className="label-mono" style={{ color: "oklch(0.46 0.02 280)" }}>Preparing your capture…</p>
 
       {saveError && (
         <div
           className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs"
-          style={{ background: "oklch(0.6 0.22 25 / 0.12)", color: "oklch(0.78 0.16 35)" }}
+          style={{ background: "oklch(0.6 0.22 25 / 0.12)", color: "oklch(0.58 0.18 35)" }}
         >
           <AlertTriangle size={14} className="shrink-0" /> {saveError}
         </div>
@@ -209,7 +209,7 @@ export default function CaptureDeepLink() {
       <button
         onClick={() => setShowDebug((s) => !s)}
         className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border-glow"
-        style={{ background: "oklch(0.11 0.02 280)", color: empty ? "oklch(0.75 0.16 60)" : "oklch(0.5 0.02 280)" }}
+        style={{ background: "oklch(0.965 0.006 280)", color: empty ? "oklch(0.6 0.15 60)" : "oklch(0.5 0.02 280)" }}
       >
         <Bug size={12} /> Debug Intake {showDebug ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         {empty ? " · empty payload!" : ""}
@@ -217,7 +217,7 @@ export default function CaptureDeepLink() {
       {showDebug && (
         <pre
           className="w-full text-left text-[10px] font-mono overflow-x-auto rounded-xl p-3"
-          style={{ background: "oklch(0.08 0.02 280)", border: "1px solid oklch(0.2 0.04 264 / 0.5)", color: "oklch(0.8 0.02 280)" }}
+          style={{ background: "oklch(0.985 0.004 280)", border: "1px solid oklch(0.55 0.03 264 / 0.35)", color: "oklch(0.33 0.02 280)" }}
         >
 {JSON.stringify(debug, null, 2)}
         </pre>

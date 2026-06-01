@@ -35,7 +35,7 @@ import CaptureForm from "@/components/CaptureForm";
 import CaptureDetail, { type DetailItem } from "@/components/CaptureDetail";
 import Sheet from "@/components/Sheet";
 import { listCaptures, removeCapture, subscribeCaptures, exportCaptures, importCaptures, markSynced, type LocalCapture } from "@/lib/captureStore";
-import { apiEnabled, ensureSession, syncCaptureToApi, fetchCaptures, type BackendCapture } from "@/lib/api";
+import { apiEnabled, ensureSession, syncCaptureToApi, fetchCaptures, lastSessionError, lastSyncError, type BackendCapture } from "@/lib/api";
 
 const TYPE_ICON: Record<CaptureType, LucideIcon> = {
   apple_note: StickyNote,
@@ -108,6 +108,8 @@ export default function Inbox() {
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+  const [pull, setPull] = useState(0); // pull-to-refresh drag distance (px)
 
   useEffect(() => {
     setLocal(listCaptures());
@@ -118,10 +120,17 @@ export default function Inbox() {
   // syncCaptureToApi), then pull the authoritative DB list. Callable for the
   // manual Refresh button + auto-run on mount and when the tab regains focus.
   const refresh = useCallback(async () => {
-    if (!apiEnabled()) return;
+    if (!apiEnabled()) {
+      setRefreshMsg("offline — API not configured");
+      return;
+    }
     setRefreshing(true);
+    setRefreshMsg("refreshing…");
     try {
-      if (!(await ensureSession())) return;
+      if (!(await ensureSession())) {
+        setRefreshMsg(`couldn't sign in — ${lastSessionError() || "no session"}`);
+        return;
+      }
       for (const c of listCaptures()) {
         if (c.synced) continue;
         if (await syncCaptureToApi(c)) markSynced(c.id);
@@ -130,7 +139,14 @@ export default function Inbox() {
       const fresh = await fetchCaptures();
       // Only replace the list when the fetch actually succeeded; on failure
       // (cold start / transient / auth) keep the last good data, don't blank it.
-      if (fresh !== null) setRemote(fresh);
+      if (fresh !== null) {
+        setRemote(fresh);
+        setRefreshMsg(`updated · ${fresh.length} in vault`);
+      } else {
+        setRefreshMsg(`couldn't reach API — ${lastSyncError() || "kept last data"} (waking? retry in ~30s)`);
+      }
+    } catch (e) {
+      setRefreshMsg(`refresh error — ${e instanceof Error ? e.message : "unknown"}`);
     } finally {
       setRefreshing(false);
     }
@@ -223,23 +239,58 @@ export default function Inbox() {
     reader.readAsText(f);
   }
 
+  // Pull-to-refresh: only engages when scrolled to the very top. Drag down past
+  // ~70px and release to trigger refresh().
+  const pullStart = { y: 0, active: false };
+  const onTouchStart = (e: React.TouchEvent) => {
+    pullStart.active = window.scrollY <= 0;
+    pullStart.y = e.touches[0].clientY;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!pullStart.active || refreshing) return;
+    const dy = e.touches[0].clientY - pullStart.y;
+    if (dy > 0 && window.scrollY <= 0) setPull(Math.min(90, dy * 0.5));
+  };
+  const onTouchEnd = () => {
+    if (pull > 60) void refresh();
+    setPull(0);
+    pullStart.active = false;
+  };
+
   return (
-    <div className="px-5 pt-5 pb-6">
+    <div
+      className="px-5 pt-5 pb-6"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{ transform: pull ? `translateY(${pull}px)` : undefined, transition: pull ? "none" : "transform 0.2s" }}
+    >
+      {(pull > 0 || refreshing) && (
+        <div className="flex items-center justify-center gap-2 -mt-3 mb-1 label-mono" style={{ color: "oklch(0.5 0.2 264)" }}>
+          <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+          {refreshing ? "refreshing…" : pull > 60 ? "release to refresh" : "pull to refresh"}
+        </div>
+      )}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <InboxIcon size={18} style={{ color: "oklch(0.6 0.2 264)" }} />
+          <InboxIcon size={18} style={{ color: "oklch(0.5 0.2 264)" }} />
           <h1 className="text-xl">Universal Intake Queue</h1>
         </div>
         <div className="flex items-center gap-2">
           <span className="label-mono">{items.length} items · {local.length} local</span>
           {apiEnabled() && (
-            <button onClick={() => void refresh()} aria-label="Refresh" disabled={refreshing} className="p-1 rounded-lg disabled:opacity-50" style={{ color: "oklch(0.6 0.2 264)" }}>
+            <button onClick={() => void refresh()} aria-label="Refresh" disabled={refreshing} className="p-1 rounded-lg disabled:opacity-50" style={{ color: "oklch(0.5 0.2 264)" }}>
               <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
             </button>
           )}
         </div>
       </div>
-      <p className="label-mono mb-3" style={{ color: "oklch(0.4 0.02 280)" }}>
+      {refreshMsg && (
+        <p className="label-mono mb-1" style={{ color: refreshMsg.startsWith("updated") ? "oklch(0.52 0.15 150)" : "oklch(0.6 0.15 60)" }}>
+          {refreshMsg}
+        </p>
+      )}
+      <p className="label-mono mb-3" style={{ color: "oklch(0.55 0.015 280)" }}>
         Share anything → Indigold auto-classifies it into RAW_CAPTURE. No questions.
       </p>
 
@@ -247,17 +298,17 @@ export default function Inbox() {
       <button
         onClick={() => setShowForm(true)}
         className="w-full flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold mb-2.5 border-glow"
-        style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}
+        style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}
       >
         <Plus size={16} /> Add manually (fallback)
       </button>
 
       {/* Export / Import */}
       <div className="flex gap-2 mb-3">
-        <button onClick={doExport} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}>
+        <button onClick={doExport} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}>
           <Download size={14} /> Export
         </button>
-        <button onClick={() => setShowImport(true)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}>
+        <button onClick={() => setShowImport(true)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}>
           <Upload size={14} /> Import
         </button>
       </div>
@@ -272,7 +323,7 @@ export default function Inbox() {
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-2">
-          <InboxIcon size={24} style={{ color: "oklch(0.4 0.02 280)" }} />
+          <InboxIcon size={24} style={{ color: "oklch(0.55 0.015 280)" }} />
           <span className="label-mono">Nothing here yet — tap Capture</span>
         </div>
       ) : (
@@ -283,7 +334,7 @@ export default function Inbox() {
         </ul>
       )}
 
-      <p className="label-mono mt-5" style={{ color: "oklch(0.4 0.02 280)" }}>
+      <p className="label-mono mt-5" style={{ color: "oklch(0.55 0.015 280)" }}>
         Local captures persist in this browser (localStorage) and survive reload + Airplane Mode.
       </p>
 
@@ -307,15 +358,15 @@ export default function Inbox() {
 
       {exportText !== null && (
         <Sheet title="Export Captures" onClose={() => setExportText(null)}>
-          <p className="label-mono mb-2" style={{ color: "oklch(0.4 0.02 280)" }}>
+          <p className="label-mono mb-2" style={{ color: "oklch(0.55 0.015 280)" }}>
             {local.length} local capture(s). Copy the JSON (works on iPhone Safari) or download it.
           </p>
-          <textarea readOnly value={exportText} onFocus={(e) => e.currentTarget.select()} className="w-full rounded-xl px-3 py-2.5 text-xs font-mono" style={{ background: "oklch(0.08 0.02 280)", border: "1px solid oklch(0.2 0.04 264 / 0.5)", color: "oklch(0.85 0.01 280)", minHeight: 200 }} />
+          <textarea readOnly value={exportText} onFocus={(e) => e.currentTarget.select()} className="w-full rounded-xl px-3 py-2.5 text-xs font-mono" style={{ background: "oklch(0.985 0.004 280)", border: "1px solid oklch(0.55 0.03 264 / 0.35)", color: "oklch(0.3 0.02 280)", minHeight: 200 }} />
           <div className="flex gap-2 mt-3">
-            <button onClick={() => copy(exportText)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold" style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}>
+            <button onClick={() => copy(exportText)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold" style={{ background: "oklch(0.62 0.13 85)", color: "oklch(0.16 0.04 280)" }}>
               <Copy size={15} /> Copy JSON
             </button>
-            <button onClick={() => download(exportText)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold border-glow" style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}>
+            <button onClick={() => download(exportText)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}>
               <Download size={15} /> Download
             </button>
           </div>
@@ -324,12 +375,12 @@ export default function Inbox() {
 
       {showImport && (
         <Sheet title="Import Captures" onClose={() => setShowImport(false)}>
-          <p className="label-mono mb-2" style={{ color: "oklch(0.4 0.02 280)" }}>
+          <p className="label-mono mb-2" style={{ color: "oklch(0.55 0.015 280)" }}>
             Paste capture JSON (or pick a file). Existing ids are kept; new ones are added.
           </p>
-          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder='{"captures":[…]}' className="w-full rounded-xl px-3 py-2.5 text-xs font-mono" style={{ background: "oklch(0.08 0.02 280)", border: "1px solid oklch(0.2 0.04 264 / 0.5)", color: "oklch(0.85 0.01 280)", minHeight: 160 }} />
-          <input type="file" accept="application/json,.json" onChange={onFile} className="mt-2 text-xs" style={{ color: "oklch(0.55 0.02 280)" }} />
-          <button onClick={doImport} className="w-full rounded-xl py-3 text-sm font-semibold mt-3" style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}>
+          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder='{"captures":[…]}' className="w-full rounded-xl px-3 py-2.5 text-xs font-mono" style={{ background: "oklch(0.985 0.004 280)", border: "1px solid oklch(0.55 0.03 264 / 0.35)", color: "oklch(0.3 0.02 280)", minHeight: 160 }} />
+          <input type="file" accept="application/json,.json" onChange={onFile} className="mt-2 text-xs" style={{ color: "oklch(0.46 0.02 280)" }} />
+          <button onClick={doImport} className="w-full rounded-xl py-3 text-sm font-semibold mt-3" style={{ background: "oklch(0.62 0.13 85)", color: "oklch(0.16 0.04 280)" }}>
             Import
           </button>
         </Sheet>
@@ -340,7 +391,7 @@ export default function Inbox() {
 
 function FilterChip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
-    <button onClick={onClick} className="shrink-0 text-[11px] px-2.5 py-1 rounded-full font-mono" style={active ? { background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.6 0.2 264)" } : { background: "oklch(0.11 0.02 280)", color: "oklch(0.5 0.02 280)" }}>
+    <button onClick={onClick} className="shrink-0 text-[11px] px-2.5 py-1 rounded-full font-mono" style={active ? { background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.5 0.2 264)" } : { background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.02 280)" }}>
       {label}
     </button>
   );
@@ -355,31 +406,31 @@ function CaptureCard({ item, index, onOpen }: { item: DetailItem; index: number;
     <li
       onClick={onOpen}
       className="rounded-2xl p-4 border-glow animate-fade-in-up cursor-pointer"
-      style={{ background: "oklch(0.11 0.02 280)", animationDelay: `${Math.min(index, 8) * 50}ms` }}
+      style={{ background: "oklch(0.965 0.006 280)", animationDelay: `${Math.min(index, 8) * 50}ms` }}
     >
       <div className="flex items-center gap-2 mb-2 flex-wrap">
-        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.45 0.22 264 / 0.15)", color: "oklch(0.6 0.2 264)" }}>
+        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.45 0.22 264 / 0.15)", color: "oklch(0.5 0.2 264)" }}>
           <TypeIcon size={11} /> {CAPTURE_TYPE_LABEL[item.type]}
         </span>
         <span className="label-mono">{item.source}</span>
-        {item.domain && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.72 0.15 195 / 0.16)", color: "oklch(0.72 0.15 195)" }}>{item.domain}</span>}
-        {item.auto_classified && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.78 0.14 85 / 0.18)", color: "oklch(0.78 0.14 85)" }}>auto</span>}
+        {item.domain && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.5 0.12 195 / 0.14)", color: "oklch(0.5 0.12 195)" }}>{item.domain}</span>}
+        {item.auto_classified && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.62 0.13 85 / 0.16)", color: "oklch(0.62 0.13 85)" }}>auto</span>}
         <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wide" style={{ color: sens, border: `1px solid ${sens}` }}>
           {item.sensitivity}
         </span>
       </div>
       <h3 className="text-sm font-semibold mb-1">{item.title}</h3>
-      {preview && <p className="text-xs leading-relaxed mb-2 line-clamp-2" style={{ color: "oklch(0.55 0.02 280)" }}>{preview}</p>}
+      {preview && <p className="text-xs leading-relaxed mb-2 line-clamp-2" style={{ color: "oklch(0.46 0.02 280)" }}>{preview}</p>}
       <div className="flex items-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full" style={{ background: proc.color }} />
         <span className="label-mono" style={{ color: proc.color }}>{proc.label}</span>
         {item.files && item.files.length > 0 && (
-          <span className="label-mono flex items-center gap-0.5" style={{ color: "oklch(0.72 0.15 195)" }}>
+          <span className="label-mono flex items-center gap-0.5" style={{ color: "oklch(0.5 0.12 195)" }}>
             <Paperclip size={10} /> {item.files.length}
           </span>
         )}
-        {item.synced && <span className="label-mono" style={{ color: "oklch(0.7 0.16 150)" }}>· synced</span>}
-        <span className="label-mono ml-auto flex items-center gap-1" style={{ color: "oklch(0.4 0.02 280)" }}>
+        {item.synced && <span className="label-mono" style={{ color: "oklch(0.52 0.15 150)" }}>· synced</span>}
+        <span className="label-mono ml-auto flex items-center gap-1" style={{ color: "oklch(0.55 0.015 280)" }}>
           <Clock size={10} /> {timeAgo(item.captured_at)}
         </span>
       </div>

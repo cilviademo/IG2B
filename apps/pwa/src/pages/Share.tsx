@@ -152,7 +152,7 @@ export default function Share() {
   if (phase === "fallback" && fallback) {
     return (
       <div className="px-5 pt-16 flex flex-col items-center text-center gap-2">
-        <p className="label-mono" style={{ color: "oklch(0.75 0.16 60)" }}>Low confidence — confirm details</p>
+        <p className="label-mono" style={{ color: "oklch(0.6 0.15 60)" }}>Low confidence — confirm details</p>
         <CaptureForm initial={fallback} onClose={() => navigate("/inbox")} onSaved={() => navigate("/inbox")} />
       </div>
     );
@@ -160,7 +160,7 @@ export default function Share() {
 
   return (
     <div className="px-5 pt-24 flex flex-col items-center gap-2 text-center">
-      <Sparkles size={24} style={{ color: "oklch(0.78 0.14 85)" }} className="pulse-dot" />
+      <Sparkles size={24} style={{ color: "oklch(0.62 0.13 85)" }} className="pulse-dot" />
       <p className="label-mono">Capturing &amp; classifying…</p>
     </div>
   );

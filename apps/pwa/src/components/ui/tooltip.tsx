@@ -19,9 +19,9 @@ export function TooltipContent({
           className,
         )}
         style={{
-          background: "oklch(0.14 0.02 280)",
-          border: "1px solid oklch(0.2 0.04 264 / 0.5)",
-          color: "oklch(0.92 0.01 280)",
+          background: "oklch(0.93 0.008 280)",
+          border: "1px solid oklch(0.55 0.03 264 / 0.35)",
+          color: "oklch(0.22 0.02 280)",
         }}
         {...props}
       />

@@ -142,7 +142,7 @@ export default function ImportExport() {
   return (
     <div className="px-5 pt-5 pb-6 space-y-4">
       <div className="flex items-center gap-2">
-        <ArrowUpDown size={18} style={{ color: "oklch(0.6 0.2 264)" }} />
+        <ArrowUpDown size={18} style={{ color: "oklch(0.5 0.2 264)" }} />
         <h1 className="text-xl">Import / Export</h1>
       </div>
 
@@ -150,7 +150,7 @@ export default function ImportExport() {
         onClick={handleExport}
         disabled={busy}
         className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold transition-glow disabled:opacity-50"
-        style={{ background: "oklch(0.78 0.14 85)", color: "oklch(0.16 0.04 280)" }}
+        style={{ background: "oklch(0.62 0.13 85)", color: "oklch(0.16 0.04 280)" }}
       >
         <Download size={16} /> Export Local Data (JSON)
       </button>
@@ -158,14 +158,14 @@ export default function ImportExport() {
       <button
         onClick={() => fileRef.current?.click()}
         className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold border-glow"
-        style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.75 0.01 280)" }}
+        style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}
       >
         <Upload size={16} /> Import Data (replace state)
       </button>
       <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={handleImport} />
 
       {lastImport && (
-        <p className="label-mono" style={{ color: "oklch(0.78 0.14 85)" }}>
+        <p className="label-mono" style={{ color: "oklch(0.62 0.13 85)" }}>
           last import · {lastImport}
         </p>
       )}
@@ -173,14 +173,14 @@ export default function ImportExport() {
       {/* Device API token — for the iOS Shortcut file-upload branch */}
       <section
         className="rounded-2xl p-4 space-y-3"
-        style={{ background: "oklch(0.11 0.02 280)", border: "1px solid oklch(0.2 0.04 264 / 0.5)" }}
+        style={{ background: "oklch(0.965 0.006 280)", border: "1px solid oklch(0.55 0.03 264 / 0.35)" }}
       >
         <div className="flex items-center gap-2">
-          <KeyRound size={16} style={{ color: "oklch(0.78 0.14 85)" }} />
+          <KeyRound size={16} style={{ color: "oklch(0.62 0.13 85)" }} />
           <span className="label-mono">Device API Token</span>
         </div>
-        <p className="text-xs leading-relaxed" style={{ color: "oklch(0.55 0.02 280)" }}>
-          For the iOS Shortcut <strong style={{ color: "oklch(0.75 0.01 280)" }}>file-upload</strong> branch.
+        <p className="text-xs leading-relaxed" style={{ color: "oklch(0.46 0.02 280)" }}>
+          For the iOS Shortcut <strong style={{ color: "oklch(0.38 0.02 280)" }}>file-upload</strong> branch.
           Paste into the Shortcut’s header: <span className="font-mono">Authorization: Bearer &lt;token&gt;</span>.
           Treat it like a password — it authenticates your vault uploads.
         </p>
@@ -189,7 +189,7 @@ export default function ImportExport() {
           onClick={copyApiToken}
           disabled={tokenBusy}
           className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold disabled:opacity-50"
-          style={{ background: "oklch(0.45 0.22 264)", color: "oklch(0.95 0.01 280)" }}
+          style={{ background: "oklch(0.45 0.22 264)", color: "oklch(0.2 0.02 280)" }}
         >
           <Copy size={15} /> {tokenBusy ? "Preparing…" : "Copy API Token"}
         </button>
@@ -201,14 +201,14 @@ export default function ImportExport() {
               <button
                 onClick={() => setRevealToken((r) => !r)}
                 className="flex items-center gap-1 label-mono"
-                style={{ color: "oklch(0.6 0.2 264)" }}
+                style={{ color: "oklch(0.5 0.2 264)" }}
               >
                 {revealToken ? <EyeOff size={11} /> : <Eye size={11} />} {revealToken ? "hide" : "reveal"}
               </button>
             </div>
             <code
               className="block text-[10px] font-mono break-all rounded-lg p-2"
-              style={{ background: "oklch(0.08 0.02 280)", color: "oklch(0.7 0.02 280)" }}
+              style={{ background: "oklch(0.985 0.004 280)", color: "oklch(0.42 0.02 280)" }}
             >
               {revealToken ? token : "•".repeat(Math.min(40, token.length))}
             </code>
@@ -216,7 +216,7 @@ export default function ImportExport() {
         )}
 
         {apiEnabled() && (
-          <p className="label-mono" style={{ color: "oklch(0.4 0.02 280)" }}>
+          <p className="label-mono" style={{ color: "oklch(0.55 0.015 280)" }}>
             upload endpoint · {apiBaseUrl()}/capture/upload
           </p>
         )}
@@ -226,14 +226,14 @@ export default function ImportExport() {
           onClick={testSync}
           disabled={syncBusy}
           className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold border-glow disabled:opacity-50"
-          style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.72 0.15 195)" }}
+          style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.12 195)" }}
         >
           <Activity size={14} /> {syncBusy ? "Testing sync…" : "Test Sync to Backend"}
         </button>
         {syncMsg && (
           <p
             className="text-xs font-mono break-words"
-            style={{ color: syncMsg.startsWith("✓") ? "oklch(0.7 0.16 150)" : "oklch(0.78 0.16 35)" }}
+            style={{ color: syncMsg.startsWith("✓") ? "oklch(0.52 0.15 150)" : "oklch(0.58 0.18 35)" }}
           >
             {syncMsg}
           </p>
@@ -242,12 +242,12 @@ export default function ImportExport() {
 
       <section
         className="rounded-2xl p-4 flex gap-3"
-        style={{ background: "oklch(0.11 0.02 280)", border: "1px dashed oklch(0.2 0.04 264 / 0.5)" }}
+        style={{ background: "oklch(0.965 0.006 280)", border: "1px dashed oklch(0.55 0.03 264 / 0.35)" }}
       >
-        <Info size={16} className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.15 195)" }} />
-        <p className="text-xs leading-relaxed" style={{ color: "oklch(0.55 0.02 280)" }}>
+        <Info size={16} className="shrink-0 mt-0.5" style={{ color: "oklch(0.5 0.12 195)" }} />
+        <p className="text-xs leading-relaxed" style={{ color: "oklch(0.46 0.02 280)" }}>
           Indigold now syncs captures with the live API when online. A local cache remains available
-          for offline review. File assets are stored <strong style={{ color: "oklch(0.75 0.01 280)" }}>privately</strong> and
+          for offline review. File assets are stored <strong style={{ color: "oklch(0.38 0.02 280)" }}>privately</strong> and
           displayed through time-limited signed URLs.
         </p>
       </section>

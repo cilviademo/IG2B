@@ -93,17 +93,17 @@ export const CAPTURE_TYPE_LABEL: Record<CaptureType, string> = {
 };
 
 export const SENSITIVITY_COLOR: Record<Sensitivity, string> = {
-  public: "oklch(0.72 0.15 195)", // teal
-  internal: "oklch(0.6 0.2 264)", // indigo
-  private: "oklch(0.78 0.14 85)", // gold
+  public: "oklch(0.5 0.12 195)", // teal
+  internal: "oklch(0.5 0.2 264)", // indigo
+  private: "oklch(0.62 0.13 85)", // gold
   secret: "oklch(0.6 0.22 25)", // red
 };
 
 export const PROCESSING_META: Record<ProcessingStatus, { label: string; color: string }> = {
   unprocessed: { label: "Unprocessed", color: "oklch(0.5 0.02 280)" },
-  queued: { label: "Queued", color: "oklch(0.75 0.16 60)" },
-  processing: { label: "Processing", color: "oklch(0.6 0.2 264)" },
-  processed: { label: "Processed", color: "oklch(0.72 0.15 195)" },
+  queued: { label: "Queued", color: "oklch(0.6 0.15 60)" },
+  processing: { label: "Processing", color: "oklch(0.5 0.2 264)" },
+  processed: { label: "Processed", color: "oklch(0.5 0.12 195)" },
 };
 
 export const SENSITIVITY_CYCLE: Sensitivity[] = ["public", "internal", "private", "secret"];

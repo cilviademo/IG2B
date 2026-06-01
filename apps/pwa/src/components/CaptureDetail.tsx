@@ -61,22 +61,22 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
     <Sheet title="Capture" onClose={onClose}>
       <div className="space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.6 0.2 264)" }}>
+          <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.5 0.2 264)" }}>
             {CAPTURE_TYPE_LABEL[item.type]}
           </span>
           <span className="label-mono">{item.source}</span>
           {item.domain && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.72 0.15 195 / 0.18)", color: "oklch(0.72 0.15 195)" }}>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.5 0.12 195 / 0.16)", color: "oklch(0.5 0.12 195)" }}>
               {item.domain}{item.media ? ` · ${item.media}` : ""}
             </span>
           )}
           {item.auto_classified && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.78 0.14 85 / 0.18)", color: "oklch(0.78 0.14 85)" }}>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.62 0.13 85 / 0.16)", color: "oklch(0.62 0.13 85)" }}>
               auto
             </span>
           )}
           {item.synced && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.6 0.18 145 / 0.18)", color: "oklch(0.7 0.16 150)" }}>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.52 0.15 145 / 0.16)", color: "oklch(0.52 0.15 150)" }}>
               synced
             </span>
           )}
@@ -84,7 +84,7 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
             {item.sensitivity}
           </span>
           {item.local && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.78 0.14 85 / 0.18)", color: "oklch(0.78 0.14 85)" }}>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.62 0.13 85 / 0.16)", color: "oklch(0.62 0.13 85)" }}>
               local
             </span>
           )}
@@ -93,21 +93,21 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
         <h3 className="text-base font-semibold">{item.title}</h3>
 
         {item.url && (
-          <div className="flex items-center gap-1.5 text-xs font-mono break-all" style={{ color: "oklch(0.72 0.15 195)" }}>
+          <div className="flex items-center gap-1.5 text-xs font-mono break-all" style={{ color: "oklch(0.5 0.12 195)" }}>
             <Link2 size={12} className="shrink-0" /> {item.url}
           </div>
         )}
 
         {/* Uploaded file asset — shown via a private, time-limited signed URL */}
         {item.assetId && (
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid oklch(0.2 0.04 264 / 0.5)" }}>
+          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid oklch(0.55 0.03 264 / 0.35)" }}>
             {assetLoading && (
               <div className="flex items-center gap-2 p-3 label-mono">
                 <Loader2 size={14} className="animate-spin" /> loading file…
               </div>
             )}
             {!assetLoading && assetUrl && isImage && (
-              <img src={assetUrl} alt={item.title} className="w-full max-h-72 object-contain" style={{ background: "oklch(0.06 0.02 280)" }} />
+              <img src={assetUrl} alt={item.title} className="w-full max-h-72 object-contain" style={{ background: "oklch(0.97 0.005 280)" }} />
             )}
             {!assetLoading && assetUrl && (
               <a
@@ -115,7 +115,7 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-center gap-1.5 p-2.5 text-xs font-semibold"
-                style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.72 0.15 195)" }}
+                style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.12 195)" }}
               >
                 <FileDown size={14} /> Open file (signed link · expires)
               </a>
@@ -131,14 +131,14 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
         {body && (
           <div>
             <div className="label-mono mb-1">Body</div>
-            <p className="text-sm whitespace-pre-wrap" style={{ color: "oklch(0.75 0.01 280)" }}>{body}</p>
+            <p className="text-sm whitespace-pre-wrap" style={{ color: "oklch(0.38 0.02 280)" }}>{body}</p>
           </div>
         )}
 
         {item.user_note && (
           <div>
             <div className="label-mono mb-1">User note</div>
-            <p className="text-sm" style={{ color: "oklch(0.75 0.01 280)" }}>{item.user_note}</p>
+            <p className="text-sm" style={{ color: "oklch(0.38 0.02 280)" }}>{item.user_note}</p>
           </div>
         )}
 
@@ -146,7 +146,7 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
           <div>
             <div className="label-mono mb-1">Attached files</div>
             {item.files.map((f, i) => (
-              <div key={i} className="text-xs font-mono" style={{ color: "oklch(0.72 0.15 195)" }}>
+              <div key={i} className="text-xs font-mono" style={{ color: "oklch(0.5 0.12 195)" }}>
                 {f.name} · {f.type || "file"} · {Math.max(1, Math.round(f.size / 1024))} KB
               </div>
             ))}
@@ -156,25 +156,25 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: proc.color }} />
           <span className="label-mono" style={{ color: proc.color }}>{proc.label}</span>
-          <span className="label-mono" style={{ color: "oklch(0.4 0.02 280)" }}>· Layer A · {new Date(item.captured_at).toLocaleString()}</span>
+          <span className="label-mono" style={{ color: "oklch(0.55 0.015 280)" }}>· Layer A · {new Date(item.captured_at).toLocaleString()}</span>
         </div>
 
         {item.tags && item.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {item.tags.map((t) => (
-              <span key={t} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "oklch(0.14 0.02 280)", color: "oklch(0.55 0.02 280)" }}>{t}</span>
+              <span key={t} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "oklch(0.93 0.008 280)", color: "oklch(0.46 0.02 280)" }}>{t}</span>
             ))}
           </div>
         )}
 
         {item.provenance && (
-          <div className="flex items-center gap-1.5 label-mono" style={{ color: "oklch(0.4 0.02 280)" }}>
+          <div className="flex items-center gap-1.5 label-mono" style={{ color: "oklch(0.55 0.015 280)" }}>
             <Camera size={11} /> {item.provenance.capture_method} · {item.provenance.device} · {item.provenance.app_context}
           </div>
         )}
 
         {item.local && onDelete && (
-          <button onClick={onDelete} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold mt-1" style={{ background: "oklch(0.6 0.22 25 / 0.15)", color: "oklch(0.7 0.2 25)" }}>
+          <button onClick={onDelete} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold mt-1" style={{ background: "oklch(0.6 0.22 25 / 0.15)", color: "oklch(0.58 0.2 25)" }}>
             <Trash2 size={15} /> Delete capture
           </button>
         )}

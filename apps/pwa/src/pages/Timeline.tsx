@@ -14,18 +14,18 @@ import {
 const TIMELINE_IMG = "/images/timeline-header.png";
 
 const TYPE_CONFIG: Record<TimelineEvent["type"], { icon: typeof Users; color: string }> = {
-  connection: { icon: Users, color: "oklch(0.72 0.15 195)" },
-  discovery: { icon: Star, color: "oklch(0.78 0.14 85)" },
-  insight: { icon: Lightbulb, color: "oklch(0.75 0.16 60)" },
+  connection: { icon: Users, color: "oklch(0.5 0.12 195)" },
+  discovery: { icon: Star, color: "oklch(0.62 0.13 85)" },
+  insight: { icon: Lightbulb, color: "oklch(0.6 0.15 60)" },
   project: { icon: FolderOpen, color: "oklch(0.45 0.22 264)" },
-  architecture: { icon: Layers, color: "oklch(0.6 0.2 264)" },
-  milestone: { icon: Target, color: "oklch(0.78 0.14 85)" },
+  architecture: { icon: Layers, color: "oklch(0.5 0.2 264)" },
+  milestone: { icon: Target, color: "oklch(0.62 0.13 85)" },
 };
 
 const SIGNIFICANCE_DOT: Record<TimelineEvent["significance"], string> = {
-  critical: "oklch(0.78 0.14 85)",
-  high: "oklch(0.6 0.2 264)",
-  medium: "oklch(0.55 0.02 280)",
+  critical: "oklch(0.62 0.13 85)",
+  high: "oklch(0.5 0.2 264)",
+  medium: "oklch(0.46 0.02 280)",
 };
 
 function fmtDate(d: string): string {
@@ -52,11 +52,11 @@ export default function Timeline() {
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(to bottom, oklch(0.08 0.02 280 / 0.4), oklch(0.08 0.02 280) 95%)",
+              "linear-gradient(to bottom, oklch(0.985 0.004 280 / 0.6), oklch(0.985 0.004 280) 95%)",
           }}
         />
         <div className="absolute bottom-3 left-5 flex items-center gap-2">
-          <Clock size={16} style={{ color: "oklch(0.78 0.14 85)" }} />
+          <Clock size={16} style={{ color: "oklch(0.62 0.13 85)" }} />
           <span className="label-mono">Temporal View</span>
         </div>
       </div>
@@ -68,7 +68,7 @@ export default function Timeline() {
             className="absolute left-[7px] top-1 bottom-1 w-px"
             style={{
               background:
-                "linear-gradient(to bottom, oklch(0.45 0.22 264), oklch(0.78 0.14 85))",
+                "linear-gradient(to bottom, oklch(0.45 0.22 264), oklch(0.62 0.13 85))",
             }}
           />
           {events.map((ev, i) => {
@@ -83,11 +83,11 @@ export default function Timeline() {
                 {/* node dot */}
                 <span
                   className="absolute -left-[26px] top-1 w-3.5 h-3.5 rounded-full border-2"
-                  style={{ background: cfg.color, borderColor: "oklch(0.08 0.02 280)" }}
+                  style={{ background: cfg.color, borderColor: "oklch(0.985 0.004 280)" }}
                 />
                 <div
                   className="rounded-xl p-3.5 border-glow"
-                  style={{ background: "oklch(0.11 0.02 280)" }}
+                  style={{ background: "oklch(0.965 0.006 280)" }}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <Icon size={14} style={{ color: cfg.color }} />
@@ -98,11 +98,11 @@ export default function Timeline() {
                       title={ev.significance}
                     />
                   </div>
-                  <div className="label-mono mb-1" style={{ color: "oklch(0.4 0.02 280)" }}>
+                  <div className="label-mono mb-1" style={{ color: "oklch(0.55 0.015 280)" }}>
                     {fmtDate(ev.date)}
                   </div>
                   <h3 className="text-sm font-semibold mb-0.5">{ev.title}</h3>
-                  <p className="text-xs leading-relaxed" style={{ color: "oklch(0.55 0.02 280)" }}>
+                  <p className="text-xs leading-relaxed" style={{ color: "oklch(0.46 0.02 280)" }}>
                     {ev.description}
                   </p>
                 </div>
