@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { ArrowUpDown, Download, Upload, Info, KeyRound, Copy, Eye, EyeOff } from "lucide-react";
+import { ArrowUpDown, Download, Upload, Info, KeyRound, Copy, Eye, EyeOff, Activity } from "lucide-react";
 import { toast } from "sonner";
-import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError } from "@/lib/api";
+import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError, syncCaptureToApi, lastSyncError } from "@/lib/api";
 
 const DATA_FILES = [
   "sample_nodes",
@@ -20,6 +20,34 @@ export default function ImportExport() {
   const [token, setTokenState] = useState<string | null>(getToken());
   const [revealToken, setRevealToken] = useState(false);
   const [tokenBusy, setTokenBusy] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [syncBusy, setSyncBusy] = useState(false);
+
+  // Runs ONE real capture POST against /captures and reports the exact result —
+  // turns the silent "(local)" fallback into a visible HTTP status so we can see
+  // whether sync is failing on auth (401), validation (400), server (500), or CORS.
+  async function testSync() {
+    if (!apiEnabled()) {
+      setSyncMsg("API not configured (VITE_API_URL unset)");
+      return;
+    }
+    setSyncBusy(true);
+    setSyncMsg("testing…");
+    try {
+      const ok = await syncCaptureToApi({
+        type: "manual_text",
+        source: "sync_test",
+        title: `Sync test ${new Date().toISOString().slice(11, 19)}`,
+        user_note: "Diagnostic capture from the I/O tab",
+        sensitivity: "internal",
+      });
+      setSyncMsg(ok ? "✓ Sync OK — capture reached the database" : `✗ ${lastSyncError() || "sync failed"}`);
+    } catch (e) {
+      setSyncMsg(`✗ ${e instanceof Error ? e.message : "sync failed"}`);
+    } finally {
+      setSyncBusy(false);
+    }
+  }
 
   // The API token is the device bearer session used to authenticate uploads.
   // Ensures a session exists (registers the silent device account if needed),
@@ -190,6 +218,24 @@ export default function ImportExport() {
         {apiEnabled() && (
           <p className="label-mono" style={{ color: "oklch(0.4 0.02 280)" }}>
             upload endpoint · {apiBaseUrl()}/capture/upload
+          </p>
+        )}
+
+        {/* Diagnostic: prove a capture round-trips to the DB (surfaces the real status) */}
+        <button
+          onClick={testSync}
+          disabled={syncBusy}
+          className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold border-glow disabled:opacity-50"
+          style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.72 0.15 195)" }}
+        >
+          <Activity size={14} /> {syncBusy ? "Testing sync…" : "Test Sync to Backend"}
+        </button>
+        {syncMsg && (
+          <p
+            className="text-xs font-mono break-words"
+            style={{ color: syncMsg.startsWith("✓") ? "oklch(0.7 0.16 150)" : "oklch(0.78 0.16 35)" }}
+          >
+            {syncMsg}
           </p>
         )}
       </section>

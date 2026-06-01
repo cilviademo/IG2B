@@ -8,11 +8,14 @@
 function normalizeApiBase(raw: string): string {
   let v = raw.trim().replace(/\/+$/, "");
   if (!v) return "";
-  v = v.replace(/^https?:\/\//, ""); // strip scheme; we re-add https below
+  const explicit = v.match(/^(https?):\/\//)?.[1]; // honor an explicit scheme
+  v = v.replace(/^https?:\/\//, "");
   // Guard against a bare Render service name (e.g. "indigold-api") that has no
   // dot — a non-routable host. Expand it to the public *.onrender.com domain.
   if (!v.includes(".") && !v.includes(":")) v = `${v}.onrender.com`;
-  return `https://${v}`;
+  // Scheme: keep what was given; default localhost to http, everything else https.
+  const scheme = explicit || (/^localhost(:|$)|^127\.0\.0\.1(:|$)/.test(v) ? "http" : "https");
+  return `${scheme}://${v}`;
 }
 const BASE = normalizeApiBase(((import.meta as { env?: Record<string, string> }).env?.VITE_API_URL || ""));
 
@@ -133,26 +136,51 @@ function toBackendType(t: string): string {
   return BACKEND_TYPE[t] || "manual_text";
 }
 
-/** Push one capture to the backend (creates a capture -> enqueues worker pipeline). */
+// Surfaced to the UI so a failed capture sync reports the REAL reason (HTTP
+// status / CORS) instead of silently falling back to local-only.
+let lastSyncErr: string | null = null;
+export const lastSyncError = () => lastSyncErr;
+
+/** Push one capture to the backend (creates a capture -> enqueues worker pipeline).
+ *  Auto-recovers a stale/evicted session (401 -> re-mint -> retry once). */
 export async function syncCaptureToApi(cap: SyncableCapture): Promise<boolean> {
-  if (!apiEnabled()) return false;
-  if (!getToken() && !(await ensureSession())) return false;
-  try {
-    const body = {
-      type: toBackendType(cap.type),
-      source: cap.source,
-      title: cap.title,
-      note: cap.user_note || cap.body || "",
-      url: cap.url || undefined,
-      sensitivity: cap.sensitivity,
-    };
-    const res = await fetch(`${BASE}/captures`, {
+  lastSyncErr = null;
+  if (!apiEnabled()) {
+    lastSyncErr = "VITE_API_URL not set";
+    return false;
+  }
+  if (!getToken() && !(await ensureSession())) {
+    lastSyncErr = lastSessionError() || "no session";
+    return false;
+  }
+  const body = JSON.stringify({
+    type: toBackendType(cap.type),
+    source: cap.source,
+    title: cap.title,
+    note: cap.user_note || cap.body || "",
+    url: cap.url || undefined,
+    sensitivity: cap.sensitivity,
+  });
+  const post = () =>
+    fetch(`${BASE}/captures`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
-      body: JSON.stringify(body),
+      body,
     });
-    return res.ok;
-  } catch {
+  try {
+    let res = await post();
+    // A cached token can be stale (Redis LRU eviction / TTL). Re-mint once.
+    if (res.status === 401) {
+      clearToken();
+      if (await ensureSession()) res = await post();
+    }
+    if (!res.ok) {
+      lastSyncErr = `captures HTTP ${res.status} ${res.statusText}`;
+      return false;
+    }
+    return true;
+  } catch (e) {
+    lastSyncErr = `network/CORS reaching ${BASE}/captures: ${e instanceof Error ? e.message : "fetch failed"}`;
     return false;
   }
 }
@@ -178,11 +206,18 @@ export async function uploadFileToApi(
   if (meta.source) form.append("source", meta.source);
   if (meta.note) form.append("note", meta.note);
   form.append("file", file, filename); // field name MUST be "file"
-  const res = await fetch(`${BASE}/capture/upload`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${getToken()}` }, // do NOT set content-type; browser sets the multipart boundary
-    body: form,
-  });
+  const send = () =>
+    fetch(`${BASE}/capture/upload`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${getToken()}` }, // no content-type; browser sets the multipart boundary
+      body: form,
+    });
+  let res = await send();
+  if (res.status === 401) {
+    // stale/evicted session -> re-mint once and retry
+    clearToken();
+    if (await ensureSession()) res = await send();
+  }
   if (!res.ok) throw new Error(`upload_failed_${res.status}`);
   return (await res.json()) as UploadResult;
 }
