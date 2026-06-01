@@ -1,4 +1,5 @@
-import { Trash2, Link2, Camera } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Trash2, Link2, Camera, FileDown, Loader2 } from "lucide-react";
 import Sheet from "./Sheet";
 import {
   type CaptureType,
@@ -8,6 +9,7 @@ import {
   SENSITIVITY_COLOR,
   PROCESSING_META,
 } from "@/lib/types";
+import { assetSignedUrl } from "@/lib/api";
 
 export interface DetailItem {
   id: string;
@@ -28,6 +30,7 @@ export interface DetailItem {
   auto_classified?: boolean;
   files?: { name: string; type: string; size: number }[];
   synced?: boolean;
+  assetId?: string; // uploaded-file asset id -> fetch a signed URL on open
   provenance?: { capture_method?: string; device?: string; app_context?: string };
 }
 
@@ -35,6 +38,25 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
   const sens = SENSITIVITY_COLOR[item.sensitivity];
   const proc = PROCESSING_META[item.processing_status];
   const body = item.body || item.note || "";
+
+  // Uploaded-file assets are private; fetch a fresh, time-limited signed URL when
+  // the detail opens. The URL is never stored/cached — re-minted each view.
+  const [assetUrl, setAssetUrl] = useState<string | null>(null);
+  const [assetLoading, setAssetLoading] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    if (item.assetId) {
+      setAssetLoading(true);
+      assetSignedUrl(item.assetId)
+        .then((u) => !cancelled && setAssetUrl(u))
+        .finally(() => !cancelled && setAssetLoading(false));
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [item.assetId]);
+  const isImage = /(png|jpe?g|gif|webp|heic)/i.test(item.type) || item.type === "screenshot";
+
   return (
     <Sheet title="Capture" onClose={onClose}>
       <div className="space-y-3">
@@ -73,6 +95,36 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
         {item.url && (
           <div className="flex items-center gap-1.5 text-xs font-mono break-all" style={{ color: "oklch(0.72 0.15 195)" }}>
             <Link2 size={12} className="shrink-0" /> {item.url}
+          </div>
+        )}
+
+        {/* Uploaded file asset — shown via a private, time-limited signed URL */}
+        {item.assetId && (
+          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid oklch(0.2 0.04 264 / 0.5)" }}>
+            {assetLoading && (
+              <div className="flex items-center gap-2 p-3 label-mono">
+                <Loader2 size={14} className="animate-spin" /> loading file…
+              </div>
+            )}
+            {!assetLoading && assetUrl && isImage && (
+              <img src={assetUrl} alt={item.title} className="w-full max-h-72 object-contain" style={{ background: "oklch(0.06 0.02 280)" }} />
+            )}
+            {!assetLoading && assetUrl && (
+              <a
+                href={assetUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-1.5 p-2.5 text-xs font-semibold"
+                style={{ background: "oklch(0.11 0.02 280)", color: "oklch(0.72 0.15 195)" }}
+              >
+                <FileDown size={14} /> Open file (signed link · expires)
+              </a>
+            )}
+            {!assetLoading && !assetUrl && (
+              <div className="p-3 label-mono" style={{ color: "oklch(0.6 0.22 25)" }}>
+                file unavailable (sign in / online required)
+              </div>
+            )}
           </div>
         )}
 

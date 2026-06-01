@@ -14,13 +14,33 @@ const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "8mb" }));
 
-// PWA_ORIGIN may arrive as a bare host (Render `property: host`) — add scheme.
-const origins = (process.env.PWA_ORIGIN || "")
+// CORS: the PWA and API are SEPARATE Render services, so the API must allow the
+// PWA's cross-origin requests (Authorization header on POST). Bearer-header auth
+// (no cookies), so credentials are not needed. Allow: no-Origin (curl/health),
+// the configured PWA origin(s), and the user's own *.onrender.com deployments —
+// this covers a host suffix/rename mismatch, the typical "couldn't reach" cause.
+const configuredOrigins = (process.env.PWA_ORIGIN || "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean)
   .map((o) => (/^https?:\/\//.test(o) ? o : `https://${o}`));
-app.use(cors({ origin: origins.length ? origins : true, credentials: true }));
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (!origin) return cb(null, true); // curl, server-to-server, health checks
+      if (configuredOrigins.includes(origin)) return cb(null, true);
+      try {
+        if (new URL(origin).hostname.endsWith(".onrender.com")) return cb(null, true);
+      } catch {
+        /* malformed origin -> deny */
+      }
+      return cb(null, false);
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86400,
+  }),
+);
 
 // health/readiness must not depend on the rate limiter or KV
 app.use("/", health);

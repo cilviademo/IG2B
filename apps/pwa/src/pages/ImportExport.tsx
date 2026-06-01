@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { ArrowUpDown, Download, Upload, Info, KeyRound, Copy, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { apiEnabled, apiBaseUrl, getToken, ensureSession } from "@/lib/api";
+import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError } from "@/lib/api";
 
 const DATA_FILES = [
   "sample_nodes",
@@ -37,7 +37,7 @@ export default function ImportExport() {
         const ok = await ensureSession();
         t = ok ? getToken() : null;
       }
-      if (!t) throw new Error("Couldn't reach the API to get a token");
+      if (!t) throw new Error(lastSessionError() || "Couldn't reach the API to get a token");
       setTokenState(t);
       try {
         await navigator.clipboard.writeText(t);
@@ -200,9 +200,9 @@ export default function ImportExport() {
       >
         <Info size={16} className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.15 195)" }} />
         <p className="text-xs leading-relaxed" style={{ color: "oklch(0.55 0.02 280)" }}>
-          v0.1 prototype: data is in-memory and synthetic. Export bundles all seven fixtures via the
-          Blob API; Import validates structure only — there is <strong style={{ color: "oklch(0.75 0.01 280)" }}>no
-          persistence and no cloud sync</strong>. Everything stays on-device.
+          Indigold now syncs captures with the live API when online. A local cache remains available
+          for offline review. File assets are stored <strong style={{ color: "oklch(0.75 0.01 280)" }}>privately</strong> and
+          displayed through time-limited signed URLs.
         </p>
       </section>
     </div>

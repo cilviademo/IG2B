@@ -34,7 +34,7 @@ import CaptureForm from "@/components/CaptureForm";
 import CaptureDetail, { type DetailItem } from "@/components/CaptureDetail";
 import Sheet from "@/components/Sheet";
 import { listCaptures, removeCapture, subscribeCaptures, exportCaptures, importCaptures, markSynced, type LocalCapture } from "@/lib/captureStore";
-import { apiEnabled, ensureSession, syncCaptureToApi } from "@/lib/api";
+import { apiEnabled, ensureSession, syncCaptureToApi, fetchCaptures, type BackendCapture } from "@/lib/api";
 
 const TYPE_ICON: Record<CaptureType, LucideIcon> = {
   apple_note: StickyNote,
@@ -71,10 +71,32 @@ function sampleToDetail(c: Capture): DetailItem {
     captured_at: c.captured_at, url: c.url ?? undefined, note: c.note,
   };
 }
+function backendToDetail(c: BackendCapture): DetailItem {
+  return {
+    id: c.id,
+    local: false,
+    type: c.type as CaptureType,
+    title: c.title,
+    source: c.source,
+    sensitivity: c.sensitivity as DetailItem["sensitivity"],
+    processing_status: c.processing_status as DetailItem["processing_status"],
+    captured_at: c.captured_at,
+    url: c.url ?? undefined,
+    note: c.note,
+    synced: true,
+    // screenshot_ref carries the asset id for uploaded-file captures
+    assetId: c.screenshot_ref ?? undefined,
+  };
+}
 
 export default function Inbox() {
-  const { data, loading, error } = useJson<{ items: Capture[] }>("/data/sample_inbox.json");
+  // When the API is unavailable we fall back to the synthetic demo fixture so the
+  // UI isn't empty in standalone/offline mode; live data replaces it when present.
+  const { data } = useJson<{ items: Capture[] }>("/data/sample_inbox.json");
+  const loading = false;
+  const error = null as string | null;
   const [local, setLocal] = useState<LocalCapture[]>([]);
+  const [remote, setRemote] = useState<BackendCapture[] | null>(null);
   const [filter, setFilter] = useState<CaptureType | "all">("all");
   const [showForm, setShowForm] = useState(false);
   const [detail, setDetail] = useState<DetailItem | null>(null);
@@ -87,8 +109,9 @@ export default function Inbox() {
     return subscribeCaptures(() => setLocal(listCaptures()));
   }, []);
 
-  // Best-effort backend sync (local-first): push unsynced captures so the worker
-  // runs enrichment/graph/context. Silent if the API is unset/asleep/offline.
+  // Live vault read: sync unsynced local items up, then pull the authoritative
+  // list from the database. Reload-safe (DB-backed). Silent fallback to local
+  // cache + fixture if the API is unset/asleep/offline.
   useEffect(() => {
     if (!apiEnabled()) return;
     let cancelled = false;
@@ -98,6 +121,8 @@ export default function Inbox() {
         if (c.synced || cancelled) continue;
         if (await syncCaptureToApi(c)) markSynced(c.id);
       }
+      const items = await fetchCaptures();
+      if (!cancelled) setRemote(items);
     })();
     return () => {
       cancelled = true;
@@ -105,11 +130,22 @@ export default function Inbox() {
   }, [local.length]);
 
   const items: DetailItem[] = useMemo(() => {
-    const locals = local.map(localToDetail);
-    const samples = (data?.items ?? []).map(sampleToDetail);
-    const all = [...locals, ...samples];
+    // Local items not yet confirmed synced (offline cache); once a capture exists
+    // on the backend we show the authoritative remote copy instead.
+    const unsynced = local.filter((c) => !c.synced).map(localToDetail);
+    let backendOrFixture: DetailItem[];
+    if (remote !== null) {
+      backendOrFixture = remote.map(backendToDetail); // live DB read
+    } else {
+      // API not reachable yet: synced-local cache + demo fixture as a placeholder.
+      backendOrFixture = [
+        ...local.filter((c) => c.synced).map(localToDetail),
+        ...(data?.items ?? []).map(sampleToDetail),
+      ];
+    }
+    const all = [...unsynced, ...backendOrFixture];
     return filter === "all" ? all : all.filter((i) => i.type === filter);
-  }, [local, data, filter]);
+  }, [local, remote, data, filter]);
 
   const presentTypes = useMemo(() => {
     const set = new Set<CaptureType>();

@@ -49,10 +49,19 @@ export const api = {
 // ---------------------------------------------------------------------------
 const DEVICE_KEY = "indigold_device";
 
+// Surfaced to the UI so a failed token mint reports the REAL reason (CORS/network
+// vs auth 500 vs missing build URL) instead of a generic "couldn't reach".
+let lastSessionErr: string | null = null;
+export const lastSessionError = () => lastSessionErr;
+
 /** Ensure we have a bearer token — uses a per-device account so the user never
  *  sees a login screen (keeps the "no forms" UX). Returns false if API is off. */
 export async function ensureSession(): Promise<boolean> {
-  if (!apiEnabled()) return false;
+  lastSessionErr = null;
+  if (!apiEnabled()) {
+    lastSessionErr = "VITE_API_URL is not set in this PWA build";
+    return false;
+  }
   if (getToken()) return true;
   let creds: { email: string; password: string } | null = null;
   try {
@@ -70,14 +79,20 @@ export async function ensureSession(): Promise<boolean> {
     if (r.status === 409) {
       r = await fetch(`${BASE}/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(creds) });
     }
-    if (!r.ok) return false;
+    if (!r.ok) {
+      lastSessionErr = `auth HTTP ${r.status} ${r.statusText} @ ${BASE}`;
+      return false;
+    }
     const j = (await r.json()) as { token?: string };
     if (j.token) {
       setToken(j.token);
       return true;
     }
-  } catch {
-    /* offline / asleep — stay local */
+    lastSessionErr = "auth response had no token";
+  } catch (e) {
+    // A thrown fetch from a cross-origin POST is almost always a CORS/preflight
+    // block or a network/DNS error — distinct from an HTTP error above.
+    lastSessionErr = `network/CORS error reaching ${BASE}: ${e instanceof Error ? e.message : "fetch failed"}`;
   }
   return false;
 }
@@ -161,6 +176,35 @@ export async function uploadFileToApi(
   });
   if (!res.ok) throw new Error(`upload_failed_${res.status}`);
   return (await res.json()) as UploadResult;
+}
+
+export interface BackendCapture {
+  id: string;
+  type: string;
+  source: string;
+  captured_at: string;
+  sensitivity: string;
+  processing_status: string;
+  status: string;
+  title: string;
+  note: string;
+  url: string | null;
+  screenshot_ref: string | null; // asset id for uploaded-file captures
+}
+
+/** Live read of the user's captures from the database. Returns [] if the API is
+ *  unreachable (caller falls back to the local cache). Ensures a session first. */
+export async function fetchCaptures(): Promise<BackendCapture[]> {
+  if (!apiEnabled()) return [];
+  if (!getToken() && !(await ensureSession())) return [];
+  try {
+    const res = await fetch(`${BASE}/captures`, { headers: { authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) return [];
+    const j = (await res.json()) as { items?: BackendCapture[] };
+    return j.items ?? [];
+  } catch {
+    return [];
+  }
 }
 
 /** Fetch a fresh signed URL for an owned asset (links expire). */
