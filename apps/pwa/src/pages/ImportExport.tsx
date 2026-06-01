@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { ArrowUpDown, Download, Upload, Info } from "lucide-react";
+import { ArrowUpDown, Download, Upload, Info, KeyRound, Copy, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { apiEnabled, apiBaseUrl, getToken, ensureSession } from "@/lib/api";
 
 const DATA_FILES = [
   "sample_nodes",
@@ -16,6 +17,41 @@ export default function ImportExport() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [lastImport, setLastImport] = useState<string | null>(null);
+  const [token, setTokenState] = useState<string | null>(getToken());
+  const [revealToken, setRevealToken] = useState(false);
+  const [tokenBusy, setTokenBusy] = useState(false);
+
+  // The API token is the device bearer session used to authenticate uploads.
+  // Ensures a session exists (registers the silent device account if needed),
+  // then copies the token so it can be pasted into the iOS Shortcut's
+  // Authorization: Bearer <token> header for /capture/upload.
+  async function copyApiToken() {
+    if (!apiEnabled()) {
+      toast.error("API not configured", { description: "VITE_API_URL is unset; uploads/token need the backend." });
+      return;
+    }
+    setTokenBusy(true);
+    try {
+      let t = getToken();
+      if (!t) {
+        const ok = await ensureSession();
+        t = ok ? getToken() : null;
+      }
+      if (!t) throw new Error("Couldn't reach the API to get a token");
+      setTokenState(t);
+      try {
+        await navigator.clipboard.writeText(t);
+        toast.success("API token copied", { description: "Paste into the Shortcut's Authorization header (after 'Bearer ')." });
+      } catch {
+        setRevealToken(true);
+        toast("Copy manually", { description: "Clipboard blocked — token is shown below." });
+      }
+    } catch (e) {
+      toast.error("Token unavailable", { description: e instanceof Error ? e.message : "unknown" });
+    } finally {
+      setTokenBusy(false);
+    }
+  }
 
   async function handleExport() {
     setBusy(true);
@@ -105,6 +141,58 @@ export default function ImportExport() {
           last import · {lastImport}
         </p>
       )}
+
+      {/* Device API token — for the iOS Shortcut file-upload branch */}
+      <section
+        className="rounded-2xl p-4 space-y-3"
+        style={{ background: "oklch(0.11 0.02 280)", border: "1px solid oklch(0.2 0.04 264 / 0.5)" }}
+      >
+        <div className="flex items-center gap-2">
+          <KeyRound size={16} style={{ color: "oklch(0.78 0.14 85)" }} />
+          <span className="label-mono">Device API Token</span>
+        </div>
+        <p className="text-xs leading-relaxed" style={{ color: "oklch(0.55 0.02 280)" }}>
+          For the iOS Shortcut <strong style={{ color: "oklch(0.75 0.01 280)" }}>file-upload</strong> branch.
+          Paste into the Shortcut’s header: <span className="font-mono">Authorization: Bearer &lt;token&gt;</span>.
+          Treat it like a password — it authenticates your vault uploads.
+        </p>
+
+        <button
+          onClick={copyApiToken}
+          disabled={tokenBusy}
+          className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold disabled:opacity-50"
+          style={{ background: "oklch(0.45 0.22 264)", color: "oklch(0.95 0.01 280)" }}
+        >
+          <Copy size={15} /> {tokenBusy ? "Preparing…" : "Copy API Token"}
+        </button>
+
+        {token && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="label-mono">token</span>
+              <button
+                onClick={() => setRevealToken((r) => !r)}
+                className="flex items-center gap-1 label-mono"
+                style={{ color: "oklch(0.6 0.2 264)" }}
+              >
+                {revealToken ? <EyeOff size={11} /> : <Eye size={11} />} {revealToken ? "hide" : "reveal"}
+              </button>
+            </div>
+            <code
+              className="block text-[10px] font-mono break-all rounded-lg p-2"
+              style={{ background: "oklch(0.08 0.02 280)", color: "oklch(0.7 0.02 280)" }}
+            >
+              {revealToken ? token : "•".repeat(Math.min(40, token.length))}
+            </code>
+          </div>
+        )}
+
+        {apiEnabled() && (
+          <p className="label-mono" style={{ color: "oklch(0.4 0.02 280)" }}>
+            upload endpoint · {apiBaseUrl()}/capture/upload
+          </p>
+        )}
+      </section>
 
       <section
         className="rounded-2xl p-4 flex gap-3"

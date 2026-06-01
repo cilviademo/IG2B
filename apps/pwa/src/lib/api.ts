@@ -8,6 +8,7 @@ const RAW = ((import.meta as { env?: Record<string, string> }).env?.VITE_API_URL
 const BASE = RAW ? (/^https?:\/\//.test(RAW) ? RAW : `https://${RAW}`).replace(/\/$/, "") : "";
 
 export const apiEnabled = () => BASE !== "";
+export const apiBaseUrl = () => BASE;
 
 const TOKEN_KEY = "indigold_token";
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
