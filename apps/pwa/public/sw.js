@@ -9,7 +9,7 @@
  *   the documented path to fully-local assets is to self-host the fonts.
  * - No analytics, no telemetry, no data exfiltration. */
 
-const CACHE = "indigold-v0.8.0";
+const CACHE = "indigold-v0.9.0";
 
 const PRECACHE = [
   "/",
