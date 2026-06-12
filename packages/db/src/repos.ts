@@ -223,3 +223,97 @@ export const usage = {
     );
   },
 };
+
+// ---- RADIAN 2.0 (Wave 0) ----
+
+export interface ProjectRow {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  status: string;
+  tags: string[];
+  objectives: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const projects = {
+  async list(userId: string) {
+    const r = await query<ProjectRow>(`SELECT * FROM projects WHERE user_id=$1 ORDER BY name ASC`, [userId]);
+    return r.rows;
+  },
+  async get(userId: string, id: string) {
+    const r = await query<ProjectRow>(`SELECT * FROM projects WHERE user_id=$1 AND id=$2`, [userId, id]);
+    return r.rows[0] || null;
+  },
+  async count(userId: string) {
+    const r = await query<{ n: string }>(`SELECT COUNT(*)::text AS n FROM projects WHERE user_id=$1`, [userId]);
+    return Number(r.rows[0]?.n || 0);
+  },
+  async upsert(p: { id: string; user_id: string; name: string; description?: string; status?: string; tags?: string[]; objectives?: string }) {
+    await query(
+      `INSERT INTO projects (id,user_id,name,description,status,tags,objectives)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (id) DO UPDATE SET name=$3, description=$4, status=$5, tags=$6, objectives=$7, updated_at=now()`,
+      [p.id, p.user_id, p.name, p.description ?? "", p.status ?? "active", JSON.stringify(p.tags ?? []), p.objectives ?? ""],
+    );
+  },
+  async patch(userId: string, id: string, patch: Partial<Pick<ProjectRow, "name" | "description" | "status" | "tags" | "objectives">>) {
+    const fields: string[] = [];
+    const vals: unknown[] = [userId, id];
+    for (const [k, val] of Object.entries(patch)) {
+      if (["name", "description", "status", "tags", "objectives"].includes(k)) {
+        vals.push(k === "tags" ? JSON.stringify(val) : val);
+        fields.push(`${k}=$${vals.length}`);
+      }
+    }
+    if (!fields.length) return;
+    await query(`UPDATE projects SET ${fields.join(",")}, updated_at=now() WHERE user_id=$1 AND id=$2`, vals);
+  },
+};
+
+export const aiCalls = {
+  async log(c: {
+    id: string; user_id: string; purpose: string; provider: string; model: string; tier: string;
+    input_tokens: number; output_tokens: number; cost_cents: number; source_id?: string | null; prompt_version?: string | null; status?: string;
+  }) {
+    await query(
+      `INSERT INTO ai_calls (id,user_id,purpose,provider,model,tier,input_tokens,output_tokens,cost_cents,source_id,prompt_version,status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [c.id, c.user_id, c.purpose, c.provider, c.model, c.tier, c.input_tokens, c.output_tokens, c.cost_cents, c.source_id ?? null, c.prompt_version ?? null, c.status ?? "ok"],
+    );
+  },
+  /** Month-to-date spend in cents (the budget governor's input). */
+  async monthCostCents(userId: string) {
+    const r = await query<{ c: string }>(
+      `SELECT COALESCE(SUM(cost_cents),0)::text AS c FROM ai_calls
+       WHERE user_id=$1 AND created_at >= date_trunc('month', now())`,
+      [userId],
+    );
+    return Number(r.rows[0]?.c || 0);
+  },
+  /** Spend grouped by purpose this month (Meta-Radian input). */
+  async monthByPurpose(userId: string) {
+    const r = await query<{ purpose: string; cost: string; calls: string }>(
+      `SELECT purpose, COALESCE(SUM(cost_cents),0)::text AS cost, COUNT(*)::text AS calls FROM ai_calls
+       WHERE user_id=$1 AND created_at >= date_trunc('month', now()) GROUP BY purpose ORDER BY 2 DESC`,
+      [userId],
+    );
+    return r.rows.map((x) => ({ purpose: x.purpose, cost_cents: Number(x.cost), calls: Number(x.calls) }));
+  },
+};
+
+export const promptOverrides = {
+  async get(userId: string, key: string) {
+    const r = await query<{ version: string }>(`SELECT version FROM prompt_overrides WHERE user_id=$1 AND key=$2`, [userId, key]);
+    return r.rows[0] || null;
+  },
+  async set(userId: string, key: string, version: string, body?: object) {
+    await query(
+      `INSERT INTO prompt_overrides (user_id,key,version,body) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (user_id,key) DO UPDATE SET version=$3, body=$4, updated_at=now()`,
+      [userId, key, version, body ? JSON.stringify(body) : null],
+    );
+  },
+};

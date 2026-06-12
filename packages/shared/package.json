@@ -7,7 +7,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/types.ts",
-    "./contracts": "./src/contracts.ts"
+    "./contracts": "./src/contracts.ts",
+    "./intelligence": "./src/intelligence.ts",
+    "./model": "./src/model.ts",
+    "./prompts": "./src/prompts.ts",
+    "./registry": "./src/registry.ts"
   },
   "dependencies": {
     "ioredis": "^5.4.1",
