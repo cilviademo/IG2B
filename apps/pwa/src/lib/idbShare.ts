@@ -71,3 +71,26 @@ export async function putFile(id: string, rec: { name: string; type: string; siz
     /* ignore */
   }
 }
+
+/** Read a previously-persisted file blob back (for a queued upload retry). */
+export async function getFile(id: string): Promise<{ name: string; type: string; size: number; blob: Blob } | null> {
+  try {
+    const v = await tx<{ name: string; type: string; size: number; blob: Blob }>(
+      "files",
+      "readonly",
+      (s) => s.get(id) as IDBRequest<{ name: string; type: string; size: number; blob: Blob }>,
+    );
+    return v && v.blob ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Drop a persisted file blob once it's been uploaded (frees device storage). */
+export async function delFile(id: string): Promise<void> {
+  try {
+    await tx("files", "readwrite", (s) => s.delete(id) as unknown as IDBRequest<void>);
+  } catch {
+    /* ignore */
+  }
+}
