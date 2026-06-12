@@ -5,8 +5,8 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f7f7fb",
-  "theme_color": "#f7f7fb",
+  "background_color": "#0c0d11",
+  "theme_color": "#0c0d11",
   "orientation": "portrait-primary",
   "categories": ["productivity", "utilities"],
   "share_target": {

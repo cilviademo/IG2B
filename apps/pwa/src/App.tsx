@@ -49,7 +49,7 @@ function App() {
           <WouterRouter {...routerProps}>
             <div
               className="min-h-[100dvh] flex flex-col safe-top"
-              style={{ background: "oklch(0.985 0.004 280)" }}
+              style={{ background: "var(--bg)" }}
             >
               <main className="flex-1 overflow-y-auto pb-20">
                 <Routes />

@@ -1,26 +1,116 @@
 @import "tailwindcss";
 
 /* ===========================================================================
-   Indigold — "Deep Space Observatory" theme (Cosmic Minimalism)
-   Color system in OKLCH. Most component colors are applied inline in TSX using
-   these same values; the tokens below back the global surfaces + helper classes.
+   Indigold — "Vault" design system
+   Deep indigo-black field · cream ink · one gold accent. Semantic colors
+   (risk / good / info) are reserved for 6px dots and thin meter fills only.
+
+   Typography
+     Display : Syne          (app wordmark, screen titles, brief headline)
+     Body/UI : Inter Tight    (everything else, sentence case)
+     Data    : IBM Plex Mono  (numbers, timestamps, tokens, IDs — never labels)
+
+   Fonts are self-hosted (public/fonts/*.woff2) — no runtime Google Fonts, so
+   the PWA renders fully offline. Total payload ~96 KB (latin subsets).
    =========================================================================== */
 
-:root {
-  --bg: oklch(0.985 0.004 280);
-  --surface: oklch(0.965 0.006 280);
-  --surface-elevated: oklch(0.93 0.008 280);
-  --indigo: oklch(0.45 0.22 264);
-  --indigo-light: oklch(0.5 0.2 264);
-  --gold: oklch(0.62 0.13 85);
-  --amber: oklch(0.6 0.15 60);
-  --teal: oklch(0.5 0.12 195);
-  --red: oklch(0.6 0.22 25);
-  --text-primary: oklch(0.22 0.02 280);
-  --text-secondary: oklch(0.38 0.02 280);
-  --text-muted: oklch(0.46 0.02 280);
-  --text-dim: oklch(0.55 0.015 280);
-  --border: oklch(0.55 0.03 264 / 0.3);
+@font-face {
+  font-family: "Syne";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/syne-var.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter Tight";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-tight-var.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-400.woff2") format("woff2");
+}
+
+/* ---------------------------------------------------------------------------
+   Token roles. Dark is the default ("Vault"); light derives from the same
+   roles (same gold) and activates under html.light. Legacy variable names are
+   kept as aliases so not-yet-converted screens keep rendering during the pass.
+   --------------------------------------------------------------------------- */
+:root,
+html.dark {
+  /* Indigold palette */
+  --bg: #0c0d11;          /* indigo-black field */
+  --surface: #13151a;      /* raised surface, rare */
+  --surface-2: #181b21;
+  --line: #22252d;         /* hairlines, 1px */
+  --text: #eae6da;         /* cream */
+  --text-dim: #8e929c;
+  --gold: #c9a45c;         /* THE accent */
+  --gold-soft: rgba(201, 164, 92, 0.14);
+  --gold-line: rgba(201, 164, 92, 0.4);
+  /* semantic — dots + meters ONLY */
+  --risk: #c25450;
+  --good: #4fa08b;
+  --info: #6b7db3;
+  --person: #4fa08b;
+  --knowledge: #6b7db3;
+  --project: #eae6da;
+  --theme: #c9a45c;
+
+  /* radius scale: 0 rules · 6px inputs/buttons · 10px true cards */
+  --r-sm: 6px;
+  --r-md: 10px;
+
+  /* legacy aliases (mapped to roles) */
+  --surface-elevated: var(--surface-2);
+  --indigo: var(--info);
+  --indigo-light: var(--info);
+  --amber: var(--gold);
+  --teal: var(--good);
+  --red: var(--risk);
+  --text-primary: var(--text);
+  --text-secondary: var(--text);
+  --text-muted: var(--text-dim);
+  --border: var(--line);
+
+  color-scheme: dark;
+}
+
+html.light {
+  --bg: #f4f3ef;
+  --surface: #ffffff;
+  --surface-2: #eceae3;
+  --line: #d9d6cd;
+  --text: #1a1b1e;
+  --text-dim: #6b6f78;
+  --gold: #a9863f;        /* darkened gold for AA contrast on cream */
+  --gold-soft: rgba(169, 134, 63, 0.12);
+  --gold-line: rgba(169, 134, 63, 0.4);
+  --risk: #b0413d;
+  --good: #3c8270;
+  --info: #56689e;
+  --person: #3c8270;
+  --knowledge: #56689e;
+  --project: #1a1b1e;
+  --theme: #a9863f;
+
+  --surface-elevated: var(--surface-2);
+  --indigo: var(--info);
+  --indigo-light: var(--info);
+  --amber: var(--gold);
+  --teal: var(--good);
+  --red: var(--risk);
+  --text-primary: var(--text);
+  --text-secondary: var(--text);
+  --text-muted: var(--text-dim);
+  --border: var(--line);
+
+  color-scheme: light;
 }
 
 * {
@@ -37,58 +127,86 @@ body,
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--text-secondary);
-  font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  color: var(--text);
+  font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
 }
 
-h1, h2, h3, h4 {
-  color: var(--text-primary);
+/* Display face — titles, wordmark, brief headline. Used sparingly. */
+h1, h2, h3, h4, .font-display {
+  font-family: "Syne", "Inter Tight", system-ui, sans-serif;
+  color: var(--text);
   font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
 }
 
 /* ---- Safe areas (iPhone notch / home indicator) ---- */
 .safe-top { padding-top: env(safe-area-inset-top); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
-/* ---- Monospace label ---- */
+/* ---- Data face (numbers / timestamps / IDs). NOT for labels. ---- */
+.font-mono,
+.font-data {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---- Eyebrow / caption label (sentence case body face; mono only if numeric).
+   Kept as a class name for back-compat with screens not yet converted, but the
+   shouty uppercase/tracking is gone — it's now a quiet dim caption. ---- */
 .label-mono {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
+  font-family: "Inter Tight", system-ui, sans-serif;
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-dim);
 }
-.font-mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+/* Tiny numeric captions may track slightly when explicitly mono. */
+.cap-data {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+}
 
-/* ---- Glow border card ---- */
+/* ---- Hairline rule ---- */
+.rule { border: 0; border-top: 1px solid var(--line); margin: 0; }
+
+/* ---- Card / interactive surface ---- */
 .border-glow {
-  border: 1px solid oklch(0.55 0.03 264 / 0.25);
-  transition: box-shadow 200ms, border-color 200ms;
+  border: 1px solid var(--line);
+  transition: border-color 160ms ease;
 }
-.border-glow:hover {
-  border-color: oklch(0.5 0.06 264 / 0.4);
-  box-shadow: 0 0 20px oklch(0.45 0.22 264 / 0.08);
-}
+.border-glow:hover { border-color: var(--gold-line); }
 
-.glow-text-gold { text-shadow: 0 0 30px oklch(0.62 0.13 85 / 0.25); }
+.glow-text-gold { text-shadow: none; }
 
 /* ---- Tab states ---- */
-.tab-active { color: oklch(0.5 0.2 264); }
-.tab-inactive { color: oklch(0.42 0.02 280); }
+.tab-active { color: var(--gold); }
+.tab-inactive { color: var(--text-dim); }
 
-.transition-glow { transition: all 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.transition-glow { transition: all 180ms cubic-bezier(0.23, 1, 0.32, 1); }
+
+/* ---- Focus ring (accessibility floor) ---- */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
 
 /* ---- Entry animation ---- */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-in-up {
   opacity: 0;
-  animation: fadeInUp 300ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  animation: fadeInUp 280ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
 @keyframes pulseDot {
@@ -96,6 +214,16 @@ h1, h2, h3, h4 {
   50% { opacity: 0.4; transform: scale(0.85); }
 }
 .pulse-dot { animation: pulseDot 2.4s ease-in-out infinite; }
+
+/* ---- Reduced motion: disable drift + entry/pulse animations ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .animate-fade-in-up { opacity: 1; }
+}
 
 /* ---- Scrollbar ---- */
 ::-webkit-scrollbar { width: 0; height: 0; }
