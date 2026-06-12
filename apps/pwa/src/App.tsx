@@ -43,7 +43,7 @@ function App() {
   const routerProps = isFileProtocol ? { hook: useHashLocation } : {};
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultTheme="dark">
         <TooltipProvider delayDuration={200}>
           <Toaster />
           <WouterRouter {...routerProps}>

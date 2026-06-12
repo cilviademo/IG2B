@@ -11,6 +11,7 @@ import {
 import { persistCaptureFromParams, markSynced } from "@/lib/captureStore";
 import { type CaptureParams, coerceType, buildDeepLink, buildShortcutTemplate } from "@/lib/deeplink";
 import { apiEnabled, ensureSession, syncCaptureToApi, lastSyncError } from "@/lib/api";
+import { Button, Dot } from "@/components/primitives";
 
 // The 8 capture types supported in test mode.
 const TYPES: CaptureType[] = [
@@ -50,11 +51,12 @@ const DEFAULT_SOURCE: Record<CaptureType, string> = {
 const SENS: Sensitivity[] = ["public", "internal", "private", "secret"];
 const PROC: ProcessingStatus[] = ["unprocessed", "queued", "processing", "processed"];
 
-const inputCls = "w-full rounded-xl px-3 py-2.5 text-sm";
+const inputCls = "w-full px-3 py-2.5 text-sm";
 const inputStyle = {
-  background: "oklch(0.985 0.004 280)",
-  border: "1px solid oklch(0.55 0.03 264 / 0.35)",
-  color: "oklch(0.22 0.02 280)",
+  background: "var(--bg)",
+  border: "1px solid var(--line)",
+  color: "var(--text)",
+  borderRadius: 6,
 } as const;
 const labelCls = "label-mono block mb-1";
 
@@ -162,7 +164,7 @@ export default function CaptureForm({
     <Sheet title={prefilled ? "Confirm Capture" : "New Capture"} onClose={onClose}>
       <div className="space-y-3">
         {prefilled && (
-          <p className="label-mono" style={{ color: "oklch(0.62 0.13 85)" }}>
+          <p style={{ fontSize: 12, color: "var(--gold)" }}>
             {prefilledLabel ?? "Pre-filled from a deep link — review and tap Save."}
           </p>
         )}
@@ -224,40 +226,35 @@ export default function CaptureForm({
         </div>
 
         {isReel && (
-          <p className="label-mono" style={{ color: "oklch(0.55 0.015 280)" }}>
+          <p style={{ fontSize: 12, color: "var(--text-dim)" }}>
             Instagram: only URL + note + optional caption/screenshot text are stored. No video scraping or summarization.
           </p>
         )}
 
         {/* Deep-link test tools */}
         <div className="flex gap-2">
-          <button onClick={() => copyText(buildDeepLink(window.location.origin, currentParams()), "Deep link")} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.12 195)" }}>
-            <Link2 size={13} /> Copy Deep Link
+          <button onClick={() => copyText(buildDeepLink(window.location.origin, currentParams()), "Deep link")} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
+            <Link2 size={13} strokeWidth={1.5} /> Copy deep link
           </button>
-          <button onClick={() => copyText(buildShortcutTemplate(window.location.origin), "Shortcut URL")} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.2 264)" }}>
-            <Wand2 size={13} /> Generate Shortcut URL
+          <button onClick={() => copyText(buildShortcutTemplate(window.location.origin), "Shortcut URL")} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
+            <Wand2 size={13} strokeWidth={1.5} /> Shortcut URL
           </button>
         </div>
 
         {saveStatus && (
-          <p
-            className="text-xs font-mono break-words rounded-lg px-3 py-2"
-            style={{
-              background: "oklch(0.985 0.004 280)",
-              color: saveStatus.startsWith("synced") ? "oklch(0.52 0.15 150)" : saveStatus.startsWith("NOT") ? "oklch(0.58 0.18 35)" : "oklch(0.5 0.2 264)",
-            }}
-          >
-            sync status: {saveStatus}
-          </p>
+          <div className="flex items-start gap-2 px-3 py-2" style={{ background: "var(--bg)", borderRadius: 6 }}>
+            <span className="mt-1" style={{ flexShrink: 0 }}>
+              <Dot color={saveStatus.startsWith("synced") ? "var(--good)" : saveStatus.startsWith("NOT") ? "var(--risk)" : "var(--info)"} />
+            </span>
+            <span className="text-xs font-mono break-words" style={{ color: "var(--text-dim)" }}>sync status: {saveStatus}</span>
+          </div>
         )}
 
         <div className="flex gap-2 pt-1">
-          <button onClick={onClose} className="flex-1 rounded-xl py-3 text-sm font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}>
-            Cancel
-          </button>
-          <button onClick={() => void save()} disabled={saving} className="flex-1 rounded-xl py-3 text-sm font-semibold disabled:opacity-50" style={{ background: "oklch(0.62 0.13 85)", color: "oklch(0.16 0.04 280)" }}>
-            {saving ? "Saving…" : "Save Capture"}
-          </button>
+          <Button variant="ghost" full onClick={onClose}>Cancel</Button>
+          <Button variant="primary" full disabled={saving} onClick={() => void save()}>
+            {saving ? "Saving…" : "Save capture"}
+          </Button>
         </div>
       </div>
     </Sheet>
