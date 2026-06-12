@@ -93,6 +93,7 @@ export interface Brief {
 
 export type JobType =
   | "ingest_capture"
+  | "contextualize"
   | "summarize"
   | "tag"
   | "graph_update"

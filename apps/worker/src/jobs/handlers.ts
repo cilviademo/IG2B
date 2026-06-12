@@ -1,31 +1,115 @@
 import * as repo from "@indigold/db";
 import { enqueue, id, type Job } from "@indigold/shared";
 import { forecast } from "@indigold/shared/intelligence";
+import {
+  getPrompt, BudgetExceededError,
+  deterministicIngest, parseIngest, kindToNodeType,
+  deterministicContextualize, parseContext,
+  type IngestResult, type ContextResult,
+} from "@indigold/shared";
 import { model } from "../lib/model";
 
 type Handler = (job: Job) => Promise<void>;
 
-// Capture -> normalized node -> downstream summarize/tag/graph jobs.
+// ---- Wave 1, Stage 1: Intelligent Ingest (cheap tier, per capture) ----
+// All AI goes through governedComplete (governor + ledger). A budget block QUEUES
+// (leaves the capture UNPROCESSED for boot catch-up); a model error falls back to
+// the deterministic classifier so a capture is NEVER lost.
 const ingestCapture: Handler = async (job) => {
   const captureId = String((job.payload as { captureId: string }).captureId);
   const cap = await repo.captures.get(job.user_id, captureId);
   if (!cap) return;
   await repo.captures.setProcessing(captureId, "processing");
+
+  const prompt = getPrompt("ingest_classify");
+  let ingest: IngestResult;
+  try {
+    const r = await repo.governedComplete({
+      userId: job.user_id, tier: "cheap", task: "classification", purpose: "ingest_classify",
+      json: true, sourceId: captureId, promptVersion: prompt.version,
+      ...prompt.build({ title: cap.title, source: cap.source, url: cap.url || "", content: cap.note || "" }),
+    });
+    ingest = parseIngest(r.text) ?? deterministicIngest(cap);
+  } catch (e) {
+    if (e instanceof BudgetExceededError) {
+      // Governor blocked: requeue by leaving the capture unprocessed (boot catch-up
+      // / next pass retries). Never a fake success.
+      await repo.captures.setProcessing(captureId, "unprocessed");
+      await repo.jobs.finish(job.id, "queued", undefined, "budget_governor");
+      return;
+    }
+    ingest = deterministicIngest(cap);
+  }
+
   const nodeId = id("node");
   await repo.nodes.create({
-    id: nodeId, user_id: job.user_id,
-    type: "resource",
-    title: cap.title,
-    summary: cap.note || "",
-    truth_layer: "B", truth_label: "Normalized", mvs: 55,
-    tags: [], source_capture_id: captureId,
+    id: nodeId, user_id: job.user_id, type: kindToNodeType(ingest.type),
+    title: cap.title, summary: ingest.summary,
+    truth_layer: "B", truth_label: "Normalized", mvs: ingest.mvs.score,
+    tags: ingest.entities, source_capture_id: captureId,
+    meta: { kind: ingest.type, actionability: ingest.actionability, mvs_why: ingest.mvs.why, prompt_version: prompt.version },
   });
-  for (const t of ["summarize", "tag", "graph_update"] as const) {
-    const j = await enqueue(t, job.user_id, { nodeId });
-    await repo.jobs.record({ id: j.id, user_id: job.user_id, type: j.type, status: "queued" });
-  }
   await repo.captures.setProcessing(captureId, "processed");
-  await repo.jobs.finish(job.id, "done", { nodeId });
+
+  // Stage 2 next. (HIGH actionability is the priority signal carried forward.)
+  const j = await enqueue("contextualize", job.user_id, { nodeId, actionability: ingest.actionability });
+  await repo.jobs.record({ id: j.id, user_id: job.user_id, type: j.type, status: "queued" });
+  await repo.jobs.finish(job.id, "done", { nodeId, type: ingest.type, actionability: ingest.actionability });
+};
+
+// ---- Wave 1, Stage 2: Contextualization (cheap tier) ----
+// Typed edges (confidence) + project_relevance vs the Project Registry. Non-obvious
+// high relevance becomes a Timeline insight.
+const contextualize: Handler = async (job) => {
+  const nodeId = String((job.payload as { nodeId: string }).nodeId);
+  const node = await repo.nodes.get(job.user_id, nodeId);
+  if (!node) return;
+  await repo.seedProjectsIfEmpty(job.user_id);
+  const projects = await repo.projects.list(job.user_id);
+  const neighbors = await repo.nodes.list(job.user_id); // small single-user graph
+
+  const prompt = getPrompt("contextualize");
+  const subject = { id: node.id, tags: node.tags || [], title: node.title, summary: node.summary };
+  const projForFn = projects.map((p) => ({ id: p.id, name: p.name, tags: p.tags || [], objectives: p.objectives }));
+  let ctx: ContextResult;
+  try {
+    const r = await repo.governedComplete({
+      userId: job.user_id, tier: "cheap", task: "classification", purpose: "contextualize",
+      json: true, sourceId: nodeId, promptVersion: prompt.version,
+      ...prompt.build({
+        item: `${node.title}\n${node.summary}`,
+        neighbors: neighbors.filter((n) => n.id !== nodeId).slice(0, 20).map((n) => `${n.id}: ${n.title}`).join("\n"),
+        registry: projects.map((p) => `${p.id}: ${p.name} [${(p.tags || []).join(", ")}]`).join("\n"),
+      }),
+    });
+    ctx = parseContext(r.text, new Set(neighbors.map((n) => n.id)), new Set(projects.map((p) => p.id)))
+      ?? deterministicContextualize(subject, neighbors, projForFn);
+  } catch (e) {
+    if (e instanceof BudgetExceededError) {
+      await repo.jobs.finish(job.id, "queued", undefined, "budget_governor");
+      return;
+    }
+    ctx = deterministicContextualize(subject, neighbors, projForFn);
+  }
+
+  for (const e of ctx.edges.slice(0, 6)) {
+    await repo.edges.create({
+      id: id("edge"), user_id: job.user_id, source_id: nodeId, target_id: e.target_id,
+      relationship: e.relationship, weight: e.confidence, valid_from: new Date().toISOString(), label: e.why,
+    });
+  }
+  const prevMeta = (node as { meta?: object }).meta || {};
+  await repo.nodes.setMeta(job.user_id, nodeId, { ...prevMeta, project_relevance: ctx.project_relevance });
+
+  const top = ctx.project_relevance[0];
+  if (top && top.relevance >= 0.6) {
+    await repo.timeline.create({
+      id: id("tl"), user_id: job.user_id, date: new Date().toISOString().slice(0, 10),
+      type: "connection", significance: "medium",
+      title: `${node.title} — relevant to a project`, description: top.why, node_id: nodeId,
+    });
+  }
+  await repo.jobs.finish(job.id, "done", { edges: ctx.edges.length, relevance: ctx.project_relevance.length });
 };
 
 const summarize: Handler = async (job) => {
@@ -91,6 +175,7 @@ const research: Handler = async (job) => {
 
 export const handlers: Partial<Record<Job["type"], Handler>> = {
   ingest_capture: ingestCapture,
+  contextualize,
   summarize,
   tag,
   graph_update: graphUpdate,

@@ -204,3 +204,7 @@ CREATE TABLE IF NOT EXISTS prompt_overrides (
   PRIMARY KEY (user_id, key)
 );
 
+-- Wave 1: enrichment provenance on nodes (Stage-1 actionability/entities, Stage-2
+-- project_relevance, prompt version, model). Additive.
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}'::jsonb;
+

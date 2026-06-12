@@ -60,13 +60,16 @@ export const captures = {
 
 // ---- nodes ----
 export const nodes = {
-  async create(n: GraphNode & { source_capture_id?: string | null }) {
+  async create(n: GraphNode & { source_capture_id?: string | null; meta?: object }) {
     await query(
-      `INSERT INTO nodes (id,user_id,type,title,summary,truth_layer,truth_label,mvs,tags,source_capture_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      `INSERT INTO nodes (id,user_id,type,title,summary,truth_layer,truth_label,mvs,tags,source_capture_id,meta)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [n.id, n.user_id, n.type, n.title, n.summary, n.truth_layer, n.truth_label, n.mvs,
-       JSON.stringify(n.tags ?? []), n.source_capture_id ?? null],
+       JSON.stringify(n.tags ?? []), n.source_capture_id ?? null, JSON.stringify(n.meta ?? {})],
     );
+  },
+  async setMeta(userId: string, id: string, meta: object) {
+    await query(`UPDATE nodes SET meta=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, JSON.stringify(meta)]);
   },
   async list(userId: string) {
     const r = await query<GraphNode>(`SELECT * FROM nodes WHERE user_id=$1 ORDER BY mvs DESC`, [userId]);
