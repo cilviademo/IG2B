@@ -15,7 +15,8 @@
     "./registry": "./src/registry.ts",
     "./radian-stages": "./src/radian-stages.ts",
     "./radian-stages2": "./src/radian-stages2.ts",
-    "./radian-stages3": "./src/radian-stages3.ts"
+    "./radian-stages3": "./src/radian-stages3.ts",
+    "./radian-stages4": "./src/radian-stages4.ts"
   },
   "dependencies": {
     "ioredis": "^5.4.1",

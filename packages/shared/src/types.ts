@@ -103,6 +103,9 @@ export type JobType =
   | "opportunity_scan"
   | "consolidate"
   | "calibration"
+  | "agent_task"
+  | "simulation"
+  | "meta_review"
   | "daily_brief"
   | "weekly_review"
   | "monitor_scan";

@@ -9,7 +9,10 @@ import {
   deterministicResearch, parseResearch,
   deterministicDailyBrief, parseDailyBrief,
   detectOpportunities, parseOpportunities, consolidate, calibrate,
-  type IngestResult, type ContextResult, type AssistResult, type ResearchFinding,
+  deterministicAgentArtifact, parseAgentArtifact,
+  deterministicSimulation, parseSimulation,
+  deterministicMetaMemo, parseMetaMemo,
+  type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
 } from "@indigold/shared";
 import { model } from "../lib/model";
 
@@ -315,6 +318,100 @@ const calibrationJob: Handler = async (job) => {
   await repo.jobs.finish(job.id, "done", summary as unknown as object);
 };
 
+// ---- Wave 4, Stage 6: Execution Agents (PROPOSAL-ONLY) ----
+// Produces a DRAFT artifact stored as a node. RADIAN never pushes code, opens PRs,
+// or calls external write-APIs in this build — executors are off by default.
+const agentTask: Handler = async (job) => {
+  const p = job.payload as { nodeId: string; kind: AgentKind };
+  const node = await repo.nodes.get(job.user_id, p.nodeId);
+  if (!node) return;
+  const prompt = getPrompt("assistance");
+  const fallback = () => deterministicAgentArtifact(p.kind, { title: node.title, summary: node.summary });
+  let artifact;
+  try {
+    const r = await repo.governedComplete({
+      userId: job.user_id, tier: "strong", task: "planning", purpose: `agent_${p.kind}`, json: true, sourceId: p.nodeId, promptVersion: prompt.version,
+      system: `You are RADIAN's ${p.kind} agent. Draft an artifact ONLY (no execution). Return JSON {title, body}.`,
+      prompt: `${node.title}\n${node.summary}`,
+    });
+    artifact = parseAgentArtifact(r.text, p.kind) ?? fallback();
+  } catch (e) {
+    if (e instanceof BudgetExceededError) { await repo.jobs.finish(job.id, "queued", undefined, "budget_governor"); return; }
+    artifact = fallback();
+  }
+  const aid = id("node");
+  await repo.nodes.create({
+    id: aid, user_id: job.user_id, type: "concept", title: artifact.title,
+    summary: artifact.body.slice(0, 400), truth_layer: "C", truth_label: "Artifact", mvs: node.mvs, tags: node.tags || [],
+    source_capture_id: (node as { source_capture_id?: string }).source_capture_id || null,
+    meta: { agent_task: { kind: p.kind, body: artifact.body, parent_node: p.nodeId, proposal_only: true }, prompt_version: prompt.version },
+  });
+  await repo.jobs.finish(job.id, "done", { kind: p.kind, artifact: aid });
+};
+
+// ---- Wave 4, Stage 10: Strategic Simulation (on-demand, most expensive) ----
+const simulation: Handler = async (job) => {
+  const p = job.payload as { question: string; contextNodeIds?: string[] };
+  const ctxNodes = p.contextNodeIds?.length ? await repo.nodes.byIds(job.user_id, p.contextNodeIds) : [];
+  const context = ctxNodes.map((n) => `${n.title}: ${n.summary}`).join("\n");
+  const fallback = () => deterministicSimulation(p.question, context);
+  let sim;
+  try {
+    const r = await repo.governedComplete({
+      userId: job.user_id, tier: "strong", task: "planning", purpose: "simulation", json: true,
+      system: "You are RADIAN's systems thinker. Compare 2-4 paths. Output is an ESTIMATE, not fact. Return JSON {question,paths:[{name,effort,risk,dependencies,expected_leverage,tradeoffs}],assumptions,confidence,recommendation}.",
+      prompt: `WHAT IF: ${p.question}\n\nCONTEXT:\n${context}`,
+    });
+    sim = parseSimulation(r.text, p.question) ?? fallback();
+  } catch (e) {
+    if (e instanceof BudgetExceededError) { await repo.jobs.finish(job.id, "queued", undefined, "budget_governor"); return; }
+    sim = fallback();
+  }
+  const sid = id("node");
+  await repo.nodes.create({
+    id: sid, user_id: job.user_id, type: "concept", title: `Simulation — ${p.question.slice(0, 60)}`,
+    summary: sim.recommendation.slice(0, 400), truth_layer: "C", truth_label: "Analysis", mvs: 60, tags: ["simulation"],
+    meta: { simulation: sim, estimate: true },
+  });
+  await repo.jobs.finish(job.id, "done", { analysis: sid, paths: sim.paths.length });
+};
+
+// ---- Wave 4, Stage 11: Meta-Radian (monthly). System Improvement Memo as a
+// capture with prompt-diff recommendations. Human approves; no autonomous changes. ----
+const metaReview: Handler = async (job) => {
+  const opps = (await repo.opportunities.list(job.user_id)) as { status?: string }[];
+  const cal = calibrate(await repo.decisions.forCalibration(job.user_id));
+  const stats: MetaStats = {
+    by_purpose: await repo.aiCalls.monthByPurpose(job.user_id),
+    accepted_opportunities: opps.filter((o) => o.status === "accepted").length,
+    rejected_opportunities: opps.filter((o) => o.status === "rejected").length,
+    reverted_edges: 0,
+    decision_calibration_gap: cal.gap,
+  };
+  const fallback = () => deterministicMetaMemo(stats);
+  let memo;
+  try {
+    const r = await repo.governedComplete({
+      userId: job.user_id, tier: "strong", task: "synthesis", purpose: "meta_review", json: true,
+      system: "You are Meta-RADIAN. Review system stats and propose prompt/threshold/budget changes with proposed version bumps. Human approves. Return JSON {summary,recommendations:[{area,change,prompt_key,proposed_version}]}.",
+      prompt: JSON.stringify(stats),
+    });
+    memo = parseMetaMemo(r.text) ?? fallback();
+  } catch (e) {
+    if (e instanceof BudgetExceededError) { await repo.jobs.finish(job.id, "queued", undefined, "budget_governor"); return; }
+    memo = fallback();
+  }
+  // Stored as a capture (reviewable in the vault); not re-ingested (processed).
+  const capId = id("cap");
+  await repo.captures.create({
+    id: capId, user_id: job.user_id, type: "manual_text", source: "radian_meta",
+    captured_at: new Date().toISOString(), truth_layer: "A", status: "inbox", sensitivity: "internal",
+    processing_status: "processed", title: "System Improvement Memo", note: `${memo.summary}\n\n${JSON.stringify(memo.recommendations, null, 2)}`,
+    url: null, screenshot_ref: null, raw: { meta_memo: memo, stats },
+  });
+  await repo.jobs.finish(job.id, "done", { memo: capId, recommendations: memo.recommendations.length });
+};
+
 // ---- Wave 2, Stage 4: Research Agent (strong tier). Findings ALWAYS become
 // captures (source "radian_research") that re-enter Stages 1-2 — research compounds,
 // never injects directly. Secret/internal sources are excluded from any tool call. ----
@@ -380,4 +477,7 @@ export const handlers: Partial<Record<Job["type"], Handler>> = {
   opportunity_scan: opportunityScan,
   consolidate: consolidateJob,
   calibration: calibrationJob,
+  agent_task: agentTask,
+  simulation,
+  meta_review: metaReview,
 };

@@ -5,7 +5,7 @@ import * as repo from "@indigold/db";
 import { seedProjectsIfEmpty, budgetStatus } from "@indigold/db";
 import { id, enqueue } from "@indigold/shared";
 import { providersStatus, providerConfigured, PROVIDER_ENV, ALL_PROVIDERS, type Provider } from "@indigold/shared/providers";
-import { calibrate } from "@indigold/shared";
+import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import type { Authed } from "../middleware/auth";
 
 export const projectsRouter = Router();
@@ -85,6 +85,46 @@ radianRouter.post("/decisions/:id/outcome", async (req: Authed, res) => {
 });
 radianRouter.get("/calibration", async (req: Authed, res) => {
   res.json(calibrate(await repo.decisions.forCalibration(req.userId!)));
+});
+
+// ---- Stage 6: Execution Agents (proposal-only drafts) ----
+radianRouter.post("/agent-tasks", async (req: Authed, res) => {
+  const kind = String(req.body?.kind || "") as AgentKind;
+  const nodeId = String(req.body?.nodeId || "");
+  if (!AGENT_KINDS.includes(kind)) return res.status(400).json({ error: "bad_kind", valid: AGENT_KINDS });
+  if (!nodeId) return res.status(400).json({ error: "nodeId_required" });
+  const j = await enqueue("agent_task", req.userId!, { nodeId, kind });
+  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+  res.status(202).json({ queued: true, job: j.id, proposal_only: true });
+});
+radianRouter.get("/agent-tasks", async (req: Authed, res) => {
+  const nodes = await repo.nodes.list(req.userId!);
+  res.json({ items: nodes.filter((n) => (n as { truth_label?: string }).truth_label === "Artifact") });
+});
+
+// ---- Stage 10: Strategic Simulation (on-demand) ----
+radianRouter.post("/simulate", async (req: Authed, res) => {
+  const question = String(req.body?.question || "").trim();
+  if (!question) return res.status(400).json({ error: "question_required" });
+  const contextNodeIds = Array.isArray(req.body?.contextNodeIds) ? req.body.contextNodeIds.map(String) : [];
+  const j = await enqueue("simulation", req.userId!, { question, contextNodeIds });
+  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+  res.status(202).json({ queued: true, job: j.id, note: "estimate, not fact" });
+});
+radianRouter.get("/simulations", async (req: Authed, res) => {
+  const nodes = await repo.nodes.list(req.userId!);
+  res.json({ items: nodes.filter((n) => (n as { truth_label?: string }).truth_label === "Analysis") });
+});
+
+// ---- Stage 11: Meta-Radian memo (human approves prompt bumps) ----
+radianRouter.post("/meta-review", async (req: Authed, res) => {
+  const j = await enqueue("meta_review", req.userId!, {});
+  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+  res.status(202).json({ queued: true, job: j.id });
+});
+radianRouter.get("/meta", async (req: Authed, res) => {
+  const caps = await repo.captures.list(req.userId!);
+  res.json({ items: caps.filter((c) => c.source === "radian_meta") });
 });
 
 // Budget governor + provider snapshot. Surfaces the REAL state (ok/degrade/block)
