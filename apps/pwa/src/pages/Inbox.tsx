@@ -36,6 +36,7 @@ import CaptureDetail, { type DetailItem } from "@/components/CaptureDetail";
 import Sheet from "@/components/Sheet";
 import { listCaptures, removeCapture, subscribeCaptures, exportCaptures, importCaptures, markSynced, type LocalCapture } from "@/lib/captureStore";
 import { apiEnabled, ensureSession, syncCaptureToApi, fetchCaptures, lastSessionError, lastSyncError, type BackendCapture } from "@/lib/api";
+import { Button, Dot } from "@/components/primitives";
 
 const TYPE_ICON: Record<CaptureType, LucideIcon> = {
   apple_note: StickyNote,
@@ -285,55 +286,48 @@ export default function Inbox() {
       }}
     >
       {(pull > 0 || refreshing) && (
-        <div className="flex items-center justify-center gap-2 -mt-3 mb-1 label-mono" style={{ color: "oklch(0.5 0.2 264)" }}>
-          <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+        <div className="flex items-center justify-center gap-2 -mt-3 mb-1" style={{ fontSize: 12, color: "var(--gold)" }}>
+          <RefreshCw size={13} strokeWidth={1.5} className={refreshing ? "animate-spin" : ""} />
           {refreshing ? "refreshing…" : pull >= TRIGGER ? "release to refresh" : "pull to refresh"}
         </div>
       )}
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-xl font-display">Universal intake queue</h1>
         <div className="flex items-center gap-2">
-          <InboxIcon size={18} style={{ color: "oklch(0.5 0.2 264)" }} />
-          <h1 className="text-xl">Universal Intake Queue</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="label-mono">{items.length} items · {local.length} local</span>
+          <span className="cap-data">{items.length} items · {local.length} local</span>
           {apiEnabled() && (
-            <button onClick={() => void refresh()} aria-label="Refresh" disabled={refreshing} className="p-1 rounded-lg disabled:opacity-50" style={{ color: "oklch(0.5 0.2 264)" }}>
-              <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+            <button onClick={() => void refresh()} aria-label="Refresh" disabled={refreshing} className="p-1 disabled:opacity-50" style={{ color: "var(--text-dim)" }}>
+              <RefreshCw size={15} strokeWidth={1.5} className={refreshing ? "animate-spin" : ""} />
             </button>
           )}
         </div>
       </div>
       {refreshMsg && (
-        <p className="label-mono mb-1" style={{ color: refreshMsg.startsWith("updated") ? "oklch(0.52 0.15 150)" : "oklch(0.6 0.15 60)" }}>
-          {refreshMsg}
-        </p>
+        <div className="flex items-center gap-2 mt-1.5">
+          <Dot color={refreshMsg.startsWith("updated") ? "var(--good)" : "var(--gold)"} />
+          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>{refreshMsg}</span>
+        </div>
       )}
-      <p className="label-mono mb-3" style={{ color: "oklch(0.55 0.015 280)" }}>
-        Share anything → Indigold auto-classifies it into RAW_CAPTURE. No questions.
+      <p className="mt-1.5 mb-4" style={{ fontSize: 12, color: "var(--text-dim)" }}>
+        Share anything — Indigold auto-classifies it into the queue.
       </p>
 
-      {/* manual fallback only */}
-      <button
-        onClick={() => setShowForm(true)}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold mb-2.5 border-glow"
-        style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}
-      >
-        <Plus size={16} /> Add manually (fallback)
-      </button>
+      <Button variant="ghost" full leftIcon={<Plus size={16} strokeWidth={1.5} />} onClick={() => setShowForm(true)}>
+        Add manually
+      </Button>
 
-      {/* Export / Import */}
-      <div className="flex gap-2 mb-3">
-        <button onClick={doExport} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}>
-          <Download size={14} /> Export
+      {/* Export / Import — quiet text actions (full versions live in I/O) */}
+      <div className="flex items-center gap-4 mt-2 mb-1">
+        <button onClick={doExport} className="flex items-center gap-1.5" style={{ fontSize: 12, color: "var(--text-dim)" }}>
+          <Download size={13} strokeWidth={1.5} /> Export
         </button>
-        <button onClick={() => setShowImport(true)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}>
-          <Upload size={14} /> Import
+        <button onClick={() => setShowImport(true)} className="flex items-center gap-1.5" style={{ fontSize: 12, color: "var(--text-dim)" }}>
+          <Upload size={13} strokeWidth={1.5} /> Import
         </button>
       </div>
 
       {/* type filter */}
-      <div className="flex gap-1.5 overflow-x-auto pb-2 mb-2 -mx-1 px-1">
+      <div className="flex gap-1.5 overflow-x-auto pb-2 mt-3 mb-1 -mx-1 px-1">
         <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label="All" />
         {presentTypes.map((t) => (
           <FilterChip key={t} active={filter === t} onClick={() => setFilter(t)} label={CAPTURE_TYPE_LABEL[t]} />
@@ -342,19 +336,19 @@ export default function Inbox() {
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-2">
-          <InboxIcon size={24} style={{ color: "oklch(0.55 0.015 280)" }} />
-          <span className="label-mono">Nothing here yet — tap Capture</span>
+          <InboxIcon size={22} strokeWidth={1.5} style={{ color: "var(--text-dim)" }} />
+          <span style={{ fontSize: 13, color: "var(--text-dim)" }}>Nothing here yet — share something to capture</span>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul>
           {items.map((item, i) => (
             <CaptureCard key={item.id} item={item} index={i} onOpen={() => setDetail(item)} />
           ))}
         </ul>
       )}
 
-      <p className="label-mono mt-5" style={{ color: "oklch(0.55 0.015 280)" }}>
-        Local captures persist in this browser (localStorage) and survive reload + Airplane Mode.
+      <p className="mt-5" style={{ fontSize: 11, color: "var(--text-dim)" }}>
+        Local captures persist in this browser and survive reload + Airplane Mode.
       </p>
 
       {showForm && <CaptureForm onClose={() => setShowForm(false)} onSaved={() => setShowForm(false)} />}
@@ -376,32 +370,28 @@ export default function Inbox() {
       )}
 
       {exportText !== null && (
-        <Sheet title="Export Captures" onClose={() => setExportText(null)}>
-          <p className="label-mono mb-2" style={{ color: "oklch(0.55 0.015 280)" }}>
-            {local.length} local capture(s). Copy the JSON (works on iPhone Safari) or download it.
+        <Sheet title="Export data" onClose={() => setExportText(null)}>
+          <p className="mb-2" style={{ fontSize: 12, color: "var(--text-dim)" }}>
+            {local.length} local capture(s). JSON — copy (works on iPhone Safari) or download.
           </p>
-          <textarea readOnly value={exportText} onFocus={(e) => e.currentTarget.select()} className="w-full rounded-xl px-3 py-2.5 text-xs font-mono" style={{ background: "oklch(0.985 0.004 280)", border: "1px solid oklch(0.55 0.03 264 / 0.35)", color: "oklch(0.3 0.02 280)", minHeight: 200 }} />
+          <textarea readOnly value={exportText} onFocus={(e) => e.currentTarget.select()} className="w-full px-3 py-2.5 text-xs font-mono" style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 6, color: "var(--text)", minHeight: 200 }} />
           <div className="flex gap-2 mt-3">
-            <button onClick={() => copy(exportText)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold" style={{ background: "oklch(0.62 0.13 85)", color: "oklch(0.16 0.04 280)" }}>
-              <Copy size={15} /> Copy JSON
-            </button>
-            <button onClick={() => download(exportText)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold border-glow" style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}>
-              <Download size={15} /> Download
-            </button>
+            <Button variant="primary" full leftIcon={<Copy size={15} strokeWidth={1.5} />} onClick={() => copy(exportText)}>Copy</Button>
+            <Button variant="ghost" full leftIcon={<Download size={15} strokeWidth={1.5} />} onClick={() => download(exportText)}>Download</Button>
           </div>
         </Sheet>
       )}
 
       {showImport && (
-        <Sheet title="Import Captures" onClose={() => setShowImport(false)}>
-          <p className="label-mono mb-2" style={{ color: "oklch(0.55 0.015 280)" }}>
+        <Sheet title="Import data" onClose={() => setShowImport(false)}>
+          <p className="mb-2" style={{ fontSize: 12, color: "var(--text-dim)" }}>
             Paste capture JSON (or pick a file). Existing ids are kept; new ones are added.
           </p>
-          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder='{"captures":[…]}' className="w-full rounded-xl px-3 py-2.5 text-xs font-mono" style={{ background: "oklch(0.985 0.004 280)", border: "1px solid oklch(0.55 0.03 264 / 0.35)", color: "oklch(0.3 0.02 280)", minHeight: 160 }} />
-          <input type="file" accept="application/json,.json" onChange={onFile} className="mt-2 text-xs" style={{ color: "oklch(0.46 0.02 280)" }} />
-          <button onClick={doImport} className="w-full rounded-xl py-3 text-sm font-semibold mt-3" style={{ background: "oklch(0.62 0.13 85)", color: "oklch(0.16 0.04 280)" }}>
-            Import
-          </button>
+          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder='{"captures":[…]}' className="w-full px-3 py-2.5 text-xs font-mono" style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 6, color: "var(--text)", minHeight: 160 }} />
+          <input type="file" accept="application/json,.json" onChange={onFile} className="mt-2 text-xs" style={{ color: "var(--text-dim)" }} />
+          <div className="mt-3">
+            <Button variant="primary" full onClick={doImport}>Import</Button>
+          </div>
         </Sheet>
       )}
     </div>
@@ -410,47 +400,59 @@ export default function Inbox() {
 
 function FilterChip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
-    <button onClick={onClick} className="shrink-0 text-[11px] px-2.5 py-1 rounded-full font-mono" style={active ? { background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.5 0.2 264)" } : { background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.02 280)" }}>
+    <button
+      onClick={onClick}
+      className="shrink-0 text-[11px] px-2.5 py-1"
+      style={{
+        borderRadius: 6,
+        border: `1px solid ${active ? "var(--gold)" : "var(--line)"}`,
+        color: active ? "var(--gold)" : "var(--text-dim)",
+      }}
+    >
       {label}
     </button>
   );
 }
 
+// One status, not two — a 6px dot + word. Synced (green) / Queued (gold) / Local (dim).
+function statusOf(item: DetailItem): { color: string; word: string } {
+  if (item.synced) return { color: "var(--good)", word: "Synced" };
+  if (item.processing_status === "queued" || item.processing_status === "processing") return { color: "var(--gold)", word: "Queued" };
+  if (item.local) return { color: "var(--text-dim)", word: "Local" };
+  return { color: "var(--text-dim)", word: PROCESSING_META[item.processing_status].label };
+}
+
 function CaptureCard({ item, index, onOpen }: { item: DetailItem; index: number; onOpen: () => void }) {
   const TypeIcon = TYPE_ICON[item.type];
   const sens = SENSITIVITY_COLOR[item.sensitivity];
-  const proc = PROCESSING_META[item.processing_status];
+  const status = statusOf(item);
   const preview = item.user_note || item.body || item.note || item.url || "";
+  const sensitive = item.sensitivity === "private" || item.sensitivity === "secret";
   return (
     <li
       onClick={onOpen}
-      className="rounded-2xl p-4 border-glow animate-fade-in-up cursor-pointer"
-      style={{ background: "oklch(0.965 0.006 280)", animationDelay: `${Math.min(index, 8) * 50}ms` }}
+      className="animate-fade-in-up cursor-pointer"
+      style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, padding: 16, marginBottom: 10, animationDelay: `${Math.min(index, 8) * 40}ms` }}
     >
-      <div className="flex items-center gap-2 mb-2 flex-wrap">
-        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.45 0.22 264 / 0.15)", color: "oklch(0.5 0.2 264)" }}>
-          <TypeIcon size={11} /> {CAPTURE_TYPE_LABEL[item.type]}
+      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
+          <TypeIcon size={11} strokeWidth={1.5} /> {CAPTURE_TYPE_LABEL[item.type]}
         </span>
-        <span className="label-mono">{item.source}</span>
-        {item.domain && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.5 0.12 195 / 0.14)", color: "oklch(0.5 0.12 195)" }}>{item.domain}</span>}
-        {item.auto_classified && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.62 0.13 85 / 0.16)", color: "oklch(0.62 0.13 85)" }}>auto</span>}
-        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wide" style={{ color: sens, border: `1px solid ${sens}` }}>
-          {item.sensitivity}
-        </span>
+        {item.domain && <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{item.domain}</span>}
+        {sensitive && <span className="ml-auto" style={{ fontSize: 11, color: sens }}>{item.sensitivity}</span>}
       </div>
-      <h3 className="text-sm font-semibold mb-1">{item.title}</h3>
-      {preview && <p className="text-xs leading-relaxed mb-2 line-clamp-2" style={{ color: "oklch(0.46 0.02 280)" }}>{preview}</p>}
+      <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>{item.title}</h3>
+      {preview && <p className="text-xs leading-relaxed mb-2 line-clamp-2" style={{ color: "var(--text-dim)" }}>{preview}</p>}
       <div className="flex items-center gap-2">
-        <span className="w-1.5 h-1.5 rounded-full" style={{ background: proc.color }} />
-        <span className="label-mono" style={{ color: proc.color }}>{proc.label}</span>
+        <Dot color={status.color} />
+        <span style={{ fontSize: 12, color: "var(--text-dim)" }}>{status.word}</span>
         {item.files && item.files.length > 0 && (
-          <span className="label-mono flex items-center gap-0.5" style={{ color: "oklch(0.5 0.12 195)" }}>
-            <Paperclip size={10} /> {item.files.length}
+          <span className="flex items-center gap-0.5" style={{ fontSize: 12, color: "var(--text-dim)" }}>
+            <Paperclip size={11} strokeWidth={1.5} /> {item.files.length}
           </span>
         )}
-        {item.synced && <span className="label-mono" style={{ color: "oklch(0.52 0.15 150)" }}>· synced</span>}
-        <span className="label-mono ml-auto flex items-center gap-1" style={{ color: "oklch(0.55 0.015 280)" }}>
-          <Clock size={10} /> {timeAgo(item.captured_at)}
+        <span className="cap-data ml-auto flex items-center gap-1" style={{ color: "var(--text-dim)" }}>
+          <Clock size={10} strokeWidth={1.5} /> {timeAgo(item.captured_at)}
         </span>
       </div>
     </li>
