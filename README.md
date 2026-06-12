@@ -1,8 +1,19 @@
 # Indigold — Render Multi-Service Platform
 
+> 🤖 **For AI agents and humans:** project state, history, and working rules live in
+> [`docs/state/`](docs/state/00_INDEX.md). **Read [`00_INDEX`](docs/state/00_INDEX.md),
+> [`02_CURRENT_STATE`](docs/state/02_CURRENT_STATE.md), and
+> [`08_CONSTRAINTS`](docs/state/08_CONSTRAINTS.md) before touching anything.** Those docs
+> are the single source of truth; this README is human-facing context (what Indigold is,
+> how to run it). Where they disagree with code, **code is truth** — fix the doc.
+
 Indigold is a local-first, AI-native **Personal Intelligence Operating System**.
 This repository is the **immediate target architecture**: a monorepo deployed to
-[Render](https://render.com) as eight cooperating resources.
+[Render](https://render.com). Note: the **default deploy is the low-cost 4-resource
+profile** ([`render.yaml`](./render.yaml)) which runs the worker, scheduler, and the two
+private services **in-process** inside `indigold-api`; the 8-resource layout below is the
+optional scale-out ([`render.full.yaml`](./render.full.yaml)). See
+[`docs/state/01_OVERVIEW.md`](docs/state/01_OVERVIEW.md).
 
 > **v0.1 honesty:** the AI steps (summarize, tag, forecast, assemble) run as
 > **deterministic, vendor-free stubs behind a clean adapter seam**

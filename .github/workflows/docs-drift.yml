@@ -1,0 +1,33 @@
+# Living Handoff drift guard. Warns (does not block) when a PR changes code under
+# apps/ or services/ without updating docs/state/03_CHANGELOG.md — per the Agent
+# Protocol, code changes must come with a changelog entry. See docs/state/00_INDEX.md.
+name: docs-drift
+
+on:
+  pull_request:
+    paths:
+      - "apps/**"
+      - "services/**"
+
+permissions:
+  contents: read
+
+jobs:
+  changelog-touched:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check that the changelog was updated
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          changed="$(git diff --name-only "$base" "$head")"
+          if echo "$changed" | grep -qE '^(apps|services)/' \
+             && ! echo "$changed" | grep -q '^docs/state/03_CHANGELOG.md$'; then
+            echo "::warning::Code under apps/ or services/ changed without updating docs/state/03_CHANGELOG.md."
+            echo "Per the Agent Protocol (docs/state/00_INDEX.md), append a changelog entry + update 02_CURRENT_STATE.md."
+          else
+            echo "Docs drift check OK."
+          fi
