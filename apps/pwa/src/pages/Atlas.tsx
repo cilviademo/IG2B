@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { useJson } from "@/hooks/useJson";
-import { type GraphNode, type GraphEdge, type TruthLayer, TRUTH_LAYER_COLORS } from "@/lib/types";
+import { type GraphNode, type GraphEdge } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
-import { Globe2, X, Plus, Minus, Locate, Layers } from "lucide-react";
+import { Share2, X, Plus, Minus, Locate } from "lucide-react";
 
-const GRAPH_IMG = "/images/graph-constellation.png";
-const HIGH_MVS = 85; // globes at/above this gently pulse
-const CLUSTER_AUTO_AT = 40; // auto-cluster by layer above this node count
+// Atlas — the constellation. Flat luminous points on a deep indigo-black field,
+// hairline edges, organic force layout. Color encodes node type (a desaturated
+// family); size encodes Memory Value (MVS) + degree. Selection is the only glow.
+
+const NODE_COLOR: Record<string, string> = {
+  project: "#EAE6DA", // cream
+  person: "#4FA08B", // good/green
+  concept: "#6B7DB3", // knowledge/blue
+  resource: "#C9A45C", // theme/gold
+};
+const FALLBACK_COLOR = "#8E929C";
+const FIELD = "#0C0D11";
 
 interface SimNode {
   node: GraphNode;
@@ -16,7 +25,6 @@ interface SimNode {
   vy: number;
   r: number;
   degree: number;
-  phase: number;
 }
 
 type RGB = [number, number, number];
@@ -25,38 +33,48 @@ const hexToRgb = (hex: string): RGB => {
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 };
 const rgba = (c: RGB, a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-const lighten = (c: RGB, f: number): RGB => [
-  Math.round(c[0] + (255 - c[0]) * f),
-  Math.round(c[1] + (255 - c[1]) * f),
-  Math.round(c[2] + (255 - c[2]) * f),
-];
-const darken = (c: RGB, f: number): RGB => [
-  Math.round(c[0] * (1 - f)),
-  Math.round(c[1] * (1 - f)),
-  Math.round(c[2] * (1 - f)),
-];
-const LAYER_ORDER: TruthLayer[] = ["A", "B", "C", "D", "E", "F"];
+const darken = (c: RGB, f: number): RGB => [Math.round(c[0] * (1 - f)), Math.round(c[1] * (1 - f)), Math.round(c[2] * (1 - f))];
+
+// Optional synthetic graph for perf testing: /atlas?synthetic=200
+function syntheticGraph(n: number): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const types = ["project", "person", "concept", "resource"] as const;
+  const nodes: GraphNode[] = Array.from({ length: n }, (_, i) => ({
+    id: `s${i}`,
+    type: types[i % types.length],
+    title: `Node ${i}`,
+    summary: "Synthetic perf node.",
+    truth_layer: "C",
+    truth_label: "Knowledge",
+    mvs: 40 + ((i * 37) % 60),
+    created_at: "2026-01-01",
+    updated_at: "2026-01-01",
+    tags: [],
+  }));
+  const edges: GraphEdge[] = [];
+  for (let i = 1; i < n; i++) {
+    edges.push({ source_id: `s${i}`, target_id: `s${(i * 7) % i}`, relationship: "linked", valid_from: "2026-01-01", label: "" });
+  }
+  return { nodes, edges };
+}
 
 export default function Atlas() {
-  const nodesRes = useJson<{ nodes: GraphNode[] }>("/data/sample_nodes.json");
-  const edgesRes = useJson<{ edges: GraphEdge[] }>("/data/sample_edges.json");
+  const synthetic = Number(new URLSearchParams(window.location.search).get("synthetic") || 0);
+  const nodesRes = useJson<{ nodes: GraphNode[] }>(synthetic ? "" : "/data/sample_nodes.json");
+  const edgesRes = useJson<{ edges: GraphEdge[] }>(synthetic ? "" : "/data/sample_edges.json");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [selected, setSelected] = useState<GraphNode | null>(null);
   const selectedRef = useRef<string | null>(null);
-  const clusterRef = useRef(false);
-  const [cluster, setCluster] = useState(false);
   const apiRef = useRef<{ zoom: (f: number) => void; reset: () => void } | null>(null);
+  const [hintOff, setHintOff] = useState(() => localStorage.getItem("indigold_atlas_hint") === "off");
 
   useEffect(() => {
     selectedRef.current = selected?.id ?? null;
   }, [selected]);
-  useEffect(() => {
-    clusterRef.current = cluster;
-  }, [cluster]);
 
-  const nodes = nodesRes.data?.nodes;
-  const edges = edgesRes.data?.edges;
+  const g = synthetic ? syntheticGraph(synthetic) : null;
+  const nodes = g ? g.nodes : nodesRes.data?.nodes;
+  const edges = g ? g.edges : edgesRes.data?.edges;
 
   useEffect(() => {
     if (!nodes || !edges) return;
@@ -66,27 +84,11 @@ export default function Atlas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // auto-enable clustering for large graphs
-    if (nodes.length > CLUSTER_AUTO_AT) {
-      clusterRef.current = true;
-      setCluster(true);
-    }
-
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     const dpr = window.devicePixelRatio || 1;
     let W = wrap.clientWidth;
     let H = wrap.clientHeight;
 
-    // per-layer cluster centroids (recomputed on resize)
-    const layersPresent = LAYER_ORDER.filter((L) => nodes.some((n) => n.truth_layer === L));
-    let clusters: Record<string, { x: number; y: number }> = {};
-    function computeClusters() {
-      clusters = {};
-      const R = Math.min(W, H) * 0.32;
-      layersPresent.forEach((L, i) => {
-        const a = (i / layersPresent.length) * Math.PI * 2 - Math.PI / 2;
-        clusters[L] = { x: W / 2 + Math.cos(a) * R, y: H / 2 + Math.sin(a) * R };
-      });
-    }
     function sizeCanvas() {
       W = wrap!.clientWidth;
       H = wrap!.clientHeight;
@@ -95,7 +97,6 @@ export default function Atlas() {
       canvas!.style.width = W + "px";
       canvas!.style.height = H + "px";
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-      computeClusters();
     }
     sizeCanvas();
 
@@ -111,35 +112,35 @@ export default function Atlas() {
       adj[e.target_id]?.add(e.source_id);
     });
 
+    // Flat points: radius 3–8px by MVS + a gentle degree boost.
     const sim: SimNode[] = nodes.map((node, i) => {
       const a = (i / nodes.length) * Math.PI * 2;
       const deg = degree[node.id] || 0;
       return {
         node,
-        x: W / 2 + Math.cos(a) * Math.min(W, H) * 0.32 + (Math.random() - 0.5) * 20,
-        y: H / 2 + Math.sin(a) * Math.min(W, H) * 0.32 + (Math.random() - 0.5) * 20,
+        x: W / 2 + Math.cos(a) * Math.min(W, H) * 0.28 + (Math.random() - 0.5) * 24,
+        y: H / 2 + Math.sin(a) * Math.min(W, H) * 0.28 + (Math.random() - 0.5) * 24,
         vx: 0,
         vy: 0,
-        r: 16 + deg * 3.2 + (node.mvs / 100) * 10,
+        r: 3 + (node.mvs / 100) * 4 + Math.min(deg, 6) * 0.4,
         degree: deg,
-        phase: Math.random() * Math.PI * 2,
       };
     });
     const byId = new Map(sim.map((s) => [s.node.id, s]));
     const links = edges.filter((e) => byId.has(e.source_id) && byId.has(e.target_id));
+    // Top-N by MVS — these get labels at mid zoom.
+    const topIds = new Set([...sim].sort((p, q) => q.node.mvs - p.node.mvs).slice(0, Math.min(6, sim.length)).map((s) => s.node.id));
 
     const view = { scale: 1, tx: 0, ty: 0 };
     const hoverRef = { id: null as string | null };
-    const screenToWorld = (px: number, py: number) => ({
-      x: (px - view.tx) / view.scale,
-      y: (py - view.ty) / view.scale,
-    });
+    const screenToWorld = (px: number, py: number) => ({ x: (px - view.tx) / view.scale, y: (py - view.ty) / view.scale });
     function zoomAround(px: number, py: number, factor: number) {
-      const ns = Math.max(0.4, Math.min(3, view.scale * factor));
+      const ns = Math.max(0.4, Math.min(4, view.scale * factor));
       const f = ns / view.scale;
       view.tx = px - (px - view.tx) * f;
       view.ty = py - (py - view.ty) * f;
       view.scale = ns;
+      kick();
     }
     apiRef.current = {
       zoom: (f) => zoomAround(W / 2, H / 2, f),
@@ -147,6 +148,7 @@ export default function Atlas() {
         view.scale = 1;
         view.tx = 0;
         view.ty = 0;
+        kick();
       },
     };
 
@@ -163,10 +165,13 @@ export default function Atlas() {
     }
     function pick(px: number, py: number): SimNode | null {
       const w = screenToWorld(px, py);
+      // Generous tap target (>=44px) regardless of the small visual radius.
+      const padW = Math.max(9, 22 / view.scale);
       for (let i = sim.length - 1; i >= 0; i--) {
         const dx = sim[i].x - w.x;
         const dy = sim[i].y - w.y;
-        if (dx * dx + dy * dy <= (sim[i].r + 6) * (sim[i].r + 6)) return sim[i];
+        const t = sim[i].r + padW;
+        if (dx * dx + dy * dy <= t * t) return sim[i];
       }
       return null;
     }
@@ -186,6 +191,7 @@ export default function Atlas() {
       const hit = pick(p.x, p.y);
       if (hit) dragNode = hit;
       else panning = true;
+      kick();
     }
     function onPointerMove(ev: PointerEvent) {
       const p = localPoint(ev);
@@ -194,6 +200,7 @@ export default function Atlas() {
           const hit = pick(p.x, p.y);
           hoverRef.id = hit ? hit.node.id : null;
           canvas!.style.cursor = hit ? "pointer" : "grab";
+          if (!frozen) kick();
         }
         return;
       }
@@ -221,6 +228,7 @@ export default function Atlas() {
         view.ty += dy;
       }
       last = p;
+      kick();
     }
     function onPointerUp(ev: PointerEvent) {
       const p = pointers.get(ev.pointerId);
@@ -235,6 +243,7 @@ export default function Atlas() {
         dragNode = null;
         panning = false;
       }
+      kick();
     }
     function onWheel(ev: WheelEvent) {
       ev.preventDefault();
@@ -246,28 +255,46 @@ export default function Atlas() {
     canvas.addEventListener("pointerup", onPointerUp);
     canvas.addEventListener("pointercancel", onPointerUp);
     canvas.addEventListener("wheel", onWheel, { passive: false });
-    const onResize = () => sizeCanvas();
+    const onResize = () => {
+      sizeCanvas();
+      kick();
+    };
     window.addEventListener("resize", onResize);
 
+    // Faint, static star speckle (seeded) — barely-there texture on the field.
+    const stars = Array.from({ length: 64 }, (_, i) => {
+      const s = Math.sin(i * 91.7) * 43758.5453;
+      const rx = s - Math.floor(s);
+      const s2 = Math.sin(i * 12.3) * 24634.633;
+      const ry = s2 - Math.floor(s2);
+      return { fx: rx, fy: ry, a: 0.04 + ((i % 5) / 5) * 0.06 };
+    });
+
+    // Continuous-but-settling simulation. We render on demand (a "kick" budget of
+    // frames) so an idle, settled graph costs nothing — and reduced-motion freezes
+    // drift entirely after warmup.
     let raf = 0;
-    let time = 0;
-    function tick() {
-      time += 0.045;
-      const clustering = clusterRef.current;
+    let energyFrames = reduceMotion ? 0 : 240; // frames left to keep simulating
+    let frozen = false;
+    function kick() {
+      energyFrames = Math.max(energyFrames, reduceMotion ? 1 : 30);
+      if (!raf) raf = requestAnimationFrame(tick);
+    }
+    function step() {
       for (let i = 0; i < sim.length; i++) {
         for (let j = i + 1; j < sim.length; j++) {
           const a = sim[i];
           const b = sim[j];
-          let dx = a.x - b.x;
-          let dy = a.y - b.y;
-          let d2 = dx * dx + dy * dy || 0.01;
-          let d = Math.sqrt(d2);
-          const f = 9000 / d2;
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const d2 = dx * dx + dy * dy || 0.01;
+          const d = Math.sqrt(d2);
+          const f = 2600 / d2; // charge
           a.vx += (dx / d) * f;
           a.vy += (dy / d) * f;
           b.vx -= (dx / d) * f;
           b.vy -= (dy / d) * f;
-          const minD = a.r + b.r + 14;
+          const minD = a.r + b.r + 10; // collide
           if (d < minD) {
             const push = (minD - d) * 0.5;
             a.vx += (dx / d) * push;
@@ -283,8 +310,8 @@ export default function Atlas() {
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-        const rest = a.r + b.r + 70;
-        const f = (d - rest) * 0.015 * (0.5 + (e.weight || 0.5));
+        const rest = a.r + b.r + 42; // link
+        const f = (d - rest) * 0.02 * (0.5 + (e.weight || 0.5));
         a.vx += (dx / d) * f;
         a.vy += (dy / d) * f;
         b.vx -= (dx / d) * f;
@@ -292,33 +319,48 @@ export default function Atlas() {
       }
       for (const s of sim) {
         if (s === dragNode) continue;
-        if (clustering) {
-          const c = clusters[s.node.truth_layer] || { x: W / 2, y: H / 2 };
-          s.vx += (c.x - s.x) * 0.022;
-          s.vy += (c.y - s.y) * 0.022;
-        } else {
-          s.vx += (W / 2 - s.x) * 0.0016;
-          s.vy += (H / 2 - s.y) * 0.0016;
-        }
-        s.vx *= 0.86;
-        s.vy *= 0.86;
+        s.vx += (W / 2 - s.x) * 0.0018;
+        s.vy += (H / 2 - s.y) * 0.0018;
+        s.vx *= 0.85;
+        s.vy *= 0.85;
         s.vx = Math.max(-8, Math.min(8, s.vx));
         s.vy = Math.max(-8, Math.min(8, s.vy));
         s.x += s.vx;
         s.y += s.vy;
       }
+    }
+    function tick() {
+      if (reduceMotion && !frozen) {
+        for (let k = 0; k < 220; k++) step(); // settle synchronously, once
+        frozen = true;
+      } else if (!frozen && energyFrames > 0) {
+        step();
+      }
+      energyFrames--;
       draw();
-      raf = requestAnimationFrame(tick);
+      if (energyFrames > 0 || dragNode || panning) raf = requestAnimationFrame(tick);
+      else raf = 0;
     }
 
     function draw() {
       ctx!.clearRect(0, 0, W, H);
+      // subtle radial vignette
+      const vg = ctx!.createRadialGradient(W / 2, H * 0.32, Math.min(W, H) * 0.1, W / 2, H * 0.5, Math.max(W, H) * 0.8);
+      vg.addColorStop(0, "#14161c");
+      vg.addColorStop(1, FIELD);
+      ctx!.fillStyle = vg;
+      ctx!.fillRect(0, 0, W, H);
+      for (const st of stars) {
+        ctx!.fillStyle = rgba([234, 230, 218], st.a);
+        ctx!.fillRect(st.fx * W, st.fy * H, 1, 1);
+      }
+
       const { scale, tx, ty } = view;
       const active = selectedRef.current || hoverRef.id;
       const neighbors = active ? adj[active] : null;
       const isLit = (id: string) => !active || id === active || (neighbors ? neighbors.has(id) : false);
 
-      // edges (curved)
+      // edges — hairlines
       for (const e of links) {
         const a = byId.get(e.source_id)!;
         const b = byId.get(e.target_id)!;
@@ -332,82 +374,87 @@ export default function Atlas() {
         const ex = bx - ax;
         const ey = by - ay;
         const len = Math.hypot(ex, ey) || 1;
-        const off = Math.min(46, len * 0.12);
+        const off = Math.min(28, len * 0.08);
         const cx = mx + (-ey / len) * off;
         const cy = my + (ex / len) * off;
-
         if (active && !lit) {
-          ctx!.strokeStyle = "rgba(120,120,170,0.05)";
-          ctx!.lineWidth = 1;
+          ctx!.strokeStyle = rgba([142, 146, 156], 0.06);
+          ctx!.lineWidth = 0.5;
         } else if (lit) {
-          ctx!.strokeStyle = "rgba(212,175,71,0.6)";
-          ctx!.lineWidth = 2;
+          ctx!.strokeStyle = rgba([201, 164, 92], 0.6);
+          ctx!.lineWidth = 1;
         } else {
-          ctx!.strokeStyle = `rgba(120,120,200,${0.1 + (e.weight || 0.3) * 0.18})`;
-          ctx!.lineWidth = 1 + (e.weight || 0.3);
+          ctx!.strokeStyle = rgba([142, 146, 156], 0.2);
+          ctx!.lineWidth = 0.6;
         }
         ctx!.beginPath();
         ctx!.moveTo(ax, ay);
         ctx!.quadraticCurveTo(cx, cy, bx, by);
         ctx!.stroke();
-
-        // relationship label on lit edges
-        if (lit) {
-          const lx = 0.25 * ax + 0.5 * cx + 0.25 * bx;
-          const ly = 0.25 * ay + 0.5 * cy + 0.25 * by;
-          const text = e.relationship.replace(/_/g, " ");
-          ctx!.font = '9px "JetBrains Mono", monospace';
-          ctx!.textAlign = "center";
-          const tw = ctx!.measureText(text).width;
-          ctx!.fillStyle = "rgba(8,8,18,0.82)";
-          ctx!.fillRect(lx - tw / 2 - 4, ly - 7, tw + 8, 14);
-          ctx!.fillStyle = "rgba(232,201,100,0.95)";
-          ctx!.fillText(text, lx, ly + 2.5);
-        }
       }
 
-      // nodes (smaller under larger)
-      const order = [...sim].sort((p, q) => p.r - q.r);
-      for (const s of order) {
+      // nodes — flat luminous points
+      for (const s of sim) {
         const sx = s.x * scale + tx;
         const sy = s.y * scale + ty;
-        const sr = s.r * scale;
-        const base = hexToRgb(TRUTH_LAYER_COLORS[s.node.truth_layer]);
+        const sr = Math.max(2, s.r * Math.min(1.6, Math.max(0.85, scale)));
+        const base = hexToRgb(NODE_COLOR[s.node.type] || FALLBACK_COLOR);
         const lit = isLit(s.node.id);
-        const alpha = lit ? 1 : 0.22;
-        const pulse = s.node.mvs >= HIGH_MVS ? 0.5 + 0.5 * Math.sin(time + s.phase) : 0;
-        drawGlobe(ctx!, sx, sy, sr, base, alpha, selectedRef.current === s.node.id, pulse);
+        const alpha = lit ? 0.85 : 0.25;
+        const isSel = selectedRef.current === s.node.id;
 
-        if (sr > 7) {
-          const fs = Math.max(9, Math.min(15, 11 * scale));
-          ctx!.font = `${fs}px "JetBrains Mono", monospace`;
+        if (isSel) {
+          // the only glow: soft gold halo + ring
+          const halo = ctx!.createRadialGradient(sx, sy, sr, sx, sy, sr * 4.5);
+          halo.addColorStop(0, rgba([201, 164, 92], 0.32));
+          halo.addColorStop(1, rgba([201, 164, 92], 0));
+          ctx!.fillStyle = halo;
+          ctx!.beginPath();
+          ctx!.arc(sx, sy, sr * 4.5, 0, Math.PI * 2);
+          ctx!.fill();
+        }
+
+        ctx!.fillStyle = rgba(base, alpha);
+        ctx!.beginPath();
+        ctx!.arc(sx, sy, sr, 0, Math.PI * 2);
+        ctx!.fill();
+        // 1px darker rim
+        ctx!.lineWidth = 1;
+        ctx!.strokeStyle = rgba(darken(base, 0.45), alpha);
+        ctx!.beginPath();
+        ctx!.arc(sx, sy, sr, 0, Math.PI * 2);
+        ctx!.stroke();
+
+        if (isSel) {
+          ctx!.lineWidth = 1.5;
+          ctx!.strokeStyle = rgba([201, 164, 92], 0.95);
+          ctx!.beginPath();
+          ctx!.arc(sx, sy, sr + 4, 0, Math.PI * 2);
+          ctx!.stroke();
+        }
+
+        // labels obey zoom: none when far; top-N at mid; all/neighbors when close
+        // or selected. 11px Inter Tight, dim, no glow.
+        const showLabel =
+          (active ? neighbors?.has(s.node.id) || s.node.id === active : false) ||
+          (scale >= 1.6) ||
+          (scale >= 0.95 && topIds.has(s.node.id));
+        if (showLabel && !(active && !lit)) {
+          ctx!.font = '11px "Inter Tight", system-ui, sans-serif';
           ctx!.textAlign = "center";
           let label = s.node.title;
-          if (label.length > 20) label = label.slice(0, 19) + "…";
-          ctx!.fillStyle = rgba([8, 8, 18], 0.85 * alpha);
-          ctx!.fillText(label, sx, sy + sr + fs + 3);
-          ctx!.fillStyle = rgba(lighten(base, 0.7), alpha);
-          ctx!.fillText(label, sx, sy + sr + fs + 2);
-        }
-      }
-
-      // cluster layer captions
-      if (clusterRef.current) {
-        ctx!.textAlign = "center";
-        ctx!.font = '10px "JetBrains Mono", monospace';
-        for (const L of layersPresent) {
-          const c = clusters[L];
-          if (!c) continue;
-          const base = hexToRgb(TRUTH_LAYER_COLORS[L]);
-          ctx!.fillStyle = rgba(lighten(base, 0.5), 0.85);
-          ctx!.fillText(`LAYER ${L}`, c.x * scale + tx, c.y * scale + ty - Math.min(W, H) * 0.18 * scale);
+          if (label.length > 22) label = label.slice(0, 21) + "…";
+          ctx!.fillStyle = rgba([142, 146, 156], isSel ? 1 : 0.85);
+          ctx!.fillText(label, sx, sy + sr + 13);
         }
       }
     }
 
-    tick();
+    kick();
+    if (reduceMotion) raf = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(raf);
+      raf = 0;
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
@@ -418,55 +465,41 @@ export default function Atlas() {
     };
   }, [nodes, edges]);
 
-  if (nodesRes.loading || edgesRes.loading) return <Loading label="Liminal Atlas" />;
-  if (nodesRes.error || edgesRes.error || !nodes || !edges)
-    return <ErrorState message={nodesRes.error ?? edgesRes.error ?? "no data"} />;
+  if (!synthetic && (nodesRes.loading || edgesRes.loading)) return <Loading label="Liminal Atlas" />;
+  if (!nodes || !edges) return <ErrorState message={nodesRes.error ?? edgesRes.error ?? "no data"} />;
+
+  function dismissHint() {
+    localStorage.setItem("indigold_atlas_hint", "off");
+    setHintOff(true);
+  }
 
   return (
-    <div className="relative" style={{ height: "calc(100dvh - 64px - env(safe-area-inset-top))" }}>
-      <div
-        ref={wrapRef}
-        className="absolute inset-0 overflow-hidden"
-        style={{ background: "radial-gradient(120% 120% at 50% 0%, oklch(0.95 0.01 280), oklch(0.96 0.006 280))" }}
-      >
-        <img
-          src={GRAPH_IMG}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-          style={{ opacity: 0.12 }}
-        />
+    <div className="relative" style={{ height: "calc(100dvh - 64px - env(safe-area-inset-top))", background: FIELD }}>
+      <div ref={wrapRef} className="absolute inset-0 overflow-hidden" style={{ background: FIELD }}>
         <canvas ref={canvasRef} className="absolute inset-0 touch-none" style={{ cursor: "grab" }} />
       </div>
 
-      <div
-        className="absolute top-0 left-0 right-0 px-5 pt-4 pb-8 pointer-events-none"
-        style={{ background: "linear-gradient(to bottom, oklch(0.985 0.004 280 / 0.9), transparent)" }}
-      >
+      {/* Header — one quiet line; counts in mono */}
+      <div className="absolute top-0 left-0 right-0 px-5 pt-4 pointer-events-none">
         <div className="flex items-center gap-2">
-          <Globe2 size={16} style={{ color: "oklch(0.62 0.13 85)" }} />
-          <span className="label-mono">Liminal Atlas</span>
-          <span className="label-mono ml-auto">
+          <Share2 size={15} strokeWidth={1.5} style={{ color: "#C9A45C" }} />
+          <span className="text-sm font-display" style={{ color: "#EAE6DA" }}>Liminal Atlas</span>
+          <span className="cap-data ml-auto" style={{ color: "#8E929C" }}>
             {nodes.length} nodes · {edges.length} edges
           </span>
         </div>
-        <p className="label-mono mt-1" style={{ color: "oklch(0.55 0.015 280)" }}>
-          tap a globe · drag to move · pinch / scroll to zoom
-        </p>
+        {!hintOff && (
+          <div className="flex items-center gap-2 mt-2 pointer-events-auto">
+            <span className="text-xs" style={{ color: "#8E929C" }}>Tap a node to focus · drag to move · pinch to zoom</span>
+            <button onClick={dismissHint} aria-label="Dismiss hint" style={{ color: "#8E929C" }}>
+              <X size={13} strokeWidth={1.5} />
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* Controls — 36px ghost circles, hairline border, bottom-right */}
       <div className="absolute right-4 bottom-4 flex flex-col gap-2">
-        <button
-          aria-label="Cluster by Truth Layer"
-          onClick={() => setCluster((c) => !c)}
-          className="w-10 h-10 rounded-full flex items-center justify-center border-glow"
-          style={{
-            background: cluster ? "oklch(0.45 0.22 264 / 0.85)" : "oklch(0.97 0.006 280 / 0.92)",
-            color: cluster ? "oklch(0.22 0.02 280)" : "oklch(0.38 0.02 280)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
-          <Layers size={17} />
-        </button>
         {[
           { icon: Plus, fn: () => apiRef.current?.zoom(1.25), label: "Zoom in" },
           { icon: Minus, fn: () => apiRef.current?.zoom(0.8), label: "Zoom out" },
@@ -476,10 +509,10 @@ export default function Atlas() {
             key={label}
             aria-label={label}
             onClick={fn}
-            className="w-10 h-10 rounded-full flex items-center justify-center border-glow"
-            style={{ background: "oklch(0.97 0.006 280 / 0.92)", color: "oklch(0.38 0.02 280)", backdropFilter: "blur(8px)" }}
+            className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: "rgba(19,21,26,0.7)", border: "1px solid #22252D", color: "#8E929C", backdropFilter: "blur(8px)" }}
           >
-            <Icon size={17} />
+            <Icon size={16} strokeWidth={1.5} />
           </button>
         ))}
       </div>
@@ -489,110 +522,41 @@ export default function Atlas() {
   );
 }
 
-function drawGlobe(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  r: number,
-  base: RGB,
-  alpha: number,
-  selected: boolean,
-  pulse: number,
-) {
-  if (r <= 0) return;
-  // outer halo / glow — high-MVS nodes breathe
-  const haloR = r * (2.6 + pulse * 0.5);
-  const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, haloR);
-  glow.addColorStop(0, rgba(base, (0.4 + pulse * 0.25) * alpha));
-  glow.addColorStop(1, rgba(base, 0));
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(x, y, haloR, 0, Math.PI * 2);
-  ctx.fill();
-
-  const hx = x - r * 0.34;
-  const hy = y - r * 0.34;
-  const sphere = ctx.createRadialGradient(hx, hy, r * 0.1, x, y, r);
-  sphere.addColorStop(0, rgba(lighten(base, 0.6), alpha));
-  sphere.addColorStop(0.45, rgba(base, alpha));
-  sphere.addColorStop(1, rgba(darken(base, 0.5), alpha));
-  ctx.fillStyle = sphere;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.lineWidth = Math.max(1, r * 0.05);
-  ctx.strokeStyle = rgba(lighten(base, 0.45), 0.5 * alpha);
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.stroke();
-
-  const spec = ctx.createRadialGradient(hx, hy, 0, hx, hy, r * 0.55);
-  spec.addColorStop(0, rgba([255, 255, 255], 0.55 * alpha));
-  spec.addColorStop(1, rgba([255, 255, 255], 0));
-  ctx.fillStyle = spec;
-  ctx.beginPath();
-  ctx.arc(hx, hy, r * 0.55, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (selected) {
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "rgba(212,175,71,0.95)";
-    ctx.beginPath();
-    ctx.arc(x, y, r + 5, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-}
-
 function NodeSheet({ node, onClose }: { node: GraphNode; onClose: () => void }) {
-  const color = TRUTH_LAYER_COLORS[node.truth_layer];
+  const color = NODE_COLOR[node.type] || FALLBACK_COLOR;
   return (
     <div className="absolute inset-0 z-40 flex items-end" onClick={onClose}>
-      <div className="absolute inset-0" style={{ background: "oklch(0.45 0.03 280 / 0.4)" }} />
+      <div className="absolute inset-0" style={{ background: "rgba(8,9,12,0.55)" }} />
       <div
-        className="relative w-full rounded-t-3xl p-5 safe-bottom animate-fade-in-up"
-        style={{ background: "oklch(0.955 0.006 280)", border: "1px solid oklch(0.55 0.03 264 / 0.35)" }}
+        className="relative w-full p-5 safe-bottom animate-fade-in-up"
+        style={{ background: "#13151A", borderTop: "1px solid #22252D", borderTopLeftRadius: 10, borderTopRightRadius: 10 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <button onClick={onClose} className="absolute top-4 right-4" style={{ color: "oklch(0.46 0.02 280)" }}>
-          <X size={20} />
+        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4" style={{ color: "#8E929C" }}>
+          <X size={18} strokeWidth={1.5} />
         </button>
         <div className="flex items-center gap-2 mb-2">
-          <span
-            className="text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wide"
-            style={{ background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.5 0.2 264)" }}
-          >
-            {node.type}
-          </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: color + "22", color }}>
-            Layer {node.truth_layer} · {node.truth_label}
-          </span>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+          <span className="text-xs" style={{ color: "#8E929C" }}>{node.type}</span>
+          <span className="cap-data" style={{ color: "#8E929C" }}>· Layer {node.truth_layer} · {node.truth_label}</span>
         </div>
-        <h2 className="text-lg mb-1.5">{node.title}</h2>
-        <p className="text-sm leading-relaxed mb-4" style={{ color: "oklch(0.38 0.02 280)" }}>
-          {node.summary}
-        </p>
-        <div className="flex items-center gap-4">
+        <h2 className="text-lg font-display mb-1.5" style={{ color: "#EAE6DA" }}>{node.title}</h2>
+        <p className="text-sm leading-relaxed mb-4" style={{ color: "#8E929C" }}>{node.summary}</p>
+        <div className="flex items-end gap-5">
           <div>
-            <div className="label-mono">Memory Value</div>
-            <div className="text-2xl glow-text-gold" style={{ color: "oklch(0.62 0.13 85)" }}>
-              {node.mvs}
-            </div>
+            <div className="text-xs mb-0.5" style={{ color: "#8E929C" }}>Memory value</div>
+            <div className="text-2xl font-data" style={{ color: "#C9A45C" }}>{node.mvs}</div>
           </div>
-          <div className="flex-1">
-            <div className="label-mono mb-1">Tags</div>
-            <div className="flex flex-wrap gap-1.5">
-              {node.tags.map((t) => (
-                <span
-                  key={t}
-                  className="text-[10px] px-2 py-0.5 rounded-full"
-                  style={{ background: "oklch(0.93 0.008 280)", color: "oklch(0.46 0.02 280)" }}
-                >
-                  {t}
-                </span>
-              ))}
+          {node.tags.length > 0 && (
+            <div className="flex-1">
+              <div className="text-xs mb-1" style={{ color: "#8E929C" }}>Tags</div>
+              <div className="flex flex-wrap gap-1.5">
+                {node.tags.map((t) => (
+                  <span key={t} className="text-[11px] px-2 py-0.5" style={{ borderRadius: 6, border: "1px solid #22252D", color: "#EAE6DA" }}>{t}</span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
