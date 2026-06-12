@@ -13,7 +13,8 @@
     "./providers": "./src/providers.ts",
     "./prompts": "./src/prompts.ts",
     "./registry": "./src/registry.ts",
-    "./radian-stages": "./src/radian-stages.ts"
+    "./radian-stages": "./src/radian-stages.ts",
+    "./radian-stages2": "./src/radian-stages2.ts"
   },
   "dependencies": {
     "ioredis": "^5.4.1",

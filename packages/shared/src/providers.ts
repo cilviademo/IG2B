@@ -12,8 +12,11 @@ import {
   type CompleteResult,
   type TokenUsage,
   type ModelTier,
+  type ToolAdapter,
+  type ToolResult,
   deterministicAdapter,
   anthropicAdapter,
+  stubTool,
   estTokens,
 } from "./model";
 
@@ -224,6 +227,55 @@ export function getTaskAdapter(task: TaskType, env: Env = process.env, mode: LLM
     return { adapter: deterministicAdapter(resolved.model), resolved, mode };
   }
   return { adapter: makeLiveAdapter(resolved.provider, resolved.model, env), resolved, mode };
+}
+
+// ---------------------------------------------------------------------------
+// Tool adapters (Wave 2). GitHub REST is the first real one (repos are a primary
+// input). Token-optional (GITHUB_TOKEN raises rate limits); fails gracefully
+// offline. arXiv/YouTube/Gmail/Notion are future adapters behind ToolAdapter.
+// ---------------------------------------------------------------------------
+export function makeGithubTool(env: Env = process.env): ToolAdapter {
+  const token = env.GITHUB_TOKEN;
+  const headers: Record<string, string> = { accept: "application/vnd.github+json", "user-agent": "indigold-radian" };
+  if (token) headers.authorization = `Bearer ${token}`;
+  return {
+    name: "github",
+    async run(input): Promise<ToolResult> {
+      const action = String(input.action || "repo");
+      const owner = String(input.owner || "");
+      const repo = String(input.repo || "");
+      if (!owner || !repo) return { ok: false, error: "github_missing_owner_repo" };
+      const base = `https://api.github.com/repos/${owner}/${repo}`;
+      try {
+        if (action === "repo") {
+          const r = await fetch(base, { headers });
+          if (!r.ok) return { ok: false, error: `github_${r.status}` };
+          const j = (await r.json()) as Record<string, unknown>;
+          return { ok: true, data: { full_name: j.full_name, description: j.description, language: j.language, stars: j.stargazers_count, topics: j.topics } };
+        }
+        if (action === "readme") {
+          const r = await fetch(`${base}/readme`, { headers: { ...headers, accept: "application/vnd.github.raw" } });
+          if (!r.ok) return { ok: false, error: `github_${r.status}` };
+          return { ok: true, data: { readme: (await r.text()).slice(0, 4000) } };
+        }
+        if (action === "tree") {
+          const r = await fetch(`${base}/git/trees/HEAD?recursive=1`, { headers });
+          if (!r.ok) return { ok: false, error: `github_${r.status}` };
+          const j = (await r.json()) as { tree?: { path?: string; type?: string }[] };
+          return { ok: true, data: { paths: (j.tree || []).map((t) => t.path).filter(Boolean).slice(0, 80) } };
+        }
+        return { ok: false, error: "github_unknown_action" };
+      } catch (e) {
+        return { ok: false, error: `github_network: ${redact(e instanceof Error ? e.message : "")}` };
+      }
+    },
+  };
+}
+
+/** Tool registry resolved against env. Web-search is wired to the model provider's
+ *  native tool in a live deploy; here it's a safe stub until that's enabled. */
+export function getTools(env: Env = process.env): Record<string, ToolAdapter> {
+  return { github: makeGithubTool(env), web_search: stubTool("web_search") };
 }
 
 // ---------------------------------------------------------------------------

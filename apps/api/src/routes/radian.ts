@@ -3,7 +3,7 @@
 import { Router } from "express";
 import * as repo from "@indigold/db";
 import { seedProjectsIfEmpty, budgetStatus } from "@indigold/db";
-import { id } from "@indigold/shared";
+import { id, enqueue } from "@indigold/shared";
 import { providersStatus, providerConfigured, PROVIDER_ENV, ALL_PROVIDERS, type Provider } from "@indigold/shared/providers";
 import type { Authed } from "../middleware/auth";
 
@@ -49,6 +49,33 @@ export const radianRouter = Router();
 // and month-to-date spend so cost is never a silent surprise.
 radianRouter.get("/status", async (req: Authed, res) => {
   res.json(await budgetStatus(req.userId!));
+});
+
+// "Research this" — manual Stage 4 trigger for a node (rate-capped per day).
+radianRouter.post("/research/:nodeId", async (req: Authed, res) => {
+  const node = await repo.nodes.get(req.userId!, req.params.nodeId);
+  if (!node) return res.status(404).json({ error: "not_found" });
+  const srcCapId = (node as { source_capture_id?: string | null }).source_capture_id ?? null;
+  const cap = srcCapId ? await repo.captures.get(req.userId!, srcCapId) : null;
+  if (cap && (cap.sensitivity === "secret" || cap.sensitivity === "internal")) {
+    return res.status(403).json({ error: "privacy_excluded", reason: "secret/internal captures are not researched externally" });
+  }
+  const j = await enqueue("research", req.userId!, { nodeId: node.id, captureId: srcCapId ?? undefined });
+  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+  res.status(202).json({ queued: true, job: j.id });
+});
+
+// NEXT ACTIONS feed (HIGH-leverage first) — Stage 3 output for the Home queue.
+radianRouter.get("/actions", async (req: Authed, res) => {
+  const nodes = await repo.nodes.list(req.userId!);
+  const actions: unknown[] = [];
+  for (const n of nodes as { id: string; meta?: { assist?: { next_actions?: { leverage?: string }[] } } }[]) {
+    const na = n.meta?.assist?.next_actions;
+    if (Array.isArray(na)) for (const a of na) actions.push({ ...a, node_id: n.id });
+  }
+  const rank: Record<string, number> = { HIGH: 0, MED: 1, LOW: 2 };
+  actions.sort((a, b) => (rank[(a as { leverage?: string }).leverage || "LOW"] ?? 2) - (rank[(b as { leverage?: string }).leverage || "LOW"] ?? 2));
+  res.json({ items: actions.slice(0, 25) });
 });
 
 // ---- LLM Provider Framework (safe status; NO secrets ever) ----
