@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
-import { ArrowUpDown, Download, Upload, Info, KeyRound, Copy, Eye, EyeOff, Activity } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUpDown, Download, Upload, Info, KeyRound, Copy, Eye, EyeOff, Activity, Cpu } from "lucide-react";
 import { toast } from "sonner";
-import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError, syncCaptureToApi, lastSyncError } from "@/lib/api";
+import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError, syncCaptureToApi, lastSyncError, fetchLlmStatus, type LlmStatus } from "@/lib/api";
 
 const DATA_FILES = [
   "sample_nodes",
@@ -22,6 +22,13 @@ export default function ImportExport() {
   const [tokenBusy, setTokenBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
+  const [llm, setLlm] = useState<LlmStatus | null>(null);
+
+  // Safe LLM provider + budget status (no secrets) for the admin card.
+  useEffect(() => {
+    if (apiEnabled()) fetchLlmStatus().then(setLlm).catch(() => {});
+  }, []);
+  const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   // Runs ONE real capture POST against /captures and reports the exact result —
   // turns the silent "(local)" fallback into a visible HTTP status so we can see
@@ -145,6 +152,36 @@ export default function ImportExport() {
         <ArrowUpDown size={18} style={{ color: "oklch(0.5 0.2 264)" }} />
         <h1 className="text-xl">Import / Export</h1>
       </div>
+
+      {/* LLM providers + budget (safe status only — never any secret) */}
+      {llm && (
+        <section className="rounded-2xl p-4 space-y-2" style={{ background: "oklch(0.965 0.006 280)", border: "1px solid oklch(0.55 0.03 264 / 0.35)" }}>
+          <div className="flex items-center gap-2">
+            <Cpu size={16} style={{ color: "oklch(0.5 0.2 264)" }} />
+            <span className="label-mono">Intelligence (Radian)</span>
+            <span className="label-mono ml-auto">mode · {llm.mode}</span>
+          </div>
+          <div className="space-y-1">
+            {Object.entries(llm.providers).map(([name, p]) => (
+              <div key={name} className="flex items-center justify-between text-xs" style={{ color: "oklch(0.38 0.02 280)" }}>
+                <span className="font-mono">{name}{name === llm.default_provider ? " (default)" : ""}</span>
+                <span style={{ color: p.configured ? "oklch(0.52 0.15 150)" : "oklch(0.6 0.15 60)" }}>
+                  {p.configured ? "configured" : "missing API key"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between text-xs pt-1" style={{ borderTop: "1px solid oklch(0.55 0.03 264 / 0.2)" }}>
+            <span style={{ color: "oklch(0.46 0.02 280)" }}>Budget · {llm.budget.state}</span>
+            <span className="font-mono" style={{ color: llm.budget.state === "ok" ? "oklch(0.52 0.15 150)" : "oklch(0.6 0.15 60)" }}>
+              {dollars(llm.budget.month_to_date_cents)} / {dollars(llm.budget.monthly_budget_cents)}
+            </span>
+          </div>
+          <p className="label-mono" style={{ color: "oklch(0.55 0.015 280)" }}>
+            Set provider API keys in Render env vars — never here. See CONNECT_AN_LLM_PROVIDER.md.
+          </p>
+        </section>
+      )}
 
       <button
         onClick={handleExport}

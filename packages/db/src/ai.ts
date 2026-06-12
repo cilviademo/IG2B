@@ -16,13 +16,15 @@ import {
   type ModelTier,
   type GovernorState,
 } from "@indigold/shared/model";
+import { getTaskAdapter, type TaskType } from "@indigold/shared/providers";
 import { aiCalls, usage, projects, type ProjectRow } from "./repos";
 import { SEED_PROJECTS } from "@indigold/shared/registry";
 
 export interface GovernedCompleteCtx {
   userId: string;
-  tier: ModelTier;
+  tier: ModelTier; // budgeting tier (fallback when no task given)
   purpose: string; // ledger label, e.g. "ingest_classify"
+  task?: TaskType; // when set, the provider+model+mode come from the LLM framework
   system?: string;
   prompt: string;
   json?: boolean;
@@ -44,38 +46,42 @@ export interface GovernedResult {
  *  governor blocks the tier — callers catch it and QUEUE the work (never fake). */
 export async function governedComplete(ctx: GovernedCompleteCtx): Promise<GovernedResult> {
   const cfg = loadModelConfig();
+  // Provider/model/mode resolution: task-based (LLM framework) when a task is set,
+  // else the tier-based default adapter. Budgeting always uses a cost tier.
+  const sel = ctx.task ? getTaskAdapter(ctx.task) : null;
+  const tier: ModelTier = sel ? sel.resolved.tier : ctx.tier;
   const month = await aiCalls.monthCostCents(ctx.userId);
   const state = governorDecision(month, cfg.monthlyBudgetCents);
 
   // Pre-flight estimate so even the FIRST call is blocked when it would breach the
   // budget (the "$0.01 -> queue, no calls" force-test). Worst-case output = maxTokens.
-  const maxTok = ctx.maxTokens ?? cfg.tiers[ctx.tier].maxTokens;
-  const est = estimateCostCents(cfg.tiers[ctx.tier], { input: estTokens((ctx.system || "") + ctx.prompt), output: maxTok });
-  const blocked = !tierAllowed(state, ctx.tier) || preflightBlock(month, est, cfg.monthlyBudgetCents);
+  const maxTok = ctx.maxTokens ?? cfg.tiers[tier].maxTokens;
+  const est = estimateCostCents(cfg.tiers[tier], { input: estTokens((ctx.system || "") + ctx.prompt), output: maxTok });
+  const blocked = !tierAllowed(state, tier) || preflightBlock(month, est, cfg.monthlyBudgetCents);
 
   if (blocked) {
-    const why = !tierAllowed(state, ctx.tier) ? `governor_${state}` : "governor_block_preflight";
+    const why = !tierAllowed(state, tier) ? `governor_${state}` : "governor_block_preflight";
     // Log the refusal so it's VISIBLE in the ledger (not a silent skip). Zero spend.
     await aiCalls.log({
       id: id("aicall"), user_id: ctx.userId, purpose: ctx.purpose, provider: "n/a",
-      model: cfg.tiers[ctx.tier].model, tier: ctx.tier, input_tokens: 0, output_tokens: 0,
+      model: cfg.tiers[tier].model, tier, input_tokens: 0, output_tokens: 0,
       cost_cents: 0, source_id: ctx.sourceId, prompt_version: ctx.promptVersion, status: why,
     });
-    throw new BudgetExceededError(state === "ok" ? "block" : state, ctx.tier);
+    throw new BudgetExceededError(state === "ok" ? "block" : state, tier);
   }
 
-  const adapter = getModel(ctx.tier, cfg);
+  const adapter = sel ? sel.adapter : getModel(tier, cfg);
   const res = await adapter.complete({
     system: ctx.system,
     prompt: ctx.prompt,
     json: ctx.json,
-    maxTokens: ctx.maxTokens ?? cfg.tiers[ctx.tier].maxTokens,
+    maxTokens: maxTok,
   });
-  const cost = estimateCostCents(cfg.tiers[ctx.tier], res.usage);
+  const cost = estimateCostCents(cfg.tiers[tier], res.usage);
 
   await aiCalls.log({
     id: id("aicall"), user_id: ctx.userId, purpose: ctx.purpose, provider: adapter.provider,
-    model: res.model, tier: ctx.tier, input_tokens: res.usage.input, output_tokens: res.usage.output,
+    model: res.model, tier, input_tokens: res.usage.input, output_tokens: res.usage.output,
     cost_cents: cost, source_id: ctx.sourceId, prompt_version: ctx.promptVersion, status: "ok",
   });
   await usage.add(ctx.userId, { tokens: res.usage.input + res.usage.output, apiCalls: 1, costCents: Math.round(cost) });

@@ -4,6 +4,7 @@ import { Router } from "express";
 import * as repo from "@indigold/db";
 import { seedProjectsIfEmpty, budgetStatus } from "@indigold/db";
 import { id } from "@indigold/shared";
+import { providersStatus, providerConfigured, PROVIDER_ENV, ALL_PROVIDERS, type Provider } from "@indigold/shared/providers";
 import type { Authed } from "../middleware/auth";
 
 export const projectsRouter = Router();
@@ -48,4 +49,38 @@ export const radianRouter = Router();
 // and month-to-date spend so cost is never a silent surprise.
 radianRouter.get("/status", async (req: Authed, res) => {
   res.json(await budgetStatus(req.userId!));
+});
+
+// ---- LLM Provider Framework (safe status; NO secrets ever) ----
+export const llmRouter = Router();
+
+// GET /llm/status — configured providers + default + mode + budget. Token values
+// are NEVER read or returned here; only presence (configured true/false) + reason.
+llmRouter.get("/status", async (req: Authed, res) => {
+  const budget = await budgetStatus(req.userId!);
+  res.json({
+    ...providersStatus(),
+    budget: {
+      monthly_budget_cents: budget.budget_cents,
+      month_to_date_cents: budget.month_cost_cents,
+      state: budget.state,
+    },
+  });
+});
+
+// POST /llm/provider-config — placeholder, secret-safe. Does NOT accept or persist
+// raw keys (no encrypted secret manager yet); it tells the operator which Render
+// env var to set. Any "key"/"token" field in the body is ignored and never stored.
+llmRouter.post("/provider-config", async (req: Authed, res) => {
+  const provider = String(req.body?.provider || "").toLowerCase() as Provider;
+  if (!ALL_PROVIDERS.includes(provider)) {
+    return res.status(400).json({ error: "unknown_provider", valid: ALL_PROVIDERS });
+  }
+  const required = PROVIDER_ENV[provider as Exclude<Provider, "deterministic">];
+  res.json({
+    provider,
+    required_env_var: required,
+    configured: providerConfigured(provider).configured,
+    message: `Set ${required} in Render → Environment, then redeploy the API. Keys are never accepted or stored here.`,
+  });
 });

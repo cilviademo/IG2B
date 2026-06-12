@@ -271,6 +271,26 @@ export async function assetSignedUrl(assetId: string): Promise<string | null> {
   }
 }
 
+export interface LlmStatus {
+  default_provider: string;
+  mode: string;
+  providers: Record<string, { configured: boolean; reason?: string }>;
+  budget: { monthly_budget_cents: number; month_to_date_cents: number; state: string };
+}
+
+/** Safe LLM provider + budget status for the I/O panel. Never contains secrets. */
+export async function fetchLlmStatus(): Promise<LlmStatus | null> {
+  if (!apiEnabled()) return null;
+  if (!getToken() && !(await ensureSession())) return null;
+  try {
+    const res = await fetch(`${BASE}/llm/status`, { headers: { authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) return null;
+    return (await res.json()) as LlmStatus;
+  } catch {
+    return null;
+  }
+}
+
 /** Load a resource from the API when enabled, else fall back to a local fixture. */
 export async function loadOrFixture<T>(apiCall: () => Promise<T>, fixturePath: string): Promise<T> {
   if (apiEnabled()) {

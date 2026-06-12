@@ -7,5 +7,6 @@ export * from "./kv";
 export * from "./queue";
 export { redis, redisHealthy } from "./redis";
 export * from "./model";
+export * from "./providers";
 export * from "./prompts";
 export * from "./registry";

@@ -10,6 +10,7 @@
     "./contracts": "./src/contracts.ts",
     "./intelligence": "./src/intelligence.ts",
     "./model": "./src/model.ts",
+    "./providers": "./src/providers.ts",
     "./prompts": "./src/prompts.ts",
     "./registry": "./src/registry.ts"
   },
