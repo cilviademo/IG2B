@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import { ArrowUpDown, Download, Upload, Info, KeyRound, Copy, Eye, EyeOff, Activity } from "lucide-react";
+import { Download, Upload, Info, KeyRound, Copy, Eye, EyeOff, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError, syncCaptureToApi, lastSyncError } from "@/lib/api";
+import { Button, SectionRule, Dot } from "@/components/primitives";
 
 const DATA_FILES = [
   "sample_nodes",
@@ -140,117 +141,73 @@ export default function ImportExport() {
   }
 
   return (
-    <div className="px-5 pt-5 pb-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <ArrowUpDown size={18} style={{ color: "oklch(0.5 0.2 264)" }} />
-        <h1 className="text-xl">Import / Export</h1>
+    <div className="px-5 pt-6 pb-6">
+      <h1 className="text-xl font-display mb-5">Input / output</h1>
+
+      {/* Data */}
+      <SectionRule label="Data" />
+      <div className="flex gap-2 mt-3 mb-2">
+        <Button variant="ghost" full disabled={busy} leftIcon={<Download size={15} strokeWidth={1.5} />} onClick={handleExport}>Export</Button>
+        <Button variant="ghost" full leftIcon={<Upload size={15} strokeWidth={1.5} />} onClick={() => fileRef.current?.click()}>Import</Button>
       </div>
-
-      <button
-        onClick={handleExport}
-        disabled={busy}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold transition-glow disabled:opacity-50"
-        style={{ background: "oklch(0.62 0.13 85)", color: "oklch(0.16 0.04 280)" }}
-      >
-        <Download size={16} /> Export Local Data (JSON)
-      </button>
-
-      <button
-        onClick={() => fileRef.current?.click()}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold border-glow"
-        style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.38 0.02 280)" }}
-      >
-        <Upload size={16} /> Import Data (replace state)
-      </button>
       <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={handleImport} />
-
       {lastImport && (
-        <p className="label-mono" style={{ color: "oklch(0.62 0.13 85)" }}>
-          last import · {lastImport}
-        </p>
+        <p className="cap-data mb-1" style={{ color: "var(--text-dim)" }}>last import · {lastImport}</p>
       )}
 
-      {/* Device API token — for the iOS Shortcut file-upload branch */}
-      <section
-        className="rounded-2xl p-4 space-y-3"
-        style={{ background: "oklch(0.965 0.006 280)", border: "1px solid oklch(0.55 0.03 264 / 0.35)" }}
-      >
-        <div className="flex items-center gap-2">
-          <KeyRound size={16} style={{ color: "oklch(0.62 0.13 85)" }} />
-          <span className="label-mono">Device API Token</span>
-        </div>
-        <p className="text-xs leading-relaxed" style={{ color: "oklch(0.46 0.02 280)" }}>
-          For the iOS Shortcut <strong style={{ color: "oklch(0.38 0.02 280)" }}>file-upload</strong> branch.
-          Paste into the Shortcut’s header: <span className="font-mono">Authorization: Bearer &lt;token&gt;</span>.
-          Treat it like a password — it authenticates your vault uploads.
-        </p>
-
-        <button
-          onClick={copyApiToken}
-          disabled={tokenBusy}
-          className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold disabled:opacity-50"
-          style={{ background: "oklch(0.45 0.22 264)", color: "oklch(0.2 0.02 280)" }}
-        >
-          <Copy size={15} /> {tokenBusy ? "Preparing…" : "Copy API Token"}
-        </button>
-
-        {token && (
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="label-mono">token</span>
-              <button
-                onClick={() => setRevealToken((r) => !r)}
-                className="flex items-center gap-1 label-mono"
-                style={{ color: "oklch(0.5 0.2 264)" }}
-              >
-                {revealToken ? <EyeOff size={11} /> : <Eye size={11} />} {revealToken ? "hide" : "reveal"}
-              </button>
-            </div>
-            <code
-              className="block text-[10px] font-mono break-all rounded-lg p-2"
-              style={{ background: "oklch(0.985 0.004 280)", color: "oklch(0.42 0.02 280)" }}
-            >
-              {revealToken ? token : "•".repeat(Math.min(40, token.length))}
-            </code>
+      {/* Device token */}
+      <div className="mt-6"><SectionRule label="Device token" /></div>
+      <div className="flex items-center gap-2 mt-3 mb-1.5">
+        <KeyRound size={15} strokeWidth={1.5} style={{ color: "var(--text-dim)" }} />
+        <span style={{ fontSize: 14, color: "var(--text)" }}>API token</span>
+      </div>
+      <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-dim)" }}>
+        For the iOS Shortcut <strong style={{ color: "var(--text)" }}>file-upload</strong> branch.
+        Paste into the Shortcut’s header: <span className="font-mono">Authorization: Bearer &lt;token&gt;</span>.
+        Treat it like a password — it authenticates your vault uploads.
+      </p>
+      {/* the screen's one gold primary */}
+      <Button variant="primary" full disabled={tokenBusy} leftIcon={<Copy size={15} strokeWidth={1.5} />} onClick={copyApiToken}>
+        {tokenBusy ? "Preparing…" : "Copy API token"}
+      </Button>
+      {token && (
+        <div className="mt-3">
+          <div className="flex items-center justify-between mb-1">
+            <span style={{ fontSize: 12, color: "var(--text-dim)" }}>token</span>
+            <button onClick={() => setRevealToken((r) => !r)} className="flex items-center gap-1" style={{ fontSize: 12, color: "var(--gold)" }}>
+              {revealToken ? <EyeOff size={11} strokeWidth={1.5} /> : <Eye size={11} strokeWidth={1.5} />} {revealToken ? "Hide" : "Reveal"}
+            </button>
           </div>
-        )}
+          <code className="block text-[10px] font-mono break-all p-2" style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 6, color: "var(--text-dim)" }}>
+            {revealToken ? token : "•".repeat(Math.min(40, token.length))}
+          </code>
+        </div>
+      )}
 
-        {apiEnabled() && (
-          <p className="label-mono" style={{ color: "oklch(0.55 0.015 280)" }}>
-            upload endpoint · {apiBaseUrl()}/capture/upload
-          </p>
-        )}
+      {/* Sync */}
+      <div className="mt-6"><SectionRule label="Sync" /></div>
+      {apiEnabled() && (
+        <p className="cap-data mt-3 mb-2" style={{ color: "var(--text-dim)" }}>endpoint · {apiBaseUrl()}/capture/upload</p>
+      )}
+      <Button variant="ghost" full disabled={syncBusy} leftIcon={<Activity size={14} strokeWidth={1.5} />} onClick={testSync}>
+        {syncBusy ? "Testing sync…" : "Test sync"}
+      </Button>
+      {syncMsg && (
+        <div className="flex items-center gap-2 mt-2">
+          <Dot color={syncMsg.startsWith("✓") ? "var(--good)" : "var(--risk)"} />
+          <span className="font-mono break-words" style={{ fontSize: 12, color: "var(--text-dim)" }}>{syncMsg}</span>
+        </div>
+      )}
 
-        {/* Diagnostic: prove a capture round-trips to the DB (surfaces the real status) */}
-        <button
-          onClick={testSync}
-          disabled={syncBusy}
-          className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold border-glow disabled:opacity-50"
-          style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.12 195)" }}
-        >
-          <Activity size={14} /> {syncBusy ? "Testing sync…" : "Test Sync to Backend"}
-        </button>
-        {syncMsg && (
-          <p
-            className="text-xs font-mono break-words"
-            style={{ color: syncMsg.startsWith("✓") ? "oklch(0.52 0.15 150)" : "oklch(0.58 0.18 35)" }}
-          >
-            {syncMsg}
-          </p>
-        )}
-      </section>
-
-      <section
-        className="rounded-2xl p-4 flex gap-3"
-        style={{ background: "oklch(0.965 0.006 280)", border: "1px dashed oklch(0.55 0.03 264 / 0.35)" }}
-      >
-        <Info size={16} className="shrink-0 mt-0.5" style={{ color: "oklch(0.5 0.12 195)" }} />
-        <p className="text-xs leading-relaxed" style={{ color: "oklch(0.46 0.02 280)" }}>
-          Indigold now syncs captures with the live API when online. A local cache remains available
-          for offline review. File assets are stored <strong style={{ color: "oklch(0.38 0.02 280)" }}>privately</strong> and
-          displayed through time-limited signed URLs.
+      <hr className="rule mt-6 mb-3" />
+      <div className="flex gap-3">
+        <Info size={15} className="shrink-0 mt-0.5" strokeWidth={1.5} style={{ color: "var(--text-dim)" }} />
+        <p className="text-xs leading-relaxed" style={{ color: "var(--text-dim)" }}>
+          Captures sync with the live API when online; a local cache stays available offline. File
+          assets are stored <strong style={{ color: "var(--text)" }}>privately</strong> and shown through
+          time-limited signed URLs.
         </p>
-      </section>
+      </div>
     </div>
   );
 }
