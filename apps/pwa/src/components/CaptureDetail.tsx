@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Trash2, Link2, Camera, FileDown, Loader2 } from "lucide-react";
 import Sheet from "./Sheet";
 import {
@@ -40,21 +40,40 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
   const body = item.body || item.note || "";
 
   // Uploaded-file assets are private; fetch a fresh, time-limited signed URL when
-  // the detail opens. The URL is never stored/cached — re-minted each view.
+  // the detail opens. The URL is never stored/cached — re-minted each view, and
+  // re-requested if it expires (signed links are short-lived: ~15 min default).
   const [assetUrl, setAssetUrl] = useState<string | null>(null);
   const [assetLoading, setAssetLoading] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    if (item.assetId) {
-      setAssetLoading(true);
-      assetSignedUrl(item.assetId)
-        .then((u) => !cancelled && setAssetUrl(u))
-        .finally(() => !cancelled && setAssetLoading(false));
-    }
-    return () => {
-      cancelled = true;
-    };
+  const imgRetried = useRef(false);
+
+  const loadAssetUrl = useCallback(async () => {
+    if (!item.assetId) return null;
+    setAssetLoading(true);
+    const u = await assetSignedUrl(item.assetId);
+    setAssetUrl(u);
+    setAssetLoading(false);
+    return u;
   }, [item.assetId]);
+
+  useEffect(() => {
+    imgRetried.current = false;
+    if (item.assetId) void loadAssetUrl();
+  }, [item.assetId, loadAssetUrl]);
+
+  // If the preview image fails to load, the most likely cause is an expired
+  // signed URL — re-request once before giving up.
+  const onImgError = () => {
+    if (imgRetried.current) return;
+    imgRetried.current = true;
+    void loadAssetUrl();
+  };
+
+  // Always mint a fresh URL at click time so the opened link can't be expired.
+  const openFile = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const fresh = (await loadAssetUrl()) || assetUrl;
+    if (fresh) window.open(fresh, "_blank", "noopener,noreferrer");
+  };
   const isImage = /(png|jpe?g|gif|webp|heic)/i.test(item.type) || item.type === "screenshot";
 
   return (
@@ -107,17 +126,18 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
               </div>
             )}
             {!assetLoading && assetUrl && isImage && (
-              <img src={assetUrl} alt={item.title} className="w-full max-h-72 object-contain" style={{ background: "oklch(0.97 0.005 280)" }} />
+              <img src={assetUrl} alt={item.title} onError={onImgError} className="w-full max-h-72 object-contain" style={{ background: "oklch(0.97 0.005 280)" }} />
             )}
             {!assetLoading && assetUrl && (
               <a
                 href={assetUrl}
+                onClick={openFile}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="flex items-center justify-center gap-1.5 p-2.5 text-xs font-semibold"
                 style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.12 195)" }}
               >
-                <FileDown size={14} /> Open file (signed link · expires)
+                <FileDown size={14} /> Open file (fresh signed link)
               </a>
             )}
             {!assetLoading && !assetUrl && (

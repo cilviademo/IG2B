@@ -36,6 +36,7 @@ import CaptureDetail, { type DetailItem } from "@/components/CaptureDetail";
 import Sheet from "@/components/Sheet";
 import { listCaptures, removeCapture, subscribeCaptures, exportCaptures, importCaptures, markSynced, type LocalCapture } from "@/lib/captureStore";
 import { apiEnabled, ensureSession, syncCaptureToApi, fetchCaptures, lastSessionError, lastSyncError, type BackendCapture } from "@/lib/api";
+import { flushUploadQueue } from "@/lib/uploadQueue";
 
 const TYPE_ICON: Record<CaptureType, LucideIcon> = {
   apple_note: StickyNote,
@@ -136,13 +137,16 @@ export default function Inbox() {
         if (c.synced) continue;
         if (await syncCaptureToApi(c)) markSynced(c.id);
       }
+      // Retry any file uploads queued offline (form-path binary captures).
+      const up = await flushUploadQueue();
       setLocal(listCaptures());
       const fresh = await fetchCaptures();
       // Only replace the list when the fetch actually succeeded; on failure
       // (cold start / transient / auth) keep the last good data, don't blank it.
       if (fresh !== null) {
         setRemote(fresh);
-        setRefreshMsg(`updated · ${fresh.length} in vault`);
+        const queuedNote = up.remaining ? ` · ${up.remaining} file(s) still queued` : up.uploaded ? ` · ${up.uploaded} file(s) uploaded` : "";
+        setRefreshMsg(`updated · ${fresh.length} in vault${queuedNote}`);
       } else {
         setRefreshMsg(`couldn't reach API — ${lastSyncError() || "kept last data"} (waking? retry in ~30s)`);
       }
