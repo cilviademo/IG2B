@@ -1,23 +1,20 @@
 import { useJson } from "@/hooks/useJson";
 import type { DashboardData } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
-import { Brain, Zap, Network, FolderKanban, Inbox, Gauge, RefreshCw, Share2 } from "lucide-react";
+import { Dot } from "@/components/primitives";
 
-const HERO_IMG = "/images/hero-dashboard.png";
-
-const STAT_META: {
-  key: keyof DashboardData["stats"];
-  label: string;
-  icon: typeof Network;
-  color: string;
-}[] = [
-  { key: "nodes", label: "Nodes", icon: Network, color: "oklch(0.5 0.2 264)" },
-  { key: "projects", label: "Projects", icon: FolderKanban, color: "oklch(0.62 0.13 85)" },
-  { key: "inbox", label: "Inbox", icon: Inbox, color: "oklch(0.5 0.12 195)" },
-  { key: "avg_mvs", label: "Avg MVS", icon: Gauge, color: "oklch(0.62 0.13 85)" },
-  { key: "review", label: "Review", icon: RefreshCw, color: "oklch(0.6 0.15 60)" },
-  { key: "edges", label: "Edges", icon: Share2, color: "oklch(0.5 0.2 264)" },
+const STAT_META: { key: keyof DashboardData["stats"]; label: string }[] = [
+  { key: "nodes", label: "Nodes" },
+  { key: "projects", label: "Projects" },
+  { key: "inbox", label: "Inbox" },
+  { key: "avg_mvs", label: "Avg MVS" },
+  { key: "review", label: "Review" },
+  { key: "edges", label: "Edges" },
 ];
+
+function today(): string {
+  return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+}
 
 export default function Dashboard() {
   const { data, loading, error } = useJson<DashboardData>("/data/sample_dashboard.json");
@@ -26,102 +23,65 @@ export default function Dashboard() {
   if (error || !data) return <ErrorState message={error ?? "no data"} />;
 
   return (
-    <div className="pb-6">
-      {/* Hero */}
-      <div className="relative h-44 overflow-hidden">
-        <img src={HERO_IMG} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to bottom, oklch(0.985 0.004 280 / 0.5), oklch(0.985 0.004 280) 95%)",
-          }}
-        />
-        <div className="absolute bottom-4 left-5 right-5">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full pulse-dot" style={{ background: "oklch(0.62 0.13 85)" }} />
-            <span className="label-mono">Mission Control</span>
+    <div className="px-5 pt-6 pb-6">
+      {/* Eyebrow + date — the data is the hero, not a greeting */}
+      <div className="flex items-center gap-2">
+        <Dot color="var(--gold)" pulse />
+        <span style={{ fontSize: 12, color: "var(--text-dim)" }}>Mission control</span>
+      </div>
+      <div className="font-data mt-1" style={{ fontSize: 12, color: "var(--text-dim)", letterSpacing: "0.02em" }}>{today()}</div>
+
+      {/* Daily brief as set prose, no box */}
+      <p className="mt-4" style={{ fontSize: 16, lineHeight: 1.55, color: "var(--text)", maxWidth: "60ch" }}>
+        {data.brief}
+      </p>
+
+      {/* Stats — one hairline-ruled row, mono figures over quiet labels */}
+      <div
+        className="grid grid-cols-6 mt-6"
+        style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}
+      >
+        {STAT_META.map((s, i) => (
+          <div key={s.key} className="py-3 px-1 text-center" style={{ borderLeft: i === 0 ? "none" : "1px solid var(--line)" }}>
+            <div className="font-data" style={{ fontSize: 17, color: "var(--text)", lineHeight: 1.1 }}>{data.stats[s.key]}</div>
+            <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 3 }}>{s.label}</div>
           </div>
-          <h1 className="text-2xl glow-text-gold">Good morning.</h1>
-        </div>
+        ))}
       </div>
 
-      <div className="px-5 -mt-1 space-y-4">
-        {/* Daily Brief */}
-        <section
-          className="rounded-2xl p-4 border-glow animate-fade-in-up"
-          style={{ background: "oklch(0.965 0.006 280)" }}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Brain size={16} style={{ color: "oklch(0.5 0.2 264)" }} />
-            <span className="label-mono">Daily Brief</span>
-          </div>
-          <p className="text-sm leading-relaxed" style={{ color: "oklch(0.38 0.02 280)" }}>
-            {data.brief}
-          </p>
-        </section>
+      {/* Urgent actions — plain rows, 6px semantic dots, hairline separators */}
+      <h2 className="mt-7" style={{ fontSize: 14, color: "var(--text)" }}>Urgent actions</h2>
+      <ul className="mt-1">
+        {data.urgent_actions.map((a, i) => (
+          <li
+            key={i}
+            className="flex items-start gap-3 py-3"
+            style={{ borderBottom: i === data.urgent_actions.length - 1 ? "none" : "1px solid var(--line)" }}
+          >
+            <span className="mt-1.5">
+              <Dot color={a.priority === "high" ? "var(--gold)" : "var(--text-dim)"} />
+            </span>
+            <span style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.45 }}>{a.text}</span>
+          </li>
+        ))}
+      </ul>
 
-        {/* Stats */}
-        <section className="grid grid-cols-3 gap-2.5">
-          {STAT_META.map((s, i) => {
-            const Icon = s.icon;
-            return (
-              <div
-                key={s.key}
-                className="rounded-xl p-3 border-glow animate-fade-in-up"
-                style={{ background: "oklch(0.965 0.006 280)", animationDelay: `${i * 50}ms` }}
-              >
-                <Icon size={15} style={{ color: s.color }} />
-                <div className="text-xl mt-1.5 font-semibold" style={{ color: "oklch(0.22 0.02 280)" }}>
-                  {data.stats[s.key]}
-                </div>
-                <div className="label-mono">{s.label}</div>
-              </div>
-            );
-          })}
-        </section>
-
-        {/* Urgent Actions */}
-        <section
-          className="rounded-2xl p-4 border-glow"
-          style={{ background: "oklch(0.965 0.006 280)" }}
-        >
-          <span className="label-mono">Urgent Actions</span>
-          <ul className="mt-2.5 space-y-2.5">
-            {data.urgent_actions.map((a, i) => (
-              <li key={i} className="flex items-start gap-2.5">
-                <span
-                  className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
-                  style={{
-                    background: a.priority === "high" ? "oklch(0.62 0.13 85)" : "oklch(0.5 0.2 264)",
-                  }}
-                />
-                <span className="text-sm" style={{ color: "oklch(0.38 0.02 280)" }}>
-                  {a.text}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* Recent Insights */}
-        <section
-          className="rounded-2xl p-4 border-glow"
-          style={{ background: "oklch(0.965 0.006 280)" }}
-        >
-          <span className="label-mono">Recent Insights</span>
-          <ul className="mt-2.5 space-y-3">
-            {data.insights.map((insight, i) => (
-              <li key={i} className="flex items-start gap-2.5">
-                <Zap size={14} className="mt-0.5 shrink-0" style={{ color: "oklch(0.62 0.13 85)" }} />
-                <span className="text-sm" style={{ color: "oklch(0.38 0.02 280)" }}>
-                  {insight}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
+      {/* Recent insights — same row pattern */}
+      <h2 className="mt-7" style={{ fontSize: 14, color: "var(--text)" }}>Recent insights</h2>
+      <ul className="mt-1">
+        {data.insights.map((insight, i) => (
+          <li
+            key={i}
+            className="flex items-start gap-3 py-3"
+            style={{ borderBottom: i === data.insights.length - 1 ? "none" : "1px solid var(--line)" }}
+          >
+            <span className="mt-1.5">
+              <Dot color="var(--info)" />
+            </span>
+            <span style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.45 }}>{insight}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

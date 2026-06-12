@@ -26,33 +26,30 @@ export default function TabBar() {
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 safe-bottom"
       style={{
-        background: "oklch(0.99 0.004 280 / 0.92)",
+        background: "color-mix(in srgb, var(--bg) 82%, transparent)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
+        borderTop: "1px solid var(--line)",
       }}
     >
-      <div className="border-t" style={{ borderColor: "oklch(0.55 0.03 264 / 0.3)" }}>
-        <div className="flex items-center justify-around px-1 pt-1.5 pb-1">
-          {tabs.map((tab) => {
-            const isActive = location === tab.path;
-            const Icon = tab.icon;
-            return (
-              <Link key={tab.path} href={tab.path}>
-                <button
-                  aria-label={tab.label}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-lg transition-all duration-200 min-w-[44px] ${
-                    isActive ? "tab-active" : "tab-inactive"
-                  }`}
-                  style={isActive ? { background: "oklch(0.45 0.22 264 / 0.1)" } : undefined}
-                >
-                  <Icon size={18} strokeWidth={isActive ? 2.2 : 1.5} />
-                  <span className="text-[9px] font-medium tracking-wide">{tab.label}</span>
-                </button>
-              </Link>
-            );
-          })}
-        </div>
+      <div className="flex items-center justify-around px-1 pt-1.5 pb-1">
+        {tabs.map((tab) => {
+          const isActive = location === tab.path;
+          const Icon = tab.icon;
+          return (
+            <Link key={tab.path} href={tab.path}>
+              <button
+                aria-label={tab.label}
+                aria-current={isActive ? "page" : undefined}
+                className="flex flex-col items-center gap-0.5 px-1.5 py-1.5 min-w-[44px]"
+                style={{ color: isActive ? "var(--gold)" : "var(--text-dim)" }}
+              >
+                <Icon size={18} strokeWidth={1.5} />
+                <span className="text-[9px] font-medium" style={{ letterSpacing: 0 }}>{tab.label}</span>
+              </button>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );
