@@ -5,6 +5,7 @@ import * as repo from "@indigold/db";
 import { seedProjectsIfEmpty, budgetStatus } from "@indigold/db";
 import { id, enqueue } from "@indigold/shared";
 import { providersStatus, providerConfigured, PROVIDER_ENV, ALL_PROVIDERS, type Provider } from "@indigold/shared/providers";
+import { calibrate } from "@indigold/shared";
 import type { Authed } from "../middleware/auth";
 
 export const projectsRouter = Router();
@@ -44,6 +45,47 @@ projectsRouter.patch("/:id", async (req: Authed, res) => {
 });
 
 export const radianRouter = Router();
+
+// ---- Stage 7: Opportunities (review queue; never auto-promoted) ----
+radianRouter.get("/opportunities", async (req: Authed, res) => {
+  await repo.opportunities.expireStale(req.userId!);
+  res.json({ items: await repo.opportunities.list(req.userId!) });
+});
+radianRouter.post("/opportunities/scan", async (req: Authed, res) => {
+  const j = await enqueue("opportunity_scan", req.userId!, {});
+  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+  res.status(202).json({ queued: true, job: j.id });
+});
+radianRouter.patch("/opportunities/:id", async (req: Authed, res) => {
+  const status = String(req.body?.status || "");
+  if (!["review", "accepted", "rejected", "expired"].includes(status)) return res.status(400).json({ error: "bad_status" });
+  await repo.opportunities.setStatus(req.userId!, req.params.id, status);
+  res.json({ ok: true });
+});
+
+// ---- Stage 8: Decision journal ----
+radianRouter.get("/decisions", async (req: Authed, res) => res.json({ items: await repo.decisions.list(req.userId!) }));
+radianRouter.get("/decisions/due", async (req: Authed, res) => res.json({ items: await repo.decisions.due(req.userId!) }));
+radianRouter.post("/decisions", async (req: Authed, res) => {
+  const decision = String(req.body?.decision || "").trim();
+  if (!decision) return res.status(400).json({ error: "decision_required" });
+  const did = id("dec");
+  await repo.decisions.create({
+    id: did, user_id: req.userId!, decision,
+    reasoning: String(req.body?.reasoning || ""),
+    confidence: Math.max(0, Math.min(1, Number(req.body?.confidence ?? 0.5))),
+    expected_outcome: String(req.body?.expected_outcome || ""),
+    review_by: req.body?.review_by ? String(req.body.review_by) : null,
+  });
+  res.status(201).json({ id: did });
+});
+radianRouter.post("/decisions/:id/outcome", async (req: Authed, res) => {
+  await repo.decisions.recordOutcome(req.userId!, req.params.id, String(req.body?.outcome || ""), Boolean(req.body?.success));
+  res.json({ ok: true });
+});
+radianRouter.get("/calibration", async (req: Authed, res) => {
+  res.json(calibrate(await repo.decisions.forCalibration(req.userId!)));
+});
 
 // Budget governor + provider snapshot. Surfaces the REAL state (ok/degrade/block)
 // and month-to-date spend so cost is never a silent surprise.

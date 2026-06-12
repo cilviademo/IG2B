@@ -71,6 +71,18 @@ export const nodes = {
   async setMeta(userId: string, id: string, meta: object) {
     await query(`UPDATE nodes SET meta=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, JSON.stringify(meta)]);
   },
+  // Idempotent theme node (Stage 9): one per (user, tag), refreshed each consolidation.
+  async upsertTheme(userId: string, tag: string, nodeIds: string[]) {
+    const tid = `theme_${userId.slice(-8)}_${tag.replace(/[^a-z0-9]/gi, "").slice(0, 24)}`;
+    await query(
+      `INSERT INTO nodes (id,user_id,type,title,summary,truth_layer,truth_label,mvs,tags,meta)
+       VALUES ($1,$2,'concept',$3,$4,'C','Theme',$5,$6,$7)
+       ON CONFLICT (id) DO UPDATE SET summary=$4, mvs=$5, tags=$6, meta=$7, updated_at=now()`,
+      [tid, userId, `Theme: ${tag}`, `${nodeIds.length} related nodes`, Math.min(90, 50 + nodeIds.length * 4),
+       JSON.stringify([tag]), JSON.stringify({ theme: true, node_ids: nodeIds })],
+    );
+    return tid;
+  },
   async list(userId: string) {
     const r = await query<GraphNode>(`SELECT * FROM nodes WHERE user_id=$1 ORDER BY mvs DESC`, [userId]);
     return r.rows;
@@ -304,6 +316,56 @@ export const aiCalls = {
       [userId],
     );
     return r.rows.map((x) => ({ purpose: x.purpose, cost_cents: Number(x.cost), calls: Number(x.calls) }));
+  },
+};
+
+export const opportunities = {
+  async create(o: { id: string; user_id: string; thesis: string; contributing_nodes: string[]; confidence: number; leverage: string; first_move: string; decay_date?: string | null }) {
+    await query(
+      `INSERT INTO opportunities (id,user_id,thesis,contributing_nodes,confidence,leverage,first_move,decay_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [o.id, o.user_id, o.thesis, JSON.stringify(o.contributing_nodes), o.confidence, o.leverage, o.first_move, o.decay_date ?? null],
+    );
+  },
+  async list(userId: string) {
+    const r = await query(`SELECT * FROM opportunities WHERE user_id=$1 ORDER BY created_at DESC`, [userId]);
+    return r.rows;
+  },
+  async setStatus(userId: string, id: string, status: string) {
+    await query(`UPDATE opportunities SET status=$3 WHERE user_id=$1 AND id=$2`, [userId, id, status]);
+  },
+  // Expire opportunities past their decay date (re-evaluation; never auto-promoted).
+  async expireStale(userId: string) {
+    await query(`UPDATE opportunities SET status='expired' WHERE user_id=$1 AND status='review' AND decay_date IS NOT NULL AND decay_date < now()::date`, [userId]);
+  },
+  async recentTheses(userId: string, days = 30) {
+    const r = await query<{ thesis: string }>(`SELECT thesis FROM opportunities WHERE user_id=$1 AND created_at > now() - ($2 || ' days')::interval`, [userId, String(days)]);
+    return r.rows.map((x) => x.thesis);
+  },
+};
+
+export const decisions = {
+  async create(d: { id: string; user_id: string; decision: string; reasoning?: string; confidence?: number; expected_outcome?: string; review_by?: string | null }) {
+    await query(
+      `INSERT INTO decisions (id,user_id,decision,reasoning,confidence,expected_outcome,review_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [d.id, d.user_id, d.decision, d.reasoning ?? "", d.confidence ?? 0.5, d.expected_outcome ?? "", d.review_by ?? null],
+    );
+  },
+  async list(userId: string) {
+    const r = await query(`SELECT * FROM decisions WHERE user_id=$1 ORDER BY created_at DESC`, [userId]);
+    return r.rows;
+  },
+  async due(userId: string) {
+    const r = await query(`SELECT * FROM decisions WHERE user_id=$1 AND status='open' AND review_by IS NOT NULL AND review_by <= now()::date ORDER BY review_by ASC`, [userId]);
+    return r.rows;
+  },
+  async recordOutcome(userId: string, id: string, outcome: string, success: boolean) {
+    await query(`UPDATE decisions SET outcome=$3, outcome_success=$4, outcome_at=now(), status='reviewed' WHERE user_id=$1 AND id=$2`, [userId, id, outcome, success]);
+  },
+  async forCalibration(userId: string) {
+    const r = await query<{ confidence: number; outcome_success: boolean | null }>(`SELECT confidence, outcome_success FROM decisions WHERE user_id=$1`, [userId]);
+    return r.rows;
   },
 };
 

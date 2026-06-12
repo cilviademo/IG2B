@@ -100,6 +100,9 @@ export type JobType =
   | "graph_update"
   | "context_pack"
   | "research"
+  | "opportunity_scan"
+  | "consolidate"
+  | "calibration"
   | "daily_brief"
   | "weekly_review"
   | "monitor_scan";

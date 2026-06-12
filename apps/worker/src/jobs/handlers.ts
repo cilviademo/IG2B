@@ -8,6 +8,7 @@ import {
   parseGithubUrl, deterministicAssist, parseAssist,
   deterministicResearch, parseResearch,
   deterministicDailyBrief, parseDailyBrief,
+  detectOpportunities, parseOpportunities, consolidate, calibrate,
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding,
 } from "@indigold/shared";
 import { model } from "../lib/model";
@@ -242,6 +243,9 @@ const briefJob = (kind: "daily" | "weekly"): Handler => async (job) => {
       const b = deterministicDailyBrief(recent, projects);
       payload = { ...base, summary: b.summary, recommended_actions: b.urgent_actions };
     }
+    // Stage 8: surface decisions whose review date has arrived.
+    const due = await repo.decisions.due(job.user_id);
+    if (due.length) payload = { ...payload, decisions_due: due.map((d) => ({ id: (d as { id: string }).id, decision: (d as { decision: string }).decision, review_by: (d as { review_by: string }).review_by })) };
   }
   await repo.briefs.create({ id: id("brief"), user_id: job.user_id, kind, period: new Date().toISOString().slice(0, 10), payload });
   await repo.jobs.finish(job.id, "done");
@@ -250,6 +254,65 @@ const briefJob = (kind: "daily" | "weekly"): Handler => async (job) => {
 const monitorScan: Handler = async (job) => {
   await repo.audit.log({ user_id: job.user_id, actor: "worker", action: "monitor_scan" });
   await repo.jobs.finish(job.id, "done");
+};
+
+// ---- Wave 3, Stage 7: Opportunity Detection (strong tier, weekly/graph-change) ----
+// Cross-domain intersections -> Opportunity proposals into the REVIEW queue (never
+// auto-promoted). Expired (decayed) opportunities are re-evaluated.
+const opportunityScan: Handler = async (job) => {
+  await repo.opportunities.expireStale(job.user_id);
+  await repo.seedProjectsIfEmpty(job.user_id);
+  const projects = await repo.projects.list(job.user_id);
+  const nodes = await repo.nodes.list(job.user_id);
+  const prompt = getPrompt("opportunity");
+  const fallback = () => detectOpportunities(nodes as never[], projects.map((p) => ({ id: p.id, name: p.name })));
+  let opps;
+  try {
+    const r = await repo.governedComplete({
+      userId: job.user_id, tier: "strong", task: "synthesis", purpose: "opportunity", json: true, promptVersion: prompt.version,
+      ...prompt.build({
+        graph: nodes.slice(0, 40).map((n) => `${n.id}: ${n.title} [${(n.tags || []).join(", ")}]`).join("\n"),
+        projects: projects.map((p) => `${p.id}: ${p.name}`).join("\n"),
+      }),
+    });
+    opps = parseOpportunities(r.text, new Set(nodes.map((n) => n.id))) ?? fallback();
+  } catch (e) {
+    if (e instanceof BudgetExceededError) { await repo.jobs.finish(job.id, "queued", undefined, "budget_governor"); return; }
+    opps = fallback();
+  }
+  const recent = new Set((await repo.opportunities.recentTheses(job.user_id)).map((t) => t.toLowerCase()));
+  let added = 0;
+  for (const o of opps) {
+    if (recent.has(o.thesis.toLowerCase())) continue;
+    const decay = new Date(Date.now() + o.decay_days * 86400000).toISOString().slice(0, 10);
+    await repo.opportunities.create({ id: id("opp"), user_id: job.user_id, thesis: o.thesis, contributing_nodes: o.contributing_nodes, confidence: o.confidence, leverage: o.leverage, first_move: o.first_move, decay_date: decay });
+    added++;
+  }
+  await repo.jobs.finish(job.id, "done", { opportunities: added });
+};
+
+// ---- Wave 3, Stage 9: Memory Consolidation (nightly, cheap) ----
+// Strengthen referenced nodes, decay the rest (floor, never delete), refresh theme
+// nodes. All adjustments logged with totals (before/after on each node update).
+const consolidateJob: Handler = async (job) => {
+  const nodes = await repo.nodes.list(job.user_id);
+  const weekAgo = Date.now() - 7 * 86400000;
+  const referenced = new Set(
+    nodes.filter((n) => { const u = (n as { updated_at?: string }).updated_at; return u ? new Date(u).getTime() > weekAgo : false; }).map((n) => n.id),
+  );
+  const { adjustments, themes } = consolidate(nodes, referenced);
+  for (const a of adjustments) await repo.nodes.update(job.user_id, a.id, { mvs: a.after });
+  for (const t of themes) await repo.nodes.upsertTheme(job.user_id, t.tag, t.node_ids);
+  await repo.audit.log({ user_id: job.user_id, actor: "worker", action: "consolidate", meta: { adjusted: adjustments.length, themes: themes.length } });
+  await repo.jobs.finish(job.id, "done", { adjusted: adjustments.length, themes: themes.length });
+};
+
+// ---- Wave 3, Stage 8: Decision calibration (monthly, cheap) ----
+const calibrationJob: Handler = async (job) => {
+  const rows = await repo.decisions.forCalibration(job.user_id);
+  const summary = calibrate(rows);
+  await repo.audit.log({ user_id: job.user_id, actor: "worker", action: "calibration", meta: summary as unknown as object });
+  await repo.jobs.finish(job.id, "done", summary as unknown as object);
 };
 
 // ---- Wave 2, Stage 4: Research Agent (strong tier). Findings ALWAYS become
@@ -314,4 +377,7 @@ export const handlers: Partial<Record<Job["type"], Handler>> = {
   weekly_review: briefJob("weekly"),
   monitor_scan: monitorScan,
   research,
+  opportunity_scan: opportunityScan,
+  consolidate: consolidateJob,
+  calibration: calibrationJob,
 };

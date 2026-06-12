@@ -208,3 +208,35 @@ CREATE TABLE IF NOT EXISTS prompt_overrides (
 -- project_relevance, prompt version, model). Additive.
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}'::jsonb;
 
+-- Wave 3 Stage 7: Opportunity proposals (review queue; never auto-promoted).
+CREATE TABLE IF NOT EXISTS opportunities (
+  id                TEXT PRIMARY KEY,
+  user_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  thesis            TEXT NOT NULL,
+  contributing_nodes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  confidence        REAL NOT NULL DEFAULT 0.5,
+  leverage          TEXT NOT NULL DEFAULT 'MED',
+  first_move        TEXT NOT NULL DEFAULT '',
+  status            TEXT NOT NULL DEFAULT 'review',
+  decay_date        DATE,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS opportunities_user_idx ON opportunities(user_id, created_at DESC);
+
+-- Wave 3 Stage 8: Decision journal (calibration feeds the Meta memo).
+CREATE TABLE IF NOT EXISTS decisions (
+  id               TEXT PRIMARY KEY,
+  user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  decision         TEXT NOT NULL,
+  reasoning        TEXT NOT NULL DEFAULT '',
+  confidence       REAL NOT NULL DEFAULT 0.5,
+  expected_outcome TEXT NOT NULL DEFAULT '',
+  review_by        DATE,
+  outcome          TEXT,
+  outcome_success  BOOLEAN,
+  outcome_at       TIMESTAMPTZ,
+  status           TEXT NOT NULL DEFAULT 'open',
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS decisions_user_idx ON decisions(user_id, review_by);
+
