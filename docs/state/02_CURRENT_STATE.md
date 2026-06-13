@@ -1,8 +1,10 @@
 # Current State
 
-`Last updated: 2026-06-13 · Commit: living-os-g7 (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g8 (off main) · By: claude (Claude Code)`
 
-> **G7 Simulation Engine (latest):** synchronous deterministic "what happens if…?" → best/likely/worst probability estimates (sum 100) from real signals; `POST /radian/whatif`; Mission Control **Simulate** panel. Honest (estimates, not predictions). `simulation-engine-verify` 21/21; live e2e verified. The async `simulation` job remains the deep live path.
+> **G8 Memory Palace (latest):** Atlas alive — Legendary node state (radiant cornerstone), galaxy nebulae (skill-track clusters) + constellation edges, forgotten-gem glow + resurfaced pulse. Render-time, reduced-motion-safe, 60.6fps. `living-os-verify` 23/23; no API/schema changes.
+
+> **G7 Simulation Engine:** synchronous deterministic "what happens if…?" → best/likely/worst probability estimates (sum 100) from real signals; `POST /radian/whatif`; Mission Control **Simulate** panel. Honest (estimates, not predictions). `simulation-engine-verify` 21/21; live e2e verified. The async `simulation` job remains the deep live path.
 
 > **UX polish (latest):** global type bump (zoom 1.08 + bigger captions); persistent TopBar with Back/Forward; bigger Sheet X + Close button; Home stat tiles + progression track bars now navigate; `.tap-row` press affordance; honest cold-start loading copy. No logic changed.
 

@@ -4,7 +4,8 @@ import { type GraphNode, type GraphEdge } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
 import { Share2, X, Plus, Minus, Locate, Sparkles } from "lucide-react";
 import CompanionPanel from "@/components/CompanionPanel";
-import { deriveNodeState, NODE_STATE_STYLE, LEGEND, type NodeState } from "@/lib/nodeState";
+import { deriveNodeState, NODE_STATE_STYLE, LEGEND, isForgottenGem, isResurfaced, type NodeState } from "@/lib/nodeState";
+import { inferTracks, trackColor, type Track } from "@/lib/progression";
 import { getQuestNodeStatus, getProgression, getLiveNodes, getLiveEdges } from "@/lib/api";
 
 // Atlas — the constellation. Flat luminous points on a deep indigo-black field,
@@ -160,7 +161,23 @@ export default function Atlas() {
     const now = Date.now();
     const stateById = new Map<string, NodeState>();
     nodes.forEach((n) => stateById.set(n.id, deriveNodeState(n, edges, now)));
-    const hasPulse = !reduceMotion && nodes.some((n) => NODE_STATE_STYLE[stateById.get(n.id)!].pulse);
+    // G8 Memory Palace overlays (render-time, deterministic):
+    //  · cluster = dominant skill track → "galaxy" tint + constellation edges
+    //  · forgotten gems (high value gone quiet) glow gold
+    //  · resurfaced ideas (old, freshly touched) pulse
+    const dayms = 86400000;
+    const recencyOf = (n: GraphNode) => { const u = (n as { updated_at?: string }).updated_at; return u ? (now - new Date(u).getTime()) / dayms : 999; };
+    const createdOf = (n: GraphNode) => { const c = (n as { created_at?: string }).created_at; return c ? (now - new Date(c).getTime()) / dayms : 999; };
+    const clusterById = new Map<string, { track: Track; color: string }>();
+    const gemById = new Set<string>();
+    const resurfacedById = new Set<string>();
+    nodes.forEach((n) => {
+      const track = inferTracks(n.title, n.tags || [])[0] as Track;
+      clusterById.set(n.id, { track, color: trackColor(track) });
+      if (isForgottenGem(n.mvs, recencyOf(n))) gemById.add(n.id);
+      if (isResurfaced(createdOf(n), recencyOf(n))) resurfacedById.add(n.id);
+    });
+    const hasPulse = !reduceMotion && (resurfacedById.size > 0 || nodes.some((n) => NODE_STATE_STYLE[stateById.get(n.id)!].pulse));
 
     // Flat points: radius 3–8px by MVS + a gentle degree boost.
     const sim: SimNode[] = nodes.map((node, i) => {
@@ -446,7 +463,31 @@ export default function Atlas() {
       const neighbors = active ? adj[active] : null;
       const isLit = (id: string) => !active || id === active || (neighbors ? neighbors.has(id) : false);
 
-      // edges — hairlines
+      // G8 galaxies — a soft nebula per skill-track cluster, drawn behind everything.
+      // One radial gradient per cluster (≤8) → cheap; gives the "galaxy" depth.
+      const gal: Record<string, { x: number; y: number; n: number; color: string }> = {};
+      for (const s of sim) {
+        const c = clusterById.get(s.node.id);
+        if (!c) continue;
+        const g = (gal[c.track] ||= { x: 0, y: 0, n: 0, color: c.color });
+        g.x += s.x * scale + tx; g.y += s.y * scale + ty; g.n++;
+      }
+      for (const k of Object.keys(gal)) {
+        const g = gal[k];
+        if (g.n < 3) continue;
+        const cx = g.x / g.n, cy = g.y / g.n;
+        const rad = Math.min(280, (70 + g.n * 16) * Math.max(0.7, Math.min(1.4, scale)));
+        const rgb = hexToRgb(g.color);
+        const neb = ctx!.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        neb.addColorStop(0, rgba(rgb, 0.07));
+        neb.addColorStop(1, rgba(rgb, 0));
+        ctx!.fillStyle = neb;
+        ctx!.beginPath();
+        ctx!.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx!.fill();
+      }
+
+      // edges — hairlines (constellation lines tint to the cluster when both ends share it)
       for (const e of links) {
         const a = byId.get(e.source_id)!;
         const b = byId.get(e.target_id)!;
@@ -463,14 +504,19 @@ export default function Atlas() {
         const off = Math.min(28, len * 0.08);
         const cx = mx + (-ey / len) * off;
         const cy = my + (ex / len) * off;
+        const ca = clusterById.get(e.source_id), cb = clusterById.get(e.target_id);
+        const sameCluster = ca && cb && ca.track === cb.track;
         if (active && !lit) {
           ctx!.strokeStyle = rgba([142, 146, 156], 0.06);
           ctx!.lineWidth = 0.5;
         } else if (lit) {
           ctx!.strokeStyle = rgba([201, 164, 92], 0.6);
           ctx!.lineWidth = 1;
+        } else if (sameCluster) {
+          ctx!.strokeStyle = rgba(hexToRgb(ca!.color), 0.34); // constellation line
+          ctx!.lineWidth = 0.7;
         } else {
-          ctx!.strokeStyle = rgba([142, 146, 156], 0.2);
+          ctx!.strokeStyle = rgba([142, 146, 156], 0.18);
           ctx!.lineWidth = 0.6;
         }
         ctx!.beginPath();
@@ -495,7 +541,7 @@ export default function Atlas() {
         const isSel = selectedRef.current === s.node.id;
 
         // living-state glow — a soft colored halo whose strength breathes for
-        // pulsing states (growing/critical). Suppressed for dimmed/far nodes.
+        // pulsing states (legendary/growing/critical). Suppressed for dimmed/far nodes.
         if (st.glow > 0 && st.ring && lit) {
           const ringRgb = hexToRgb(st.ring);
           const g = st.glow * (st.pulse ? 0.55 + pulseT * 0.45 : 1);
@@ -506,6 +552,26 @@ export default function Atlas() {
           ctx!.beginPath();
           ctx!.arc(sx, sy, sr * 3.4, 0, Math.PI * 2);
           ctx!.fill();
+        }
+
+        // G8 — forgotten gems still GLOW (gold) even when dimmed, so high value gone
+        // quiet draws the eye instead of disappearing.
+        if (gemById.has(s.node.id)) {
+          const gem = ctx!.createRadialGradient(sx, sy, sr, sx, sy, sr * 3.8);
+          gem.addColorStop(0, rgba([230, 199, 110], 0.22));
+          gem.addColorStop(1, rgba([230, 199, 110], 0));
+          ctx!.fillStyle = gem;
+          ctx!.beginPath();
+          ctx!.arc(sx, sy, sr * 3.8, 0, Math.PI * 2);
+          ctx!.fill();
+        }
+        // G8 — resurfaced ideas pulse: an expanding gold ring (motion only).
+        if (resurfacedById.has(s.node.id) && motion && lit) {
+          ctx!.strokeStyle = rgba([230, 199, 110], 0.5 * (1 - pulseT));
+          ctx!.lineWidth = 1.25;
+          ctx!.beginPath();
+          ctx!.arc(sx, sy, sr + 4 + pulseT * 8, 0, Math.PI * 2);
+          ctx!.stroke();
         }
 
         if (isSel) {
@@ -748,7 +814,12 @@ function StateLegend() {
               <span className="text-[11px]" style={{ color: "#C9A45C" }}>✦</span>
               <span className="text-[11px]" style={{ color: "#8E929C" }}>Project momentum</span>
             </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px]" style={{ color: "#E6C76E" }}>◌</span>
+              <span className="text-[11px]" style={{ color: "#8E929C" }}>Gem / resurfaced</span>
+            </div>
           </div>
+          <div className="mt-1.5 text-[11px]" style={{ color: "#8E929C" }}>Galaxies = skill clusters · constellation lines link a domain</div>
         </div>
       ) : (
         <button

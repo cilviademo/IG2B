@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: living-os-g7 · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g8 · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -162,3 +162,11 @@ commit(s) · what/why · live-test status).
   - **API**: `POST /radian/whatif` (synchronous) computes deterministic signals per option by matching projects/nodes (momentum via `momentumFor`, MVS, recency, degree), runs the engine, persists an **"Analysis"** node (`meta.simulation`, shows in `GET /radian/simulations`) + a `review_generated` event.
   - **PWA**: Mission Control **Simulate** panel (collapsible) — a "What happens if…?" input + project-derived scenario/comparison chips; renders **animated best/likely/worst probability bars**, a Recommendation card, and the assumptions (incl. the "ESTIMATES, not predictions" disclaimer).
   - **Verification**: typecheck clean (pwa/api/worker); pwa+api build green; `simulation-engine-verify` **21/21**; regressions green (quests 40/40, progression 32/32, boardroom 15/15, research 15/15). **Live end-to-end** (ephemeral PG+Redis, stub mode): scenario "focus BTZ TRACE" → best 39 / likely 40 / worst 21 (sum 100), conf 0.71, "Proceed"; comparison "BTZ TRACE vs Business vs Genesis" → ranked by real feasibility (81/65/29), "Lead with BTZ TRACE; hold Genesis"; the panel **renders in-app** (verified via instrumented run — `WHATIF:comparison:2`, Recommendation on screen); screenshot `g7-simulate.png`. Capture/upload/SW/Shortcut + G1–G6 untouched. Live status: pending owner phone-gate.
+
+### 2026-06-13 · claude (Claude Code) · `claude/living-os-g8` → main
+- **Living OS Wave G8 — Memory Palace**: the Atlas becomes alive. Deterministic, render-time, reduced-motion-safe, **60fps** — no LLM, no API/schema changes (pure renderer + node-state core).
+  - **Legendary node state**: a cornerstone (`mvs ≥ 88 && degree ≥ 5`, or explicit core memory) — the brightest/rarest state (radiant gold ring + glow + gentle pulse + ★). Added to `computeNodeState` (after critical/blocked) + `NODE_STATE_STYLE` + `LEGEND`, mirrored in the PWA `nodeState.ts`.
+  - **Galaxies**: nodes are clustered by dominant **skill track** (`inferTracks`/`trackColor`); a soft nebula radial-gradient is drawn behind each cluster (≤8, cheap). **Constellation lines**: same-cluster edges tint to the track colour.
+  - **Forgotten gems glow** (high value gone quiet, `isForgottenGem`) — a gold halo even when dimmed, so they draw the eye instead of fading out. **Resurfaced ideas pulse** (`isResurfaced` — old idea freshly touched) — an expanding gold ring (motion only).
+  - Atlas legend extended (Legendary auto-listed; gem/resurfaced + "galaxies = skill clusters / constellation lines" notes).
+  - **Verification**: `living-os-verify` **23/23** (legendary precedence, pulse set {critical,growing,legendary}, ★ badge, gem/resurfaced helpers); all engine regressions green (quests/progression/boardroom/research/simulation); pwa typecheck + build green; **Atlas 200-node = 60.6 fps**, reduced-motion intact; live render shows BTZ TRACE as a Legendary cornerstone with constellation lines (screenshot `g8-atlas.png`). Capture/upload/SW/Shortcut + G1–G7 untouched. Live status: pending owner phone-gate.

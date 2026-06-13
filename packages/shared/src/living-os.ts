@@ -37,8 +37,8 @@ export function findVerb(verb: string): VerbSpec | undefined {
 // ---- Living Atlas node states ----
 // Computed at render time from existing data — zero model calls. Priority order
 // matters: the first matching state wins.
-export type NodeState = "critical" | "blocked" | "growing" | "emerging" | "decaying" | "dormant" | "stable";
-export const NODE_STATES: NodeState[] = ["critical", "blocked", "growing", "emerging", "decaying", "dormant", "stable"];
+export type NodeState = "critical" | "legendary" | "blocked" | "growing" | "emerging" | "decaying" | "dormant" | "stable";
+export const NODE_STATES: NodeState[] = ["critical", "legendary", "blocked", "growing", "emerging", "decaying", "dormant", "stable"];
 
 export interface NodeStateInput {
   mvs: number;
@@ -48,11 +48,15 @@ export interface NodeStateInput {
   degree: number;
   createdDays: number; // age of the node
   critical?: boolean; // deadline/constraint violation flagged upstream
+  legendary?: boolean; // explicit core-memory cornerstone
 }
 
 export function computeNodeState(i: NodeStateInput): NodeState {
   if (i.critical) return "critical";
   if (i.inboundBlocked) return "blocked";
+  // G8 Memory Palace — Legendary: a cornerstone (very high value + richly connected, or
+  // explicit core memory). The brightest, rarest state.
+  if (i.legendary || (i.mvs >= 88 && i.degree >= 5)) return "legendary";
   if (i.recencyDays <= 14 && i.recentEdges > 0 && i.mvs >= 55) return "growing";
   if (i.createdDays <= 10 && i.degree <= 2) return "emerging";
   if (i.recencyDays >= 45 && i.mvs < 40) return "dormant";
@@ -60,11 +64,12 @@ export function computeNodeState(i: NodeStateInput): NodeState {
   return "stable";
 }
 
-// Visual encoding within the Vault constellation language. ONLY growing/critical
+// Visual encoding within the Vault constellation language. Legendary/growing/critical
 // pulse (opacity breathing). reduced-motion disables all pulses (the renderer guards).
 export interface NodeStateStyle { ring?: string; glow?: number; pulse: boolean; dim: number; badge?: string; label: string }
 export const NODE_STATE_STYLE: Record<NodeState, NodeStateStyle> = {
   critical: { ring: "#C25450", glow: 0.5, pulse: true, dim: 1, badge: "!", label: "Critical — deadline/constraint" },
+  legendary: { ring: "#E6C76E", glow: 0.65, pulse: true, dim: 1, badge: "★", label: "Legendary — cornerstone" },
   blocked: { ring: "#C25450", glow: 0, pulse: false, dim: 0.85, badge: "⊘", label: "Blocked — inbound blocker" },
   growing: { ring: "#4FA08B", glow: 0.4, pulse: true, dim: 1, label: "Growing — recent momentum" },
   emerging: { ring: "#C9A45C", glow: 0.25, pulse: false, dim: 1, label: "Emerging — new cluster" },
@@ -72,3 +77,7 @@ export const NODE_STATE_STYLE: Record<NodeState, NodeStateStyle> = {
   dormant: { ring: undefined, glow: 0, pulse: false, dim: 0.4, label: "Dormant — untouched, low value" },
   stable: { ring: undefined, glow: 0, pulse: false, dim: 1, label: "Stable" },
 };
+
+// G8 overlays (derived flags, not primary states).
+export const isForgottenGem = (mvs: number, recencyDays: number) => mvs >= 70 && recencyDays >= 45;
+export const isResurfaced = (createdDays: number, recencyDays: number) => createdDays >= 60 && recencyDays <= 10;

@@ -4,6 +4,7 @@
 
 import {
   VERBS, verbsFor, findVerb, computeNodeState, NODE_STATE_STYLE, NODE_STATES,
+  isForgottenGem, isResurfaced,
   type NodeState,
 } from "../src/living-os";
 
@@ -31,8 +32,14 @@ ok("decaying = aging + mid value", computeNodeState({ mvs: 50, recencyDays: 30, 
 ok("stable is the fallback", computeNodeState({ mvs: 80, recencyDays: 18, inboundBlocked: false, recentEdges: 0, degree: 8, createdDays: 200 }) === "stable");
 
 // ---- Visual contract ----
-ok("only growing + critical pulse", NODE_STATES.filter((s) => NODE_STATE_STYLE[s].pulse).sort().join() === ["critical", "growing"].sort().join());
+ok("legendary = very high value + richly connected", computeNodeState({ mvs: 92, recencyDays: 5, inboundBlocked: false, recentEdges: 1, degree: 6, createdDays: 120 }) === "legendary");
+ok("blocked still outranks legendary", computeNodeState({ mvs: 92, recencyDays: 5, inboundBlocked: true, recentEdges: 1, degree: 6, createdDays: 120 }) === "blocked");
+ok("legendary/growing/critical pulse", NODE_STATES.filter((s) => NODE_STATE_STYLE[s].pulse).sort().join() === ["critical", "growing", "legendary"].sort().join());
+ok("legendary carries a ★ badge", NODE_STATE_STYLE.legendary.badge === "★");
 ok("every state has a style + label", NODE_STATES.every((s: NodeState) => !!NODE_STATE_STYLE[s].label));
+// G8 overlays
+ok("forgotten gem = high value, gone quiet", isForgottenGem(80, 60) && !isForgottenGem(80, 10) && !isForgottenGem(40, 60));
+ok("resurfaced = old idea freshly touched", isResurfaced(120, 5) && !isResurfaced(120, 30) && !isResurfaced(10, 5));
 ok("dim is in [0,1]", NODE_STATES.every((s) => NODE_STATE_STYLE[s].dim >= 0 && NODE_STATE_STYLE[s].dim <= 1));
 ok("blocked + critical carry a badge", !!NODE_STATE_STYLE.blocked.badge && !!NODE_STATE_STYLE.critical.badge);
 
