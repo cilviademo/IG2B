@@ -151,11 +151,15 @@ radianRouter.post("/quests", async (req: Authed, res) => {
   const b = (req.body || {}) as Partial<QuestSeed> & { state?: string };
   const title = String(b.title || "").trim();
   if (!title) return res.status(400).json({ error: "title_required" });
+  // Only anchor to a node that actually exists (the node_id FK would otherwise 500);
+  // an unknown id degrades to an unanchored quest rather than failing the request.
+  let nodeId = b.node_id ?? null;
+  if (nodeId && !(await repo.nodes.get(req.userId!, nodeId))) nodeId = null;
   const qid = id("quest");
   await repo.quests.create({
     id: qid, user_id: req.userId!, title, summary: String(b.summary || ""),
     kind: b.kind || "side", state: b.state && QUEST_STATES_ALL.includes(b.state) ? b.state : "suggested",
-    source_type: b.source_type || "system", source_id: b.source_id ?? null, node_id: b.node_id ?? null, meta: b.meta || {},
+    source_type: b.source_type || "system", source_id: b.source_id ?? null, node_id: nodeId, meta: b.meta || {},
   });
   await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "state_transition", subject_type: "quest", subject_id: qid, correlation_id: b.source_id || qid, payload: { created: true, kind: b.kind, source: b.source_type } });
   res.status(201).json(await repo.quests.get(req.userId!, qid));
@@ -223,6 +227,15 @@ radianRouter.post("/quests/:id/snooze", async (req: Authed, res) => {
   const until = new Date(Date.now() + hours * 3600000).toISOString();
   await repo.quests.snooze(req.userId!, q.id, until);
   await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "state_transition", subject_type: "quest", subject_id: q.id, correlation_id: q.source_id || q.id, payload: { snooze_until: until } });
+  res.json(await repo.quests.get(req.userId!, q.id));
+});
+
+// Resume a snoozed quest (clears the not-before timestamp; state is unchanged).
+radianRouter.post("/quests/:id/resume", async (req: Authed, res) => {
+  const q = await repo.quests.get(req.userId!, req.params.id);
+  if (!q) return res.status(404).json({ error: "not_found" });
+  await repo.quests.resume(req.userId!, q.id);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "state_transition", subject_type: "quest", subject_id: q.id, correlation_id: q.source_id || q.id, payload: { resumed: true } });
   res.json(await repo.quests.get(req.userId!, q.id));
 });
 

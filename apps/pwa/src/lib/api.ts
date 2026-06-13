@@ -346,7 +346,8 @@ export async function getTimeMachine(range: string, days?: number): Promise<unkn
 // G3 Quests / Actions — all deterministic backend; the frontend just drives state.
 export interface Quest {
   id: string; title: string; summary: string; kind: string; state: string;
-  source_type: string; source_id?: string | null; node_id?: string | null; project_id?: string | null; snooze_until?: string | null;
+  source_type: string; source_id?: string | null; node_id?: string | null; project_id?: string | null;
+  snooze_until?: string | null; updated_at?: string;
 }
 async function questReq<T>(path: string, init?: RequestInit): Promise<T | null> {
   if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return null;
@@ -362,6 +363,8 @@ export const suggestQuests = () => questReq<{ created: number; items: Quest[] }>
 export const createQuest = (seed: Partial<Quest> & { title: string }) => questReq<Quest>(`/radian/quests`, { method: "POST", body: JSON.stringify(seed) });
 export const questAction = (id: string, action: string) => questReq<Quest>(`/radian/quests/${id}/action`, { method: "POST", body: JSON.stringify({ action }) });
 export const snoozeQuest = (id: string, hours = 24) => questReq<Quest>(`/radian/quests/${id}/snooze`, { method: "POST", body: JSON.stringify({ hours }) });
+export const resumeQuest = (id: string) => questReq<Quest>(`/radian/quests/${id}/resume`, { method: "POST", body: "{}" });
+export const acceptQuest = async (id: string) => { await questAction(id, "accept"); return questAction(id, "start"); };
 export const convertQuestToProject = (id: string) => questReq<{ project: string }>(`/radian/quests/${id}/convert-project`, { method: "POST", body: "{}" });
 
 /** Load a resource from the API when enabled, else fall back to a local fixture. */

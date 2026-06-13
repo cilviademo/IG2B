@@ -33,6 +33,24 @@ export function applyAction(state: QuestState, action: QuestAction): QuestState 
   return canApply(state, action) ? TRANSITIONS[action].to : null;
 }
 
+// ---- UI bucketing: every quest maps to EXACTLY ONE Mission Control section, so a
+// card visibly moves the instant its state/snooze/project changes. Priority order
+// matters (completed > converted > snoozed > blocked > active > suggested). ----
+export type QuestBucket = "suggested" | "active" | "snoozed" | "blocked" | "completed" | "converted";
+export function questBucket(
+  q: { state: string; project_id?: string | null; snooze_until?: string | null },
+  now = Date.now(),
+): QuestBucket | null {
+  if (q.state === "archived") return null;
+  if (q.state === "completed") return "completed";
+  if (q.project_id) return "converted";
+  if (q.snooze_until && new Date(q.snooze_until).getTime() > now) return "snoozed";
+  if (q.state === "blocked") return "blocked";
+  if (q.state === "accepted" || q.state === "active") return "active";
+  if (q.state === "suggested") return "suggested";
+  return null;
+}
+
 // ---- visual encoding (color/label only; the PWA picks icons) ----
 export const QUEST_KIND_STYLE: Record<QuestKind, { label: string; color: string }> = {
   main: { label: "Main", color: "#C9A45C" },        // gold — flagship work

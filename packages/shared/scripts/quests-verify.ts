@@ -3,7 +3,7 @@
 // Run from the repo root.
 
 import {
-  QUEST_KINDS, QUEST_STATES, isInPlay, canApply, applyAction,
+  QUEST_KINDS, QUEST_STATES, isInPlay, canApply, applyAction, questBucket,
   inferKind, questFromBriefAction, questFromNode, questFromTimeMachine, questFromCompanion,
   suggestQuests, QUEST_KIND_STYLE, QUEST_STATE_STYLE,
 } from "../src/quests";
@@ -67,6 +67,19 @@ const onboarding = suggestQuests({ inboxCount: 0, topNodes: [], activeProjects: 
 ok("empty vault yields onboarding quests", onboarding.length >= 5, JSON.stringify(onboarding.map((s) => s.title)));
 ok("onboarding includes Triage + decision + context pack + time machine", ["Triage", "decision", "context pack", "Time Machine"].every((kw) => onboarding.some((s) => new RegExp(kw, "i").test(s.title))));
 ok("unused journal/packs → first-decision + first-context-pack nudges", (() => { const s = suggestQuests({ inboxCount: 1, hasDecisions: false, hasContextPacks: false }); return s.some((x) => /first decision/i.test(x.title)) && s.some((x) => /first context pack/i.test(x.title)); })());
+
+// UI bucketing — every quest lands in exactly one Mission Control section
+const FUTURE = new Date(Date.now() + 3600000).toISOString();
+const PAST = new Date(Date.now() - 3600000).toISOString();
+ok("suggested → Suggested", questBucket({ state: "suggested" }) === "suggested");
+ok("accept (active) → Active Today", questBucket({ state: "active" }) === "active");
+ok("accepted also → Active Today", questBucket({ state: "accepted" }) === "active");
+ok("future snooze → Snoozed (overrides state)", questBucket({ state: "active", snooze_until: FUTURE }) === "snoozed");
+ok("past snooze → no longer snoozed", questBucket({ state: "active", snooze_until: PAST }) === "active");
+ok("project_id → Converted to Project", questBucket({ state: "active", project_id: "proj_1" }) === "converted");
+ok("completed → Completed (beats converted)", questBucket({ state: "completed", project_id: "proj_1" }) === "completed");
+ok("blocked → Blocked", questBucket({ state: "blocked" }) === "blocked");
+ok("archived → hidden (null)", questBucket({ state: "archived" }) === null);
 
 // styles cover every kind/state
 ok("every kind has a style", QUEST_KINDS.every((k) => !!QUEST_KIND_STYLE[k].label));

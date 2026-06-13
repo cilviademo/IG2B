@@ -512,12 +512,16 @@ export const quests = {
   async snooze(userId: string, id: string, until: string) {
     await query(`UPDATE quests SET snooze_until=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, until]);
   },
+  async resume(userId: string, id: string) {
+    await query(`UPDATE quests SET snooze_until=NULL, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id]);
+  },
   async setProject(userId: string, id: string, projectId: string) {
     await query(`UPDATE quests SET project_id=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, projectId]);
   },
-  // Node ids that currently carry an in-play (accepted/active) quest — for Atlas badges.
+  // Node ids that carry a quest worth badging on the Atlas — ACTIVE or COMPLETED
+  // (never merely suggested), per the G3 UX contract.
   async activeNodeIds(userId: string) {
-    const r = await query<{ node_id: string }>(`SELECT DISTINCT node_id FROM quests WHERE user_id=$1 AND node_id IS NOT NULL AND state IN ('accepted','active')`, [userId]);
+    const r = await query<{ node_id: string }>(`SELECT DISTINCT node_id FROM quests WHERE user_id=$1 AND node_id IS NOT NULL AND state IN ('accepted','active','completed')`, [userId]);
     return r.rows.map((x) => x.node_id);
   },
 };
