@@ -23,10 +23,10 @@ export function TrackBar({ t }: { t: TrackT }) {
     return () => cancelAnimationFrame(id);
   }, [t.level.progress]);
   return (
-    <div className="py-2 animate-fade-in-up" style={{ borderBottom: "1px solid var(--line)" }}>
+    <Link href="/quests" className="tap-row block py-2 animate-fade-in-up" style={{ borderBottom: "1px solid var(--line)" }}>
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color }} />
-        <span style={{ fontSize: 13, color: "var(--text)" }}>{t.label}</span>
+        <span style={{ fontSize: 14, color: "var(--text)" }}>{t.label}</span>
         <span className="cap-data ml-auto" style={{ color: t.level.level > 0 ? t.color : "var(--text-dim)" }}>
           L{t.level.level} · {t.level.name}
         </span>
@@ -39,7 +39,7 @@ export function TrackBar({ t }: { t: TrackT }) {
           {t.xp} XP{t.level.next != null ? ` · ${t.level.toNext} to next` : " · max"}
         </span>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -65,7 +65,7 @@ export default function ProgressionPanel() {
   return (
     <CollapsibleSection persistKey="home_progression" tint="var(--gold)" title={title}>
       {loading ? (
-        <p className="py-2" style={{ fontSize: 13, color: "var(--text-dim)" }}>Loading progression…</p>
+        <p className="py-2 pulse-soft" style={{ fontSize: 14, color: "var(--text-dim)" }}>Loading progression… <span className="cap-data">(free-tier API may be waking)</span></p>
       ) : !data ? (
         <p className="py-2" style={{ fontSize: 13, color: "var(--text-dim)" }}>Progression unavailable.</p>
       ) : (

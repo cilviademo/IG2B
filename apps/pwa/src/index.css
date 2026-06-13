@@ -129,13 +129,18 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 15px;
+  line-height: 1.5;
   letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
 }
+
+/* Global readability bump — scales the whole UI up a notch (the owner asked for
+   slightly larger text everywhere). zoom scales inline px sizes too (which rem-based
+   tweaks can't reach). Kept modest so layouts stay intact. */
+.app-zoom { zoom: 1.08; }
 
 /* Display face — titles, wordmark, brief headline. Used sparingly. */
 h1, h2, h3, h4, .font-display {
@@ -170,10 +175,16 @@ h1, h2, h3, h4, .font-display {
 /* Tiny numeric captions may track slightly when explicitly mono. */
 .cap-data {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   letter-spacing: 0.02em;
   color: var(--text-dim);
 }
+
+/* Tappable list row — gives a clear pressed/hover state so items feel connected,
+   not just "greyed when selected". */
+.tap-row { transition: background 140ms ease, transform 120ms ease; cursor: pointer; }
+.tap-row:active { transform: scale(0.985); }
+@media (hover: hover) { .tap-row:hover { background: var(--surface-2); } }
 
 /* ---- Hairline rule ---- */
 .rule { border: 0; border-top: 1px solid var(--line); margin: 0; }

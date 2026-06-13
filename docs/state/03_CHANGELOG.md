@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: living-os-g6 · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: ux-polish-pass · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -146,3 +146,12 @@ commit(s) · what/why · live-test status).
   - **API**: `POST /radian/horizon-scan` (synchronous manual scan → directions + persisted `horizon` brief + seeded research quests) and `GET /radian/horizon` (latest horizon + chain). Manual "Research this" already exists (Companion verb + `POST /radian/research/:nodeId`).
   - **PWA**: Mission Control **Research Horizon** panel (collapsible) — the chain breadcrumb, "Scan now", ranked directions with rationale, and a note when research quests are seeded → which appear in Quests (research quests grant Research-track XP on completion, closing into G4).
   - **Verification**: typecheck clean (pwa/api/worker); pwa+api build green; `research-engine-verify` **15/15**; regressions green (quests 40/40, progression 32/32, boardroom 15/15). **Live end-to-end** (ephemeral PG+Redis, stub mode): `POST /radian/horizon-scan` returned 6 domain-appropriate directions + the full chain, persisted a `horizon` brief, and seeded 3 `research` quests into Suggested; Home renders the Research Horizon panel (screenshot `g6-home.png`). Capture/upload/SW/Shortcut + G1–G5 untouched. Live status: pending owner phone-gate.
+
+### 2026-06-13 · claude (Claude Code) · `claude/ux-polish` → main
+- **UX polish pass** (owner feedback after G6 — applies across the whole PWA):
+  - **Bigger type everywhere**: a modest global `zoom: 1.08` on the app shell (scales inline-px text that rem tweaks can't reach), body 14→15px / line-height 1.5, and `.cap-data` captions 0.6875→0.75rem. Layout intact (verified Home + Timeline).
+  - **Back / forward navigation**: new persistent `TopBar` (sticky) with Back + Forward history arrows (Back greyed on Home) + the wordmark/current-screen label — so every screen has an explicit way to return, not just per-sheet close.
+  - **Clearer close (X)**: `Sheet` now has a large circular bordered X **and** a full-width "Close" button at the end of the sheet.
+  - **Items lead somewhere** (no more dead "grey on select"): Home **stat tiles** link to the relevant screen (Nodes/Projects/Edges→Atlas, Inbox→Inbox, Review→Quests); **progression track bars** link to Quests; added a `.tap-row` press/hover affordance for tappable rows; the shared `Button` already has `.press` feedback.
+  - **Honest loading**: API-backed panels (Progression, Quests) note "free-tier API may be waking" while the (sleeping) free dyno cold-starts, so a slow first load reads as expected, not broken.
+  - **Verification**: typecheck + build green; screenshots confirm larger type + TopBar (Back active on sub-pages); no logic changed (engines/regressions untouched). Capture/upload/SW/Shortcut + G1–G6 untouched. Note for phone-gate: confirm bottom-sheets position correctly under the global zoom.

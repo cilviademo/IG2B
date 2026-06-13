@@ -7,6 +7,7 @@ import { lazy, Suspense } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import TabBar from "./components/TabBar";
+import TopBar from "./components/TopBar";
 import { Loading } from "./components/State";
 import Dashboard from "./pages/Dashboard";
 
@@ -60,9 +61,10 @@ function App() {
           <Toaster />
           <WouterRouter {...routerProps}>
             <div
-              className="min-h-[100dvh] flex flex-col safe-top"
+              className="app-zoom min-h-[100dvh] flex flex-col"
               style={{ background: "var(--bg)" }}
             >
+              <TopBar />
               <main className="flex-1 overflow-y-auto pb-20">
                 <Routes />
               </main>

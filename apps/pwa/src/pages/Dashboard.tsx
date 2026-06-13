@@ -14,13 +14,14 @@ const secTitle = (text: string) => (
   <span className="cap-data" style={{ color: "var(--text-dim)", letterSpacing: "0.08em" }}>{text}</span>
 );
 
-const STAT_META: { key: keyof DashboardData["stats"]; label: string }[] = [
-  { key: "nodes", label: "Nodes" },
-  { key: "projects", label: "Projects" },
-  { key: "inbox", label: "Inbox" },
-  { key: "avg_mvs", label: "Avg MVS" },
-  { key: "review", label: "Review" },
-  { key: "edges", label: "Edges" },
+// Each stat tile links somewhere relevant — taps lead to a real screen, not a dead cell.
+const STAT_META: { key: keyof DashboardData["stats"]; label: string; href: string }[] = [
+  { key: "nodes", label: "Nodes", href: "/atlas" },
+  { key: "projects", label: "Projects", href: "/atlas" },
+  { key: "inbox", label: "Inbox", href: "/inbox" },
+  { key: "avg_mvs", label: "Avg MVS", href: "/atlas" },
+  { key: "review", label: "Review", href: "/quests" },
+  { key: "edges", label: "Edges", href: "/atlas" },
 ];
 
 function today(): string {
@@ -79,10 +80,10 @@ export default function Dashboard() {
         style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}
       >
         {STAT_META.map((s, i) => (
-          <div key={s.key} className="py-3 px-1 text-center" style={{ borderLeft: i === 0 ? "none" : "1px solid var(--line)" }}>
-            <div className="font-data" style={{ fontSize: 17, color: "var(--text)", lineHeight: 1.1 }}>{data.stats[s.key]}</div>
-            <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 3 }}>{s.label}</div>
-          </div>
+          <Link key={s.key} href={s.href} className="tap-row py-3 px-1 text-center" style={{ borderLeft: i === 0 ? "none" : "1px solid var(--line)" }}>
+            <div className="font-data" style={{ fontSize: 18, color: "var(--text)", lineHeight: 1.1 }}>{data.stats[s.key]}</div>
+            <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 3 }}>{s.label}</div>
+          </Link>
         ))}
       </div>
 

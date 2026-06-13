@@ -1,6 +1,8 @@
 # Current State
 
-`Last updated: 2026-06-13 · Commit: living-os-g6 (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: ux-polish-pass (off main) · By: claude (Claude Code)`
+
+> **UX polish (latest):** global type bump (zoom 1.08 + bigger captions); persistent TopBar with Back/Forward; bigger Sheet X + Close button; Home stat tiles + progression track bars now navigate; `.tap-row` press affordance; honest cold-start loading copy. No logic changed.
 
 > Keep this file SHORT and ruthlessly current. Prune stale lines. Truth levels:
 > **🟢 live** = owner confirmed on device · **🟡 local** = headless/stub verified only.

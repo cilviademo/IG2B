@@ -82,7 +82,7 @@ export default function QuestsPanel({ variant = "home" }: { variant?: "home" | "
         }
       />
       {loading && quests.length === 0 ? (
-        <p className="py-2" style={{ fontSize: 13, color: "var(--text-dim)" }}>Loading quests…</p>
+        <p className="py-2 pulse-soft" style={{ fontSize: 14, color: "var(--text-dim)" }}>Loading quests… <span className="cap-data">(free-tier API may be waking)</span></p>
       ) : (
         <>
           {SECTIONS.map(({ bucket, label, color, empty }) => {

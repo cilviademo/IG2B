@@ -23,11 +23,24 @@ export default function Sheet({ title, onClose, children }: { title: string; onC
       >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-display">{title}</h2>
-          <button onClick={onClose} aria-label="Close" style={{ color: "var(--text-dim)" }}>
-            <X size={20} strokeWidth={1.5} />
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="press flex items-center justify-center"
+            style={{ width: 38, height: 38, borderRadius: 999, border: "1px solid var(--line)", color: "var(--text)", background: "var(--surface-2)" }}
+          >
+            <X size={20} strokeWidth={1.75} />
           </button>
         </div>
         {children}
+        {/* A second, unmistakable way out at the end of the sheet. */}
+        <button
+          onClick={onClose}
+          className="press w-full mt-4 py-3 text-sm font-semibold"
+          style={{ borderRadius: 8, border: "1px solid var(--line)", color: "var(--text-dim)" }}
+        >
+          Close
+        </button>
       </div>
     </div>
   );
