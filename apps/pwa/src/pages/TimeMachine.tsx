@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useJson } from "@/hooks/useJson";
 import { Loading, ErrorState } from "@/components/State";
-import { getTimeMachine, createQuest, apiEnabled } from "@/lib/api";
+import { getTimeMachine, getProgression, createQuest, apiEnabled } from "@/lib/api";
+import { trackLabel, type Track } from "@/lib/progression";
 import CollapsibleSection from "@/components/CollapsibleSection";
+import { TrendingUp } from "lucide-react";
 import {
   timeMachine, RANGES, type RangeKey, type TimeMachineReport, type TimeMachineInput,
 } from "@/lib/timeMachine";
@@ -33,6 +35,8 @@ const Empty = ({ children }: { children: React.ReactNode }) => (
 
 const ago = (days: number) => (days <= 0 ? "today" : days === 1 ? "yesterday" : days < 30 ? `${days}d ago` : `${Math.round(days / 30)}mo ago`);
 
+interface ProgWindow { days: number; byTrack: Record<string, number>; growing: string | null; faded: string | null; accelerated: { name: string } | null; stalled: { name: string } | null }
+
 export default function TimeMachine() {
   const [range, setRange] = useState<RangeKey>("30d");
   const nodesRes = useJson<{ nodes: TimeMachineInput["nodes"] }>("/data/sample_nodes.json");
@@ -40,6 +44,15 @@ export default function TimeMachine() {
   const tlRes = useJson<{ events: TimeMachineInput["timeline"] }>("/data/sample_timeline.json");
   const [live, setLive] = useState<TimeMachineReport | null>(null);
   const [triedLive, setTriedLive] = useState(false);
+  const [prog, setProg] = useState<ProgWindow | null>(null);
+
+  // Progression deltas over the selected window (deterministic; live API only).
+  useEffect(() => {
+    let cancelled = false;
+    const days = RANGES.find((r) => r.key === range)?.days ?? 30;
+    getProgression(days).then((d) => { if (!cancelled) setProg((d as { window?: ProgWindow } | null)?.window ?? null); });
+    return () => { cancelled = true; };
+  }, [range]);
 
   // Prefer the live API (real Event Store + decisions); fall back to local compute
   // over the bundled data. Either path is deterministic — no model completion needed.
@@ -95,6 +108,26 @@ export default function TimeMachine() {
           </button>
         ))}
       </div>
+
+      {/* Progression over time (G4) — deterministic XP/momentum deltas for the window */}
+      {prog && (
+        <Section icon={TrendingUp} title="Progression over time" pkey="tm_progression">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <Delta label="Strongest growing" value={prog.growing ? trackLabel(prog.growing as Track) : "—"} tone="good" />
+            <Delta label="Faded track" value={prog.faded ? trackLabel(prog.faded as Track) : "—"} tone="dim" />
+            <Delta label="Accelerated project" value={prog.accelerated?.name ?? "—"} tone="good" />
+            <Delta label="Stalled project" value={prog.stalled?.name ?? "—"} tone="dim" />
+          </div>
+          {Object.keys(prog.byTrack || {}).length > 0 && (
+            <div className="mt-3">
+              <div className="cap-data mb-1" style={{ color: "var(--text-dim)" }}>XP gained this window</div>
+              {(Object.entries(prog.byTrack) as [string, number][]).sort((a, b) => b[1] - a[1]).map(([t, v]) => (
+                <div key={t} style={{ fontSize: 13, color: "var(--text)" }}>{trackLabel(t as Track)} <span className="cap-data" style={{ color: "var(--gold)" }}>+{v} XP</span></div>
+              ))}
+            </div>
+          )}
+        </Section>
+      )}
 
       {/* "What was I thinking then?" */}
       <Section icon={Sparkles} title="What was I thinking then?" pkey="tm_thinking">
@@ -222,6 +255,15 @@ function CreateQuestButton({ title, summary, nodeId }: { title: string; summary:
     >
       <Swords size={11} strokeWidth={1.5} /> quest?
     </button>
+  );
+}
+
+function Delta({ label, value, tone }: { label: string; value: string; tone: "good" | "dim" }) {
+  return (
+    <div>
+      <div className="cap-data mb-0.5" style={{ color: tone === "good" ? "var(--good)" : "var(--text-dim)" }}>{label}</div>
+      <div style={{ fontSize: 14, color: "var(--text)" }}>{value}</div>
+    </div>
   );
 }
 

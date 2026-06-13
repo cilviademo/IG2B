@@ -5,7 +5,7 @@ import { Loading, ErrorState } from "@/components/State";
 import { Share2, X, Plus, Minus, Locate, Sparkles } from "lucide-react";
 import CompanionPanel from "@/components/CompanionPanel";
 import { deriveNodeState, NODE_STATE_STYLE, LEGEND, type NodeState } from "@/lib/nodeState";
-import { getQuestNodeIds, getLiveNodes, getLiveEdges } from "@/lib/api";
+import { getQuestNodeStatus, getProgression, getLiveNodes, getLiveEdges } from "@/lib/api";
 
 // Atlas — the constellation. Flat luminous points on a deep indigo-black field,
 // hairline edges, organic force layout. Color encodes node type (a desaturated
@@ -77,8 +77,11 @@ export default function Atlas() {
   const selectedRef = useRef<string | null>(null);
   const focusRef = useRef<string | null>(focusId);
   const apiRef = useRef<{ zoom: (f: number) => void; reset: () => void; redraw: () => void; focus: (id: string) => void } | null>(null);
-  // Node ids carrying an in-play quest — overlaid as a small gold badge (live API only).
-  const questNodesRef = useRef<Set<string>>(new Set());
+  // G4 progress layer (live API only): active-quest diamonds, completed checkmarks,
+  // and project-momentum badges (keyed by node title == registry project name).
+  const questActiveRef = useRef<Set<string>>(new Set());
+  const questDoneRef = useRef<Set<string>>(new Set());
+  const momentumRef = useRef<Map<string, { badge: string; color: string }>>(new Map());
   const [hintOff, setHintOff] = useState(() => localStorage.getItem("indigold_atlas_hint") === "off");
 
   useEffect(() => {
@@ -97,14 +100,17 @@ export default function Atlas() {
     selectedRef.current = selected?.id ?? null;
   }, [selected]);
 
-  // Best-effort: pull the set of nodes that carry an active quest and redraw badges.
+  // Best-effort: pull quest node status + project momentum, then redraw the badges.
   useEffect(() => {
     let cancelled = false;
-    getQuestNodeIds().then((r) => {
-      if (cancelled || !r) return;
-      questNodesRef.current = new Set(r.node_ids);
+    (async () => {
+      const [status, prog] = await Promise.all([getQuestNodeStatus(), getProgression()]);
+      if (cancelled) return;
+      if (status) { questActiveRef.current = new Set(status.active); questDoneRef.current = new Set(status.completed); }
+      const p = prog as { projects?: { name: string; badge: string; color: string }[] } | null;
+      if (p?.projects) momentumRef.current = new Map(p.projects.map((x) => [x.name, { badge: x.badge, color: x.color }]));
       apiRef.current?.redraw();
-    });
+    })();
     return () => { cancelled = true; };
   }, []);
 
@@ -543,20 +549,33 @@ export default function Atlas() {
           ctx!.fillText(st.badge, bx, by + 3);
         }
 
-        // quest badge — a small gold diamond at the top-left when a node has an
-        // in-play quest. Static (reduced-motion safe); explained by the legend.
-        if (questNodesRef.current.has(s.node.id) && lit) {
+        // G4 progress layer — all static (reduced-motion safe), explained by the legend.
+        if (lit && scale >= 0.85) {
           const qx = sx - sr - 5;
           const qy = sy - sr - 4;
-          const d = 3.2;
-          ctx!.fillStyle = rgba([201, 164, 92], 0.95);
-          ctx!.beginPath();
-          ctx!.moveTo(qx, qy - d);
-          ctx!.lineTo(qx + d, qy);
-          ctx!.lineTo(qx, qy + d);
-          ctx!.lineTo(qx - d, qy);
-          ctx!.closePath();
-          ctx!.fill();
+          // active-quest gold diamond (top-left)
+          if (questActiveRef.current.has(s.node.id)) {
+            const d = 3.2;
+            ctx!.fillStyle = rgba([201, 164, 92], 0.95);
+            ctx!.beginPath();
+            ctx!.moveTo(qx, qy - d); ctx!.lineTo(qx + d, qy); ctx!.lineTo(qx, qy + d); ctx!.lineTo(qx - d, qy);
+            ctx!.closePath(); ctx!.fill();
+          } else if (questDoneRef.current.has(s.node.id)) {
+            // completed-quest green check (top-left)
+            ctx!.strokeStyle = rgba([79, 160, 139], 0.95);
+            ctx!.lineWidth = 1.4;
+            ctx!.beginPath();
+            ctx!.moveTo(qx - 3, qy); ctx!.lineTo(qx - 0.5, qy + 2.5); ctx!.lineTo(qx + 3.5, qy - 2.5);
+            ctx!.stroke();
+          }
+          // project-momentum badge (bottom-right) for nodes that are registry projects
+          const mom = momentumRef.current.get(s.node.title);
+          if (mom) {
+            ctx!.fillStyle = mom.color;
+            ctx!.font = '600 9px "Inter Tight", system-ui, sans-serif';
+            ctx!.textAlign = "center";
+            ctx!.fillText(mom.badge, sx + sr + 5, sy + sr + 6);
+          }
         }
 
         if (isSel) {
@@ -715,9 +734,19 @@ function StateLegend() {
               );
             })}
           </div>
-          <div className="flex items-center gap-1.5 mt-2 pt-2" style={{ borderTop: "1px solid #22252D" }}>
-            <span className="inline-block" style={{ width: 7, height: 7, background: "#C9A45C", transform: "rotate(45deg)" }} />
-            <span className="text-[11px]" style={{ color: "#8E929C" }}>Active quest</span>
+          <div className="mt-2 pt-2 grid grid-cols-2 gap-x-4 gap-y-1.5" style={{ borderTop: "1px solid #22252D" }}>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block" style={{ width: 7, height: 7, background: "#C9A45C", transform: "rotate(45deg)" }} />
+              <span className="text-[11px]" style={{ color: "#8E929C" }}>Active quest</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px]" style={{ color: "#4FA08B" }}>✓</span>
+              <span className="text-[11px]" style={{ color: "#8E929C" }}>Quest done</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px]" style={{ color: "#C9A45C" }}>✦</span>
+              <span className="text-[11px]" style={{ color: "#8E929C" }}>Project momentum</span>
+            </div>
           </div>
         </div>
       ) : (

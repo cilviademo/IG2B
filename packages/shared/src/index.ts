@@ -23,3 +23,4 @@ export * from "./cognition-d";
 export * from "./living-os";
 export * from "./time-machine";
 export * from "./quests";
+export * from "./progression";

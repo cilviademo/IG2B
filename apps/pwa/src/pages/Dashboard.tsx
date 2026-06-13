@@ -5,6 +5,7 @@ import type { DashboardData } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
 import { Dot } from "@/components/primitives";
 import QuestsPanel from "@/components/QuestsPanel";
+import ProgressionPanel from "@/components/ProgressionPanel";
 import CollapsibleSection from "@/components/CollapsibleSection";
 
 // Styled section label used as the collapsible header title (matches the eyebrow look).
@@ -83,6 +84,9 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* PROGRESSION — today's XP, momentum, recommended next move (G4) */}
+      <ProgressionPanel />
 
       {/* QUESTS — today's playable actions (active + blocked + suggested) */}
       <QuestsPanel />

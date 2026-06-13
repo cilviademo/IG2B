@@ -11,6 +11,10 @@ import { getEmbedder } from "@indigold/shared";
 import { findVerb, verbsFor } from "@indigold/shared";
 import { timeMachine, type RangeKey, type TimeMachineInput } from "@indigold/shared";
 import { applyAction, suggestQuests, type QuestAction, type QuestSeed } from "@indigold/shared";
+import {
+  questReward, computeTracks, momentumFor, progressionSummary, inferTracks, TRACKS,
+  MOMENTUM_STYLE, type Track, type CompletedQuest, type CaptureNode,
+} from "@indigold/shared";
 import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
@@ -145,6 +149,89 @@ radianRouter.get("/quests/node-ids", async (req: Authed, res) => {
   res.json({ node_ids: await repo.quests.activeNodeIds(req.userId!) });
 });
 
+// Distinct Atlas badges: active (diamond) vs completed (checkmark).
+radianRouter.get("/quests/node-status", async (req: Authed, res) => {
+  const [active, completed] = await Promise.all([
+    repo.quests.nodeIdsByStates(req.userId!, ["accepted", "active"]),
+    repo.quests.nodeIdsByStates(req.userId!, ["completed"]),
+  ]);
+  res.json({ active, completed });
+});
+
+// ---- Living OS G4: Progression (deterministic; XP totals recomputed from current
+// data, ledger backs today's XP / streak / time deltas). NO LLM. ----
+radianRouter.get("/progression", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const days = req.query.range ? Math.max(1, parseInt(String(req.query.range)) || 30) : 0;
+  await seedProjectsIfEmpty(uid);
+  const [questList, nodes, edges, projects, activeDays] = await Promise.all([
+    repo.quests.list(uid), repo.nodes.list(uid), repo.edges.list(uid), repo.projects.list(uid), repo.xp.activeDays(uid),
+  ]);
+  const now = Date.now();
+  const completedQuests: CompletedQuest[] = questList.filter((q) => q.state === "completed").map((q) => ({ kind: q.kind, title: q.title }));
+  const captureNodes: CaptureNode[] = nodes.map((n) => ({ mvs: n.mvs, title: n.title, tags: n.tags || [] }));
+  const tracks = computeTracks({ completedQuests, nodes: captureNodes });
+
+  // today's XP + per-track, from the ledger (UTC midnight).
+  const midnight = new Date(); midnight.setUTCHours(0, 0, 0, 0);
+  const todayRows = await repo.xp.since(uid, midnight.toISOString());
+  const todayXp = todayRows.reduce((s, r) => s + r.amount, 0);
+  const todayByTrack: Partial<Record<Track, number>> = {};
+  for (const r of todayRows) todayByTrack[r.track as Track] = (todayByTrack[r.track as Track] || 0) + r.amount;
+  const todayQuests = new Set(todayRows.filter((r) => r.source_type === "quest").map((r) => r.source_id)).size;
+  const todayCaptures = nodes.filter((n) => { const c = (n as { created_at?: string }).created_at; return c && new Date(c).getTime() >= midnight.getTime(); }).length;
+
+  // streak: consecutive UTC days with a grant, ending today or yesterday.
+  let streak = 0;
+  { const set = new Set(activeDays); const d = new Date();
+    for (let i = 0; i < 60; i++) { const key = new Date(d.getTime() - i * 86400000).toISOString().slice(0, 10); if (set.has(key)) streak++; else if (i > 0) break; } }
+
+  // project momentum.
+  const days14 = 14 * 86400000;
+  const projectMomentum = projects.filter((p) => (p as { status?: string }).status === "active").map((p) => {
+    const pid = p.id; const pname = p.name; const ptags = new Set((p.tags || []).map((t: string) => t.toLowerCase()));
+    const token = pname.toLowerCase().split(/\s+/)[0] || pname.toLowerCase();
+    const related = nodes.filter((n) => (n.tags || []).some((t) => ptags.has((t || "").toLowerCase())) || n.title.toLowerCase().includes(token));
+    const recentNodes = related.filter((n) => { const u = (n as { updated_at?: string }).updated_at; return u && now - new Date(u).getTime() <= days14; }).length;
+    const pq = questList.filter((q) => q.project_id === pid);
+    const activeQuests = pq.filter((q) => q.state === "active" || q.state === "accepted").length;
+    const completed = pq.filter((q) => q.state === "completed").length;
+    const blocked = pq.some((q) => q.state === "blocked");
+    const lastTouch = Math.max(0, ...related.map((n) => new Date((n as { updated_at?: string }).updated_at || 0).getTime()), ...pq.map((q) => new Date(q.updated_at || 0).getTime()));
+    const inactivityDays = lastTouch ? Math.round((now - lastTouch) / 86400000) : 999;
+    const m = momentumFor({ recentNodes, activeQuests, completedQuests: completed, blocked, inactivityDays, hasHistory: related.length > 0 || pq.length > 0 });
+    const st = MOMENTUM_STYLE[m];
+    return { id: pid, name: pname, momentum: m, label: st.label, color: st.color, badge: st.badge };
+  });
+
+  const summary = progressionSummary({
+    tracks, todayXp, todayByTrack, streak,
+    totalSignals: completedQuests.length + captureNodes.length, todayCaptures, todayQuests,
+  });
+
+  // optional window deltas for the Time Machine.
+  let windowOut: unknown = undefined;
+  if (days) {
+    const rows = await repo.xp.since(uid, new Date(now - days * 86400000).toISOString());
+    const byTrack: Partial<Record<Track, number>> = {};
+    for (const r of rows) byTrack[r.track as Track] = (byTrack[r.track as Track] || 0) + r.amount;
+    const ranked = (Object.entries(byTrack) as [Track, number][]).sort((a, b) => b[1] - a[1]);
+    const growing = ranked[0]?.[1] > 0 ? ranked[0][0] : null;
+    const faded = (Object.values(tracks).find((t) => t.xp > 0 && !byTrack[t.track])?.track) ?? null;
+    const accel = projectMomentum.find((p) => p.momentum === "accelerating" || p.momentum === "compounding") || null;
+    const stalled = projectMomentum.find((p) => p.momentum === "dormant" || p.momentum === "at_risk") || null;
+    windowOut = { days, byTrack, growing, faded, accelerated: accel, stalled };
+  }
+
+  res.json({
+    bootstrap: summary.bootstrap, todayXp, streak,
+    tracks: TRACKS.map((t) => tracks[t.key]),
+    projects: projectMomentum,
+    summary,
+    window: windowOut,
+  });
+});
+
 // Create one quest from a seed (brief/node/capture/time_machine/companion). Defaults
 // to "suggested"; pass state:"active" to accept-and-start in one tap.
 radianRouter.post("/quests", async (req: Authed, res) => {
@@ -216,6 +303,16 @@ radianRouter.post("/quests/:id/action", async (req: Authed, res) => {
   if (!next) return res.status(409).json({ error: "illegal_transition", from: q.state, action });
   await repo.quests.setState(req.userId!, q.id, next);
   await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "state_transition", subject_type: "quest", subject_id: q.id, correlation_id: q.source_id || q.id, payload: { from: q.state, to: next, action } });
+
+  // G4: completing a quest grants deterministic XP (once per quest), with provenance.
+  if (next === "completed" && !(await repo.xp.hasGrant(req.userId!, "quest", q.id))) {
+    const projName = q.project_id ? (await repo.projects.get(req.userId!, q.project_id))?.name : undefined;
+    const reward = questReward({ kind: q.kind, title: q.title, project_name: projName });
+    for (const t of reward.tracks) {
+      await repo.xp.log({ id: id("xp"), user_id: req.userId!, track: t, amount: reward.xp, source_type: "quest", source_id: q.id, reason: `quest:${q.kind}` });
+    }
+    await repo.emitEvent({ user_id: req.userId!, actor: "agent:Radian", event_type: "state_transition", subject_type: "xp", subject_id: q.id, correlation_id: q.id, payload: { xp: reward.xp, tracks: reward.tracks } });
+  }
   res.json(await repo.quests.get(req.userId!, q.id));
 });
 

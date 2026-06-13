@@ -307,3 +307,19 @@ CREATE TABLE IF NOT EXISTS quests (
 CREATE INDEX IF NOT EXISTS quests_user_state_idx ON quests(user_id, state);
 CREATE INDEX IF NOT EXISTS quests_node_idx ON quests(node_id);
 
+-- Living OS Wave G4 — XP ledger. Append-only provenance for every XP grant (which
+-- track, how much, from what, why). Display totals are recomputed deterministically
+-- from current data; this ledger backs today's XP, streaks, time deltas + audit.
+CREATE TABLE IF NOT EXISTS xp_ledger (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  track       TEXT NOT NULL,
+  amount      INTEGER NOT NULL DEFAULT 0,
+  source_type TEXT NOT NULL DEFAULT 'quest',  -- quest | capture | system
+  source_id   TEXT,
+  reason      TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS xp_ledger_user_idx ON xp_ledger(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS xp_ledger_source_idx ON xp_ledger(source_type, source_id);
+

@@ -4,6 +4,7 @@ import { Check, Clock, FolderPlus, Play, Swords, RotateCcw, FolderCheck, Share2 
 import type { Quest } from "@/lib/api";
 import { questAction, snoozeQuest, resumeQuest, acceptQuest, convertQuestToProject } from "@/lib/api";
 import { QUEST_KIND_STYLE, QUEST_STATE_STYLE, type QuestKind, type QuestState, type QuestBucket as Bucket } from "@/lib/quests";
+import { questReward, trackColor } from "@/lib/progression";
 
 // A single playable action card. The parent decides the bucket; the card shows the
 // actions valid there and calls `onChange` so the parent re-buckets immediately. All
@@ -52,6 +53,21 @@ export default function QuestCard({ quest, bucket, onChange }: { quest: Quest; b
       {quest.summary && quest.summary !== quest.title && bucket !== "completed" && (
         <p className="mt-1" style={{ fontSize: 13, lineHeight: 1.45, color: "var(--text-dim)" }}>{quest.summary}</p>
       )}
+      {/* G4: XP reward + why this matters (hidden once completed/archived). */}
+      {bucket !== "completed" && (() => {
+        const r = questReward({ kind: quest.kind, title: quest.title });
+        return (
+          <div className="mt-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="cap-data px-1.5 py-0.5" style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>+{r.xp} XP</span>
+              {r.tracks.map((t, i) => (
+                <span key={t} className="cap-data" style={{ color: trackColor(t) }}>{r.trackLabels[i]}</span>
+              ))}
+            </div>
+            <p className="mt-1 cap-data" style={{ color: "var(--text-dim)" }}>{r.why}</p>
+          </div>
+        );
+      })()}
       {quest.node_id && (
         <Link href={`/atlas?focus=${quest.node_id}`} className="inline-flex items-center gap-1 mt-2 cap-data" style={{ color: "var(--info)" }}>
           <Share2 size={11} strokeWidth={1.5} /> View on Atlas

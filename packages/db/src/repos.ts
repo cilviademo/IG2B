@@ -524,6 +524,36 @@ export const quests = {
     const r = await query<{ node_id: string }>(`SELECT DISTINCT node_id FROM quests WHERE user_id=$1 AND node_id IS NOT NULL AND state IN ('accepted','active','completed')`, [userId]);
     return r.rows.map((x) => x.node_id);
   },
+  // Node ids grouped by quest state set (for distinct Atlas badges: active vs done).
+  async nodeIdsByStates(userId: string, states: string[]) {
+    const r = await query<{ node_id: string }>(`SELECT DISTINCT node_id FROM quests WHERE user_id=$1 AND node_id IS NOT NULL AND state = ANY($2)`, [userId, states]);
+    return r.rows.map((x) => x.node_id);
+  },
+};
+
+// ---- Living OS Wave G4: XP ledger (provenance for progression) ----
+export interface XpRow { id: string; user_id: string; track: string; amount: number; source_type: string; source_id?: string | null; reason: string; created_at?: string }
+export const xp = {
+  async log(r: { id: string; user_id: string; track: string; amount: number; source_type?: string; source_id?: string | null; reason?: string }) {
+    await query(
+      `INSERT INTO xp_ledger (id,user_id,track,amount,source_type,source_id,reason) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [r.id, r.user_id, r.track, r.amount, r.source_type ?? "quest", r.source_id ?? null, r.reason ?? ""],
+    );
+  },
+  // Has a grant already been recorded for this source? (idempotent grants.)
+  async hasGrant(userId: string, sourceType: string, sourceId: string) {
+    const r = await query<{ n: string }>(`SELECT COUNT(*)::text AS n FROM xp_ledger WHERE user_id=$1 AND source_type=$2 AND source_id=$3`, [userId, sourceType, sourceId]);
+    return Number(r.rows[0]?.n || 0) > 0;
+  },
+  async since(userId: string, iso: string) {
+    const r = await query<XpRow>(`SELECT * FROM xp_ledger WHERE user_id=$1 AND created_at >= $2 ORDER BY created_at DESC`, [userId, iso]);
+    return r.rows;
+  },
+  // Distinct UTC days (YYYY-MM-DD) that have at least one grant — for streaks.
+  async activeDays(userId: string, limit = 60) {
+    const r = await query<{ d: string }>(`SELECT DISTINCT to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD') AS d FROM xp_ledger WHERE user_id=$1 ORDER BY d DESC LIMIT $2`, [userId, limit]);
+    return r.rows.map((x) => x.d);
+  },
 };
 
 export const promptOverrides = {
