@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: living-os-g10 · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g11 · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -162,6 +162,13 @@ commit(s) · what/why · live-test status).
   - **API**: `POST /radian/whatif` (synchronous) computes deterministic signals per option by matching projects/nodes (momentum via `momentumFor`, MVS, recency, degree), runs the engine, persists an **"Analysis"** node (`meta.simulation`, shows in `GET /radian/simulations`) + a `review_generated` event.
   - **PWA**: Mission Control **Simulate** panel (collapsible) — a "What happens if…?" input + project-derived scenario/comparison chips; renders **animated best/likely/worst probability bars**, a Recommendation card, and the assumptions (incl. the "ESTIMATES, not predictions" disclaimer).
   - **Verification**: typecheck clean (pwa/api/worker); pwa+api build green; `simulation-engine-verify` **21/21**; regressions green (quests 40/40, progression 32/32, boardroom 15/15, research 15/15). **Live end-to-end** (ephemeral PG+Redis, stub mode): scenario "focus BTZ TRACE" → best 39 / likely 40 / worst 21 (sum 100), conf 0.71, "Proceed"; comparison "BTZ TRACE vs Business vs Genesis" → ranked by real feasibility (81/65/29), "Lead with BTZ TRACE; hold Genesis"; the panel **renders in-app** (verified via instrumented run — `WHATIF:comparison:2`, Recommendation on screen); screenshot `g7-simulate.png`. Capture/upload/SW/Shortcut + G1–G6 untouched. Live status: pending owner phone-gate.
+
+### 2026-06-13 · claude (Claude Code) · `claude/living-os-g11` → main
+- **Living OS Wave G11 — Context Engineering Engine** ("better than ChatGPT memory"): goal-scoped, token-budgeted, dynamic retrieval — sends **only the relevant slice** of the vault for a goal, not the whole graph. Deterministic + explainable; no LLM.
+  - **Pure engine** `packages/shared/src/context-engine.ts`: `scoreCandidate` blends lexical goal-term overlap, tag match, **semantic similarity** (cosine from embeddings, passed in), MVS, recency, item kind (decision/research/quest boosts) and a **hot-cache** boost — each with human-readable `reasons`. `assembleContext` ranks, then **greedily packs** the highest-value items that fit a token budget (skipping oversized ones), grouped into sections; `bootstrap` when nothing's relevant.
+  - **API**: `POST /radian/context` `{goal, budget?}` gathers candidates (nodes + research + decisions + in-play quests), attaches **semantic scores** via `semanticNeighbors(goal)`, marks **hot** items from the last 5 context packs, assembles within budget, and **persists a context pack** (which feeds the hot cache next time) + an Encompass event. Returns the plan (included items w/ score + reasons + tokens, excluded count, token accounting, semantic provider).
+  - **PWA**: a **Goal-scoped context** builder on the Context tab — type a goal ("Help me build BTZ TRACE"), get a **token-budget meter**, the packed items grouped by kind with **per-item relevance % + reasons**, and "N sent · M left out".
+  - **Verification**: `context-engine-verify` **12/12** (on/off-topic scoring, budget enforcement, oversized-skip, sort, sections, bootstrap); all engine regressions green; typecheck + build green (pwa/api/worker). **Live e2e** (ephemeral PG+Redis, stub mode): `POST /radian/context` for "Help me build BTZ TRACE" packed 33 BTZ-relevant items in 672/1500 tokens with per-item reasons; the builder renders the meter + ranked items (screenshot `g11-context.png`). Capture/upload/SW/Shortcut + G1–G10 untouched. Live status: pending owner phone-gate.
 
 ### 2026-06-13 · claude (Claude Code) · `claude/living-os-g10` → main
 - **Living OS Wave G10 — Companion** ("Mission Control becomes Jarvis; voice, not chat"): a **spoken commander's briefing**. Deterministic + honest — assembled by transparent rules from real signals; no LLM.

@@ -2,6 +2,7 @@ import { useJson } from "@/hooks/useJson";
 import { type ContextPackData, TRUTH_LAYER_COLORS } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
 import { SectionRule } from "@/components/primitives";
+import ContextBuilder from "@/components/ContextBuilder";
 
 export default function ContextPack() {
   const { data, loading, error } = useJson<ContextPackData>("/data/sample_context_pack.json");
@@ -14,10 +15,14 @@ export default function ContextPack() {
 
   return (
     <div className="px-5 pt-6 pb-6">
-      <div className="flex items-baseline justify-between mb-1">
+      <div className="flex items-baseline justify-between mb-3">
         <h1 className="text-xl font-display">Context pack</h1>
         <span className="cap-data">Encompass</span>
       </div>
+
+      {/* G11 — goal-scoped, token-budgeted retrieval (live). Sample pack below for shape. */}
+      <ContextBuilder />
+
       <h2 className="mt-3" style={{ fontSize: 16, color: "var(--text)" }}>{data.title}</h2>
       <p className="mt-1" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text-dim)" }}>{data.purpose}</p>
 

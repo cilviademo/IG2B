@@ -1,8 +1,10 @@
 # Current State
 
-`Last updated: 2026-06-13 · Commit: living-os-g10 (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g11 (off main) · By: claude (Claude Code)`
 
-> **G10 Companion (latest):** Mission Control gets a spoken commander's briefing — `GET /radian/briefing` (deterministic, from momentum/resurfaced/quests/focus/XP), "Brief me" reads it aloud via Speech Synthesis; + a "Teach me" long-press verb. `companion-verify` 12/12; live e2e verified.
+> **G11 Context Engineering (latest):** goal-scoped, token-budgeted, explainable retrieval — `POST /radian/context {goal}` packs only the relevant slice (semantic + lexical + recency + hot cache) and persists a context pack. Context tab "Goal-scoped context" builder. `context-engine-verify` 12/12; live e2e verified.
+
+> **G10 Companion:** Mission Control gets a spoken commander's briefing — `GET /radian/briefing` (deterministic, from momentum/resurfaced/quests/focus/XP), "Brief me" reads it aloud via Speech Synthesis; + a "Teach me" long-press verb. `companion-verify` 12/12; live e2e verified.
 > **G1 AI-completion gate: CLOSED in stub mode** — research lands a `derived_from` child node, ask/explain/challenge/teach give grounded answers, failures surface (job `failed`/`skipped`). Upgrades to live model output when a provider key is set.
 
 > **G9 Mentor Mode:** "talk with past you" — deterministic first-person reflection (then/changed/wrong/advice/best_self) voiced from Time Machine + decisions/calibration + active focus. `POST /radian/mentor`; Mentor panel on the Time Machine page. `mentor-verify` 11/11; live e2e verified. Atlas-zoom click regression fixed (app-zoom excludes /atlas).

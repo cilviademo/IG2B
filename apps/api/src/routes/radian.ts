@@ -20,6 +20,7 @@ import { horizonScan, RESEARCH_CHAIN } from "@indigold/shared";
 import { simulate, parseOptions, type SimSignals } from "@indigold/shared";
 import { mentor, type MentorIntent } from "@indigold/shared";
 import { morningBriefing } from "@indigold/shared";
+import { assembleContext, type ContextCandidate } from "@indigold/shared";
 import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
@@ -107,6 +108,60 @@ radianRouter.post("/ask", async (req: Authed, res) => {
   const j = await enqueue(job, req.userId!, payload);
   await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
   res.status(202).json({ mode: "job", job: j.id, verb });
+});
+
+// ---- Living OS G11: Context Engineering — goal-scoped, token-budgeted retrieval ----
+// "Help me build BTZ TRACE" → assemble ONLY the relevant slice (related nodes, research,
+// decisions, active quests) that fits the budget, not the whole vault. Deterministic
+// (lexical + tag + recency + value + semantic-from-embeddings + hot cache). Persisted as
+// a context pack (which also feeds the hot cache next time).
+radianRouter.post("/context", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const goal = String(req.body?.goal || "").trim();
+  if (!goal) return res.status(400).json({ error: "goal_required" });
+  const budget = Math.max(500, Math.min(16000, Number(req.body?.budget) || 4000));
+  const now = Date.now();
+
+  const [nodes, decisionsR, questList, packs] = await Promise.all([
+    repo.nodes.list(uid), repo.decisions.list(uid), repo.quests.list(uid), repo.contextPacks.list(uid),
+  ]);
+  // semantic similarity of each node to the goal (embeddings; deterministic fallback).
+  const sem = await semanticNeighbors(uid, goal, 50).catch(() => ({ matches: [] as { subject_id: string; score: number }[] }));
+  const semScore = new Map(sem.matches.map((m) => [m.subject_id, m.score]));
+  // hot cache = nodes referenced by the last few context packs.
+  const hot = new Set<string>();
+  for (const p of (packs as { source_nodes?: string[] }[]).slice(0, 5)) for (const n of (p.source_nodes || [])) hot.add(n);
+
+  const recency = (iso?: string) => (iso ? (now - new Date(iso).getTime()) / 86400000 : 999);
+  const candidates: ContextCandidate[] = [];
+  for (const n of nodes) {
+    candidates.push({
+      id: n.id, kind: (n as { truth_label?: string }).truth_label === "Research" ? "research" : "node",
+      title: n.title, text: `${n.title}\n${n.summary}`, tags: n.tags || [], mvs: n.mvs,
+      recencyDays: Math.round(recency((n as { updated_at?: string }).updated_at)),
+      semantic: semScore.get(n.id), hot: hot.has(n.id),
+    });
+  }
+  for (const d of decisionsR as { id: string; decision: string; reasoning?: string; outcome?: string }[]) {
+    candidates.push({ id: d.id, kind: "decision", title: d.decision, text: `${d.decision}\n${d.reasoning || ""}\n${d.outcome || ""}` });
+  }
+  for (const q of questList.filter((x) => x.state === "active" || x.state === "accepted")) {
+    candidates.push({ id: q.id, kind: "quest", title: q.title, text: `${q.title}\n${q.summary || ""}` });
+  }
+
+  const plan = assembleContext(goal, candidates, budget);
+
+  // persist as a context pack (feeds the hot cache next time).
+  const cid = id("ctx");
+  await repo.contextPacks.create({
+    id: cid, user_id: uid, title: `Goal: ${goal}`.slice(0, 80), purpose: goal,
+    token_budget: { total: budget, used: plan.tokensUsed },
+    source_nodes: plan.included.filter((c) => c.kind === "node" || c.kind === "research").map((c) => c.id),
+    sections: plan.sections as never,
+  });
+  await repo.emitEvent({ user_id: uid, actor: "agent:Encompass", event_type: "review_generated", subject_type: "context_pack", subject_id: cid, correlation_id: cid, payload: { goal, tokensUsed: plan.tokensUsed, included: plan.included.length } });
+
+  res.json({ pack: cid, plan: { ...plan, included: plan.included.map((c) => ({ id: c.id, kind: c.kind, title: c.title, score: Number(c.score.toFixed(2)), reasons: c.reasons, tokens: c.tokens })) }, semantic_provider: sem.matches.length ? (sem as { provider?: string }).provider : "none" });
 });
 
 // ---- Living OS G10: Companion — the spoken commander's briefing (deterministic) ----

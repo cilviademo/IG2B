@@ -384,6 +384,12 @@ export const askMentor = (intent: string, range?: number) =>
 export interface CompanionBriefing { greeting: string; lines: string[]; focus: string[]; speech: string; bootstrap: boolean }
 export const getBriefing = () => questReq<{ briefing: CompanionBriefing }>(`/radian/briefing`);
 
+// G11 Context Engineering — goal-scoped, token-budgeted retrieval.
+export interface ContextItem { id: string; kind: string; title: string; score: number; reasons: string[]; tokens: number }
+export interface ContextPlan { goal: string; budget: number; tokensUsed: number; included: ContextItem[]; excludedCount: number; sections: { kind: string; items: { id: string; title: string }[] }[]; bootstrap: boolean }
+export const buildContext = (goal: string, budget?: number) =>
+  questReq<{ pack: string; plan: ContextPlan; semantic_provider: string }>(`/radian/context`, { method: "POST", body: JSON.stringify({ goal, budget }) });
+
 export const getLiveNodes = () => questReq<{ nodes: unknown[] }>(`/nodes`);
 export const getLiveEdges = () => questReq<{ edges: unknown[] }>(`/edges`);
 export const getQuestNodeStatus = () => questReq<{ active: string[]; completed: string[] }>(`/radian/quests/node-status`);
