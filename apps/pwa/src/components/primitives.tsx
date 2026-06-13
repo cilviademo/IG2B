@@ -12,6 +12,7 @@ export function Button({
   leftIcon,
   children,
   style,
+  className,
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; full?: boolean; leftIcon?: ReactNode }) {
   const base: React.CSSProperties = {
@@ -33,7 +34,7 @@ export function Button({
     text: { background: "transparent", color: "var(--gold)", border: "1px solid transparent", padding: "8px 6px", minHeight: 36 },
   };
   return (
-    <button {...rest} style={{ ...base, ...variants[variant], ...style }}>
+    <button {...rest} className={`press ${className ?? ""}`} style={{ ...base, ...variants[variant], ...style }}>
       {leftIcon}
       {children}
     </button>

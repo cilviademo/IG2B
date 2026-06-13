@@ -215,6 +215,28 @@ h1, h2, h3, h4, .font-display {
 }
 .pulse-dot { animation: pulseDot 2.4s ease-in-out infinite; }
 
+/* Badge/chip entrance — a small spring pop. */
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-pop { animation: popIn 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Soft breathing for "live" markers (active quest chips, today's XP). */
+@keyframes softPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+.pulse-soft { animation: softPulse 2s ease-in-out infinite; }
+
+/* Press feedback — tactile tap on action buttons. */
+.press { transition: transform 120ms ease, opacity 120ms ease; }
+.press:active { transform: scale(0.95); }
+
+/* Animated bar fill (XP / level progress). Width is set after mount so it grows in. */
+.bar-fill { transition: width 600ms cubic-bezier(0.23, 1, 0.32, 1); }
+
+/* A brief flash when a value increments (e.g. XP gained). */
+@keyframes valueFlash { 0% { color: var(--gold); transform: scale(1.18); } 100% { } }
+.animate-flash { animation: valueFlash 600ms ease-out; }
+
 /* ---- Reduced motion: disable drift + entry/pulse animations ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -223,6 +245,7 @@ h1, h2, h3, h4, .font-display {
     transition-duration: 0.001ms !important;
   }
   .animate-fade-in-up { opacity: 1; }
+  .animate-pop { opacity: 1; transform: none; }
 }
 
 /* ---- Scrollbar ---- */

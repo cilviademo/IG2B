@@ -424,7 +424,7 @@ export default function Atlas() {
       energyFrames--;
       draw();
       // Keep a gentle heartbeat alive when living nodes pulse (motion allowed only).
-      if (energyFrames > 0 || dragNode || panning || hasPulse) raf = requestAnimationFrame(tick);
+      if (energyFrames > 0 || dragNode || panning || hasPulse || (!reduceMotion && questActiveRef.current.size > 0)) raf = requestAnimationFrame(tick);
       else raf = 0;
     }
 
@@ -480,7 +480,8 @@ export default function Atlas() {
       }
 
       // a slow shared pulse phase (0..1), only when motion is allowed
-      const pulseT = hasPulse ? (Math.sin(performance.now() * 0.0028) + 1) / 2 : 0;
+      const motion = hasPulse || (!reduceMotion && questActiveRef.current.size > 0);
+      const pulseT = motion ? (Math.sin(performance.now() * 0.0028) + 1) / 2 : 0;
 
       // nodes — flat luminous points
       for (const s of sim) {
@@ -553,10 +554,10 @@ export default function Atlas() {
         if (lit && scale >= 0.85) {
           const qx = sx - sr - 5;
           const qy = sy - sr - 4;
-          // active-quest gold diamond (top-left)
+          // active-quest gold diamond (top-left) — breathes when motion is allowed.
           if (questActiveRef.current.has(s.node.id)) {
-            const d = 3.2;
-            ctx!.fillStyle = rgba([201, 164, 92], 0.95);
+            const d = 3.2 + pulseT * 1.1;
+            ctx!.fillStyle = rgba([201, 164, 92], 0.6 + pulseT * 0.4);
             ctx!.beginPath();
             ctx!.moveTo(qx, qy - d); ctx!.lineTo(qx + d, qy); ctx!.lineTo(qx, qy + d); ctx!.lineTo(qx - d, qy);
             ctx!.closePath(); ctx!.fill();

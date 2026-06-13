@@ -26,7 +26,7 @@ export default function QuestCard({ quest, bucket, onChange }: { quest: Quest; b
     <button
       disabled={busy}
       onClick={onClick}
-      className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold"
+      className="press flex items-center gap-1.5 px-3 py-2 text-xs font-semibold"
       style={{ borderRadius: 6, border: `1px solid ${tone === "primary" ? "var(--gold-line)" : "var(--line)"}`, color: tone === "primary" ? "var(--gold)" : "var(--text-dim)", opacity: busy ? 0.5 : 1 }}
     >
       <Icon size={13} strokeWidth={1.5} /> {label}
@@ -36,9 +36,9 @@ export default function QuestCard({ quest, bucket, onChange }: { quest: Quest; b
   const ts = quest.updated_at ? new Date(quest.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
 
   return (
-    <div className="p-3.5 mb-2.5" style={{ borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", opacity: bucket === "completed" ? 0.75 : 1 }}>
+    <div className="p-3.5 mb-2.5 animate-fade-in-up" style={{ borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", opacity: bucket === "completed" ? 0.75 : 1 }}>
       <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: 6, border: `1px solid ${kind.color}55`, color: kind.color }}>{kind.label}</span>
+        <span className="text-[10px] px-2 py-0.5 animate-pop" style={{ borderRadius: 6, border: `1px solid ${kind.color}55`, color: kind.color }}>{kind.label}</span>
         {bucket === "completed" ? (
           <span className="flex items-center gap-1 cap-data" style={{ color: "var(--good)" }}><Check size={12} strokeWidth={1.5} /> Completed{ts ? ` · ${ts}` : ""}</span>
         ) : bucket === "converted" ? (
@@ -46,7 +46,7 @@ export default function QuestCard({ quest, bucket, onChange }: { quest: Quest; b
         ) : bucket === "snoozed" ? (
           <span className="flex items-center gap-1 cap-data" style={{ color: "var(--text-dim)" }}><Clock size={12} strokeWidth={1.5} /> Snoozed{quest.snooze_until ? ` · ${new Date(quest.snooze_until).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}</span>
         ) : (
-          <span className="cap-data" style={{ color: st.color }}>{st.label}</span>
+          <span className={`cap-data ${bucket === "active" ? "pulse-soft" : ""}`} style={{ color: st.color }}>{st.label}</span>
         )}
       </div>
       <div style={{ fontSize: 15, lineHeight: 1.4, color: "var(--text)", textDecoration: bucket === "completed" ? "line-through" : "none" }}>{quest.title}</div>
@@ -59,7 +59,7 @@ export default function QuestCard({ quest, bucket, onChange }: { quest: Quest; b
         return (
           <div className="mt-2">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="cap-data px-1.5 py-0.5" style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>+{r.xp} XP</span>
+              <span className="cap-data px-1.5 py-0.5 animate-pop" style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>+{r.xp} XP</span>
               {r.tracks.map((t, i) => (
                 <span key={t} className="cap-data" style={{ color: trackColor(t) }}>{r.trackLabels[i]}</span>
               ))}

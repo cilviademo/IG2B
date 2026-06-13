@@ -16,8 +16,14 @@ interface ProgT {
 }
 
 export function TrackBar({ t }: { t: TrackT }) {
+  // Grow the fill from 0 → target on mount so progress visibly animates in.
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setW(Math.round(t.level.progress * 100)));
+    return () => cancelAnimationFrame(id);
+  }, [t.level.progress]);
   return (
-    <div className="py-2" style={{ borderBottom: "1px solid var(--line)" }}>
+    <div className="py-2 animate-fade-in-up" style={{ borderBottom: "1px solid var(--line)" }}>
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: t.color }} />
         <span style={{ fontSize: 13, color: "var(--text)" }}>{t.label}</span>
@@ -27,7 +33,7 @@ export function TrackBar({ t }: { t: TrackT }) {
       </div>
       <div className="mt-1.5 flex items-center gap-2">
         <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
-          <div className="h-full rounded-full" style={{ width: `${Math.round(t.level.progress * 100)}%`, background: t.color, transition: "width .3s ease" }} />
+          <div className="h-full rounded-full bar-fill" style={{ width: `${w}%`, background: t.color }} />
         </div>
         <span className="cap-data" style={{ color: "var(--text-dim)" }}>
           {t.xp} XP{t.level.next != null ? ` · ${t.level.toNext} to next` : " · max"}
@@ -65,11 +71,11 @@ export default function ProgressionPanel() {
       ) : (
         <>
           <div className="flex items-center gap-2 mb-2">
-            <span className="flex items-center gap-1 px-2 py-1 cap-data" style={{ borderRadius: 999, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
-              <Zap size={11} strokeWidth={1.5} /> +{data.todayXp} XP today
+            <span className="flex items-center gap-1 px-2 py-1 cap-data animate-pop" style={{ borderRadius: 999, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
+              <Zap size={11} strokeWidth={1.5} className={data.todayXp > 0 ? "pulse-soft" : undefined} /> +{data.todayXp} XP today
             </span>
             {data.streak > 1 && (
-              <span className="flex items-center gap-1 px-2 py-1 cap-data" style={{ borderRadius: 999, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
+              <span className="flex items-center gap-1 px-2 py-1 cap-data animate-pop" style={{ borderRadius: 999, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
                 <Flame size={11} strokeWidth={1.5} /> {data.streak}-day streak
               </span>
             )}
