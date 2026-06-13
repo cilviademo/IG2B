@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Link2, Wand2 } from "lucide-react";
+import { Link2, Wand2, Paperclip, X } from "lucide-react";
 import Sheet from "./Sheet";
 import {
   type CaptureType,
@@ -8,10 +8,17 @@ import {
   type ProcessingStatus,
   CAPTURE_TYPE_LABEL,
 } from "@/lib/types";
-import { persistCaptureFromParams, markSynced } from "@/lib/captureStore";
+import { persistCaptureFromParams, markSynced, saveCapture, type LocalCapture } from "@/lib/captureStore";
 import { type CaptureParams, coerceType, buildDeepLink, buildShortcutTemplate } from "@/lib/deeplink";
-import { apiEnabled, ensureSession, syncCaptureToApi, lastSyncError } from "@/lib/api";
+import { apiEnabled, ensureSession, syncCaptureToApi, lastSyncError, uploadFileToApi, MAX_UPLOAD_BYTES } from "@/lib/api";
 import { Button, Dot } from "@/components/primitives";
+import { putFile, delFile } from "@/lib/idbShare";
+import { enqueueUpload, dequeueUpload } from "@/lib/uploadQueue";
+
+function fmtBytes(n: number): string {
+  if (n >= 1024 * 1024) return `${(n / 1048576).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(n / 1024))} KB`;
+}
 
 // The 8 capture types supported in test mode.
 const TYPES: CaptureType[] = [
@@ -89,6 +96,10 @@ export default function CaptureForm({
   // On-screen result of the backend sync — shown verbatim so the real status is
   // visible (no more "verified locally" guessing). e.g. "synced ✓" or "HTTP 401".
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  // Optional file attachment (binary capture -> POST /capture/upload -> R2 vault).
+  const [file, setFile] = useState<File | null>(null);
+  const [fileErr, setFileErr] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const prefilled = Boolean(init.type || init.title || init.url || init.body || init.note || init.tags || init.source);
 
@@ -109,13 +120,85 @@ export default function CaptureForm({
     }
   }
 
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] || null;
+    if (!f) {
+      setFile(null);
+      setFileErr(null);
+      return;
+    }
+    // Client-side pre-check so we don't push a doomed >50 MB upload over cellular.
+    // The server (UPLOAD_MAX_BYTES) is still the authority and returns 413 if larger.
+    if (f.size > MAX_UPLOAD_BYTES) {
+      setFile(null);
+      setFileErr(`${f.name} is ${fmtBytes(f.size)} — over the ${MAX_UPLOAD_BYTES / 1048576 | 0} MB limit`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setFileErr(null);
+    setFile(f);
+    if (!title.trim()) setTitle(f.name);
+  }
+
+  function clearFile() {
+    setFile(null);
+    setFileErr(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  // Upload path: persist the blob locally first (never lose it), then push the
+  // bytes to the private, authenticated endpoint. On failure the file stays
+  // queued in IndexedDB and the Inbox refresh retries it.
+  async function saveWithFile(capture: LocalCapture, f: File) {
+    const fileMeta = { name: f.name, type: f.type, size: f.size };
+    const fileKey = `${capture.id}:0`;
+    saveCapture({ ...capture, files: [fileMeta] });
+    await putFile(fileKey, { ...fileMeta, blob: f });
+    enqueueUpload({ captureId: capture.id, fileKey, filename: f.name, type: f.type, size: f.size, title: capture.title, source: capture.source, note: capture.user_note, queuedAt: Date.now() });
+
+    if (!apiEnabled()) {
+      setSaveStatus(`file saved locally + queued (API not configured)`);
+      toast.success("File queued", { description: `${f.name} — will upload when online.` });
+      onSaved();
+      return;
+    }
+
+    setSaving(true);
+    setSaveStatus(`uploading ${f.name} (${fmtBytes(f.size)})…`);
+    try {
+      await ensureSession();
+      const res = await uploadFileToApi(f, f.name, { title: capture.title, source: capture.source, note: capture.user_note });
+      markSynced(capture.id);
+      dequeueUpload(capture.id);
+      await delFile(fileKey);
+      setSaveStatus(`uploaded ✓ ${fmtBytes(res.asset.size_bytes)} → vault (${res.asset.kind})`);
+      toast.success("File uploaded", { description: `${f.name} saved to your vault.` });
+      onSaved();
+    } catch (e) {
+      // Honest failure — the bytes are safe in IndexedDB and will retry on refresh.
+      const msg = e instanceof Error ? e.message : "upload error";
+      setSaveStatus(`NOT uploaded — ${msg} (file kept locally, will retry on refresh)`);
+      toast.error("Upload failed", { description: "File kept locally — Indigold will retry." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function save() {
+    // A file attachment makes the file itself the capture; fall back to the
+    // filename for the title so the local record always persists.
+    const effectiveTitle = title.trim() || (file ? file.name : title);
     const capture = persistCaptureFromParams(
-      { type, title, url, body, source: source.trim() || DEFAULT_SOURCE[type], note: userNote, tags, sensitivity, processing },
+      { type, title: effectiveTitle, url, body, source: source.trim() || DEFAULT_SOURCE[type], note: userNote, tags, sensitivity, processing },
       { method: prefilled ? "deep_link" : "manual_paste", autoClassified: false },
     );
     if (!capture) {
-      toast.error("Add a title, body, or URL first");
+      toast.error(file ? "Couldn't read that file — pick it again" : "Add a title, body, or URL first");
+      return;
+    }
+
+    if (file) {
+      await saveWithFile(capture, file);
       return;
     }
 
@@ -225,6 +308,46 @@ export default function CaptureForm({
           <input className={inputCls} style={inputStyle} value={tags} onChange={(e) => setTags(e.target.value)} placeholder="idea, research" autoCapitalize="none" />
         </div>
 
+        {/* File attachment — uploaded to the private vault (R2) via /capture/upload */}
+        <div>
+          <label className={labelCls}>Attach file (optional)</label>
+          {!file ? (
+            <>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold border-glow"
+                style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.12 195)" }}
+              >
+                <Paperclip size={13} /> Choose a file (image, PDF, audio…)
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*,audio/*,application/pdf,text/*,.pdf,.md,.txt,.docx,.pages,.m4a"
+                onChange={onPickFile}
+                className="hidden"
+              />
+              <p className="label-mono mt-1" style={{ color: "oklch(0.55 0.015 280)" }}>
+                Stored privately · max {MAX_UPLOAD_BYTES / 1048576 | 0} MB · opens via a signed link that expires.
+              </p>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={inputStyle}>
+              <Paperclip size={14} style={{ color: "oklch(0.5 0.12 195)", flexShrink: 0 }} />
+              <span className="text-xs font-mono break-all flex-1" style={{ color: "oklch(0.3 0.02 280)" }}>
+                {file.name} · {fmtBytes(file.size)}
+              </span>
+              <button type="button" onClick={clearFile} aria-label="Remove file" style={{ color: "oklch(0.55 0.015 280)", flexShrink: 0 }}>
+                <X size={15} />
+              </button>
+            </div>
+          )}
+          {fileErr && (
+            <p className="text-xs font-mono mt-1" style={{ color: "oklch(0.58 0.18 35)" }}>{fileErr}</p>
+          )}
+        </div>
+
         {isReel && (
           <p style={{ fontSize: 12, color: "var(--text-dim)" }}>
             Instagram: only URL + note + optional caption/screenshot text are stored. No video scraping or summarization.
@@ -253,7 +376,7 @@ export default function CaptureForm({
         <div className="flex gap-2 pt-1">
           <Button variant="ghost" full onClick={onClose}>Cancel</Button>
           <Button variant="primary" full disabled={saving} onClick={() => void save()}>
-            {saving ? "Saving…" : "Save capture"}
+            {saving ? (file ? "Uploading…" : "Saving…") : file ? "Upload file" : "Save capture"}
           </Button>
         </div>
       </div>
