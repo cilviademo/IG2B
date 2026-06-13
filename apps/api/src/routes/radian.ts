@@ -16,6 +16,7 @@ import {
   MOMENTUM_STYLE, type Track, type CompletedQuest, type CaptureNode,
 } from "@indigold/shared";
 import { boardroom, type BoardroomSubject, type BoardroomSignals } from "@indigold/shared";
+import { horizonScan, RESEARCH_CHAIN } from "@indigold/shared";
 import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
@@ -103,6 +104,42 @@ radianRouter.post("/ask", async (req: Authed, res) => {
   const j = await enqueue(job, req.userId!, payload);
   await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
   res.status(202).json({ mode: "job", job: j.id, verb });
+});
+
+// ---- Living OS G6: Research Engine — horizon scan (deterministic planner) ----
+// Proposes the next research directions across active domains (computed from graph gaps;
+// no fabricated findings, no network), files a `horizon` brief, and seeds research quests
+// so the loop closes. The live web-fetch path (existing `research` job + tool adapters)
+// upgrades the same chain when a provider/token is connected.
+radianRouter.get("/horizon", async (req: Authed, res) => {
+  const latest = (await repo.briefs.list(req.userId!)).find((b) => b.kind === "horizon");
+  res.json({ horizon: latest || null, chain: RESEARCH_CHAIN });
+});
+
+radianRouter.post("/horizon-scan", async (req: Authed, res) => {
+  const uid = req.userId!;
+  await seedProjectsIfEmpty(uid);
+  const [projects, nodes] = await Promise.all([repo.projects.list(uid), repo.nodes.list(uid)]);
+  const directions = horizonScan({
+    projects: projects.map((p) => ({ id: p.id, name: p.name, tags: p.tags || [], status: (p as { status?: string }).status })),
+    nodes: nodes.map((n) => ({ title: n.title, tags: n.tags || [], mvs: n.mvs, updated_at: (n as { updated_at?: string }).updated_at, source: (n as { source?: string }).source })),
+  });
+  const briefId = id("brief");
+  await repo.briefs.create({ id: briefId, user_id: uid, kind: "horizon", period: new Date().toISOString().slice(0, 10), payload: { directions, scanned_at: new Date().toISOString(), chain: RESEARCH_CHAIN } });
+  await repo.emitEvent({ user_id: uid, actor: "agent:Radian", event_type: "brief_generated", subject_type: "brief", subject_id: briefId, correlation_id: briefId, payload: { kind: "horizon", directions: directions.length } });
+
+  // Seed research quests from the top directions (dedup by title).
+  const existing = new Set((await repo.quests.list(uid)).map((q) => q.title));
+  let made = 0;
+  for (const d of directions.filter((x) => x.priority !== "low").slice(0, 3)) {
+    const title = `Research: ${d.topic}`;
+    if (existing.has(title)) continue;
+    const qid = id("quest");
+    await repo.quests.create({ id: qid, user_id: uid, title, summary: d.rationale, kind: "research", state: "suggested", source_type: "research", meta: { horizon: true, project_id: d.project_id, source_type: d.sourceType } });
+    await repo.emitEvent({ user_id: uid, actor: "agent:Radian", event_type: "state_transition", subject_type: "quest", subject_id: qid, correlation_id: d.project_id || qid, payload: { suggested: true, source: "research" } });
+    made++;
+  }
+  res.status(201).json({ directions, quests_created: made, chain: RESEARCH_CHAIN });
 });
 
 // ---- Living OS G5: Boardroom & Multi-Agent Council (synchronous + deterministic) ----

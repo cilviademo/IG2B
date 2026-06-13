@@ -27,6 +27,7 @@ async function runOncePerDay() {
       await enqueue("weekly_review", u.id, {});
       await enqueue("opportunity_scan", u.id, {}); // Stage 7 weekly
       await enqueue("export_bundle", u.id, {}); // Wave D4 weekly no-lock-in dump
+      await enqueue("horizon_scan", u.id, {}); // Wave G6 weekly research horizon scan
     }
     if (isMonthFirst) {
       await enqueue("calibration", u.id, {}); // Stage 8 monthly

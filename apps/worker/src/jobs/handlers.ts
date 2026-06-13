@@ -16,6 +16,7 @@ import {
   assignMemoryTier, findResurrectionCandidates, deterministicReview, parseReview, simulationGroundingBlock,
   constitutionBlock, whatMatters, type ActivityShare,
   getEmbedder, deterministicEmbedder, contentHash,
+  horizonScan,
   type ReviewTimescale, type ShadowCandidate,
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
 } from "@indigold/shared";
@@ -370,6 +371,36 @@ const briefJob = (kind: "daily" | "weekly"): Handler => async (job) => {
   await repo.jobs.finish(job.id, "done");
 };
 
+// ---- Wave G6: Horizon scan (weekly). Deterministic research planner — proposes the
+// next research directions per active domain (no fabricated findings, no network), files
+// them as a `horizon` brief, and seeds up to 3 research quests so the loop closes
+// (Research direction → Quest → on completion, Research-track XP). ----
+const horizonScanJob: Handler = async (job) => {
+  await repo.seedProjectsIfEmpty(job.user_id);
+  const projects = await repo.projects.list(job.user_id);
+  const nodes = await repo.nodes.list(job.user_id);
+  const directions = horizonScan({
+    projects: projects.map((p) => ({ id: p.id, name: p.name, tags: p.tags || [], status: p.status })),
+    nodes: nodes.map((n) => ({ title: n.title, tags: n.tags || [], mvs: n.mvs, updated_at: (n as { updated_at?: string }).updated_at, source: (n as { source?: string }).source })),
+  });
+  const briefId = id("brief");
+  await repo.briefs.create({ id: briefId, user_id: job.user_id, kind: "horizon", period: new Date().toISOString().slice(0, 10), payload: { directions, scanned_at: new Date().toISOString(), chain: ["Research", "Capture", "Classify", "Graph", "Context Pack", "Brief", "Quest"] } });
+  await repo.emitEvent({ user_id: job.user_id, actor: "agent:Radian", event_type: "brief_generated", subject_type: "brief", subject_id: briefId, correlation_id: briefId, payload: { kind: "horizon", directions: directions.length } });
+
+  // Seed research quests from the top directions (dedup by title; honest "Research:" tasks).
+  const existing = new Set((await repo.quests.list(job.user_id)).map((q) => q.title));
+  let made = 0;
+  for (const d of directions.filter((x) => x.priority !== "low").slice(0, 3)) {
+    const title = `Research: ${d.topic}`;
+    if (existing.has(title)) continue;
+    const qid = id("quest");
+    await repo.quests.create({ id: qid, user_id: job.user_id, title, summary: d.rationale, kind: "research", state: "suggested", source_type: "research", meta: { horizon: true, project_id: d.project_id, source_type: d.sourceType } });
+    await repo.emitEvent({ user_id: job.user_id, actor: "agent:Radian", event_type: "state_transition", subject_type: "quest", subject_id: qid, correlation_id: d.project_id || qid, payload: { suggested: true, source: "research" } });
+    made++;
+  }
+  await repo.jobs.finish(job.id, "done", { directions: directions.length, quests: made });
+};
+
 const monitorScan: Handler = async (job) => {
   await repo.audit.log({ user_id: job.user_id, actor: "worker", action: "monitor_scan" });
   await repo.jobs.finish(job.id, "done");
@@ -660,6 +691,7 @@ export const handlers: Partial<Record<Job["type"], Handler>> = {
   quarterly_review: reviewJob("quarterly"),
   annual_review: reviewJob("annual"),
   export_bundle: exportBundleJob,
+  horizon_scan: horizonScanJob,
   monitor_scan: monitorScan,
   research,
   opportunity_scan: opportunityScan,

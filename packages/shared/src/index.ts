@@ -25,3 +25,4 @@ export * from "./time-machine";
 export * from "./quests";
 export * from "./progression";
 export * from "./boardroom";
+export * from "./research-engine";

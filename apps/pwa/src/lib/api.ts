@@ -363,6 +363,11 @@ export interface BoardroomSynthesis { subject: string; question?: string; lines:
 export const conveneBoardroom = (subjectType: string, subjectId: string, question?: string) =>
   questReq<{ synthesis: BoardroomSynthesis; node: string }>(`/radian/boardroom`, { method: "POST", body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId, question }) });
 
+// G6 Research Engine — horizon scan (deterministic research directions).
+export interface HorizonDirection { domain: string; topic: string; rationale: string; sourceType: string; priority: "high" | "med" | "low"; project_id?: string }
+export const getHorizon = () => questReq<{ horizon: { payload: { directions: HorizonDirection[]; scanned_at: string } } | null; chain: string[] }>(`/radian/horizon`);
+export const runHorizonScan = () => questReq<{ directions: HorizonDirection[]; quests_created: number; chain: string[] }>(`/radian/horizon-scan`, { method: "POST", body: "{}" });
+
 export const getLiveNodes = () => questReq<{ nodes: unknown[] }>(`/nodes`);
 export const getLiveEdges = () => questReq<{ edges: unknown[] }>(`/edges`);
 export const getQuestNodeStatus = () => questReq<{ active: string[]; completed: string[] }>(`/radian/quests/node-status`);

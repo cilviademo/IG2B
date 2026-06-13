@@ -6,6 +6,7 @@ import { Loading, ErrorState } from "@/components/State";
 import { Dot } from "@/components/primitives";
 import QuestsPanel from "@/components/QuestsPanel";
 import ProgressionPanel from "@/components/ProgressionPanel";
+import ResearchPanel from "@/components/ResearchPanel";
 import CollapsibleSection from "@/components/CollapsibleSection";
 
 // Styled section label used as the collapsible header title (matches the eyebrow look).
@@ -87,6 +88,9 @@ export default function Dashboard() {
 
       {/* PROGRESSION — today's XP, momentum, recommended next move (G4) */}
       <ProgressionPanel />
+
+      {/* RESEARCH HORIZON — deterministic research directions → research quests (G6) */}
+      <ResearchPanel />
 
       {/* QUESTS — today's playable actions (active + blocked + suggested) */}
       <QuestsPanel />
