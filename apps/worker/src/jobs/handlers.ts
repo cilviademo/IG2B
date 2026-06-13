@@ -14,6 +14,7 @@ import {
   deterministicMetaMemo, parseMetaMemo,
   constraintPromptBlock, reconcileAgainstConstraints, DEFAULT_CONSTRAINTS, type ConstraintProfile,
   assignMemoryTier, findResurrectionCandidates, deterministicReview, parseReview, simulationGroundingBlock,
+  constitutionBlock, whatMatters, type ActivityShare,
   type ReviewTimescale, type ShadowCandidate,
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
 } from "@indigold/shared";
@@ -172,7 +173,7 @@ const assist: Handler = async (job) => {
     const r = await repo.governedComplete({
       userId: job.user_id, tier: "strong", task: "planning", purpose: "assistance",
       json: true, sourceId: nodeId, promptVersion: prompt.version,
-      system: built.system, prompt: `${built.prompt}\n\nCONSTRAINTS:\n${constraintPromptBlock(profile)}`,
+      system: `${built.system}\n\n${constitutionBlock()}`, prompt: `${built.prompt}\n\nCONSTRAINTS:\n${constraintPromptBlock(profile)}`,
     });
     res = parseAssist(r.text) ?? fallback();
   } catch (e) {
@@ -369,10 +370,29 @@ const reviewJob = (timescale: ReviewTimescale): Handler => async (job) => {
     if (e instanceof BudgetExceededError) { await repo.jobs.finish(job.id, "queued", undefined, "budget_governor"); return; }
     review = deterministicReview(inputs);
   }
+  // D3 Wisdom: the quarterly review reconciles activity vs stated priorities ("what matters").
+  let payload: Record<string, unknown> = review as unknown as Record<string, unknown>;
+  if (timescale === "quarterly") {
+    const tagCounts: Record<string, number> = {};
+    for (const n of nodes) for (const t of n.tags || []) tagCounts[t] = (tagCounts[t] || 0) + 1;
+    const total = Object.values(tagCounts).reduce((a, b) => a + b, 0) || 1;
+    const activity: ActivityShare[] = Object.entries(tagCounts).map(([area, c]) => ({ area, share: c / total })).sort((a, b) => b.share - a.share).slice(0, 5);
+    const priorities = (await repo.projects.list(job.user_id)).filter((p) => p.status === "active").map((p) => p.name);
+    const wm = whatMatters(activity, priorities);
+    payload = { ...payload, what_matters: wm, blind_spots: [...review.blind_spots, ...wm.drift] };
+  }
   const briefId = id("brief");
-  await repo.briefs.create({ id: briefId, user_id: job.user_id, kind: `${timescale}_review`, period: new Date().toISOString().slice(0, 10), payload: review as unknown as Record<string, unknown> });
+  await repo.briefs.create({ id: briefId, user_id: job.user_id, kind: `${timescale}_review`, period: new Date().toISOString().slice(0, 10), payload });
   await repo.emitEvent({ user_id: job.user_id, actor: "agent:Chronos", event_type: "review_generated", subject_type: "brief", subject_id: briefId, correlation_id: briefId, payload: { timescale, shadow: shadow.length } });
   await repo.jobs.finish(job.id, "done", { timescale, themes: review.themes.length, shadow: shadow.length });
+};
+
+// ---- Wave D4: Export bundle (weekly). Assembles the full vault JSON (reconstructable
+// from this + R2 objects). Available live at GET /radian/export-bundle. ----
+const exportBundleJob: Handler = async (job) => {
+  const bundle = await repo.buildExportBundle(job.user_id);
+  await repo.emitEvent({ user_id: job.user_id, actor: "agent:Archivist", event_type: "system_improvement_generated", subject_type: "export", subject_id: job.user_id, correlation_id: job.user_id, payload: { counts: bundle.counts } });
+  await repo.jobs.finish(job.id, "done", { counts: bundle.counts });
 };
 
 // ---- Wave 3, Stage 8: Decision calibration (monthly, cheap) ----
@@ -544,6 +564,7 @@ export const handlers: Partial<Record<Job["type"], Handler>> = {
   monthly_review: reviewJob("monthly"),
   quarterly_review: reviewJob("quarterly"),
   annual_review: reviewJob("annual"),
+  export_bundle: exportBundleJob,
   monitor_scan: monitorScan,
   research,
   opportunity_scan: opportunityScan,

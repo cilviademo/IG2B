@@ -130,6 +130,16 @@ radianRouter.get("/attention", async (req: Authed, res) => {
   res.json({ items: scored.slice(0, 25) });
 });
 
+// ---- Wave D4: Export bundle (no lock-in — vault reconstructable from this + R2) ----
+radianRouter.get("/export-bundle", async (req: Authed, res) => {
+  res.json(await repo.buildExportBundle(req.userId!));
+});
+radianRouter.post("/export-bundle", async (req: Authed, res) => {
+  const j = await enqueue("export_bundle", req.userId!, {});
+  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+  res.status(202).json({ queued: true, job: j.id });
+});
+
 // ---- Wave C2: Multi-timescale reviews ----
 radianRouter.get("/reviews", async (req: Authed, res) => {
   const kinds = new Set(["monthly_review", "quarterly_review", "annual_review"]);

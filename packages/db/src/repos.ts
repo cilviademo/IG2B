@@ -230,6 +230,11 @@ export const events = {
     const r = await query<IndigoldEvent>(`SELECT * FROM events WHERE user_id=$1 ORDER BY ts DESC LIMIT $2`, [userId, limit]);
     return r.rows;
   },
+  // Full chronological history (export bundle / replay). Bounded for safety.
+  async listForUser(userId: string, limit = 10000) {
+    const r = await query<IndigoldEvent>(`SELECT * FROM events WHERE user_id=$1 ORDER BY ts ASC LIMIT $2`, [userId, limit]);
+    return r.rows;
+  },
   async countByType(userId: string) {
     const r = await query<{ event_type: string; n: string }>(`SELECT event_type, COUNT(*)::text AS n FROM events WHERE user_id=$1 GROUP BY event_type`, [userId]);
     return r.rows.map((x) => ({ event_type: x.event_type, count: Number(x.n) }));
@@ -288,6 +293,10 @@ export const assets = {
   },
   async byCapture(userId: string, captureId: string) {
     const r = await query<Asset>(`SELECT * FROM assets WHERE user_id=$1 AND capture_id=$2`, [userId, captureId]);
+    return r.rows;
+  },
+  async listForUser(userId: string) {
+    const r = await query<Asset>(`SELECT * FROM assets WHERE user_id=$1 ORDER BY created_at DESC`, [userId]);
     return r.rows;
   },
 };

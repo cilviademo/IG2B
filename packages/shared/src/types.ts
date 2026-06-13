@@ -111,6 +111,7 @@ export type JobType =
   | "monthly_review"
   | "quarterly_review"
   | "annual_review"
+  | "export_bundle"
   | "monitor_scan";
 
 export interface Job<T = Record<string, unknown>> {
