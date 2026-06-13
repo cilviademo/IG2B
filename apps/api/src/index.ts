@@ -77,16 +77,24 @@ const port = Number(process.env.PORT || 7000);
 // self-scheduler inside this process. SCALED mode runs them as their own services.
 async function startEmbedded() {
   if (process.env.RUN_WORKER === "true") {
-    const [{ consume }, { handlers }] = await Promise.all([
+    const [{ consume }, { handlers }, repo] = await Promise.all([
       import("@indigold/shared"),
       import("../../worker/src/jobs/handlers"),
+      import("@indigold/db"),
     ]);
     consume(
       async (job) => {
         const h = handlers[job.type];
         if (h) await h(job);
       },
-      { onError: (e, job) => console.error(`[api/worker] ${job?.type} failed:`, (e as Error)?.message) },
+      {
+        onError: (e, job) => {
+          console.error(`[api/worker] ${job?.type} failed:`, (e as Error)?.message);
+          // Surface the failure on the job row so the Companion Panel shows "failed"
+          // instead of polling a perpetually-"queued" job. Best-effort.
+          if (job?.id) repo.jobs.finish(job.id, "failed", undefined, ((e as Error)?.message || "error").slice(0, 200)).catch(() => {});
+        },
+      },
     ).catch((e) => console.error("[api/worker] fatal:", e));
     console.log("[indigold-api] embedded worker started");
   }

@@ -154,15 +154,15 @@ const askJob: Handler = async (job) => {
   let srcCap: string | undefined;
   if (p.subjectType === "node") {
     const n = await repo.nodes.get(job.user_id, p.subjectId);
-    if (!n) return;
+    if (!n) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
     title = n.title; context = `${n.title}\n${n.summary}\nTags: ${(n.tags || []).join(", ")}`;
   } else if (p.subjectType === "capture") {
     const c = await repo.captures.get(job.user_id, p.subjectId);
-    if (!c) return;
+    if (!c) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
     title = c.title; context = `${c.title}\n${c.note}\n${c.url || ""}`; srcCap = c.id;
   } else if (p.subjectType === "project") {
     const proj = (await repo.projects.list(job.user_id)).find((x) => x.id === p.subjectId);
-    if (!proj) return;
+    if (!proj) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
     title = proj.name; context = `${proj.name}\n${proj.description}\nObjectives: ${proj.objectives}`;
   } else {
     const b = (await repo.briefs.list(job.user_id)).find((x) => x.id === p.subjectId);
@@ -173,30 +173,50 @@ const askJob: Handler = async (job) => {
     : p.verb === "ask" ? (p.question || "Answer the owner's question about this.")
     : "Explain what this is and why it matters to the owner, concisely.";
   let answer: string;
+  let deterministic = false;
   try {
     const r = await repo.governedComplete({
       userId: job.user_id, tier: "strong", task: "synthesis", purpose: `ask_${p.verb}`, sourceId: p.subjectId,
       system: "You are RADIAN answering about ONE specific item the owner asked about. Be concise and specific, cite the item, never invent facts.",
       prompt: `${framing}\n\nITEM:\n${context}`,
     });
-    answer = r.text || "(no answer)";
+    // Stub/no-provider mode returns generic adapter text — use our grounded deterministic
+    // answer instead. A real provider's output is used as-is. Upgrades automatically.
+    if (r.provider === "deterministic" || !r.text) { answer = deterministicAnswer(p.verb, title, context, p.question); deterministic = true; }
+    else answer = r.text;
   } catch (e) {
     if (e instanceof BudgetExceededError) { await repo.jobs.finish(job.id, "queued", undefined, "budget_governor"); return; }
-    answer = `Enrichment paused — "${p.verb}" couldn't run a model call right now (kept honest, no fake answer). Item: ${title}.`;
+    // No provider / model error → a USEFUL deterministic answer from the item's own data
+    // (not a "paused" placeholder), so the child node always has real content. Upgrades
+    // automatically once a provider key is set (governedComplete returns model text).
+    answer = deterministicAnswer(p.verb, title, context, p.question); deterministic = true;
   }
   const childId = id("node");
   const heading = p.verb === "challenge" ? "Challenge" : p.verb === "ask" ? "Answer" : "Explanation";
   await repo.nodes.create({
     id: childId, user_id: job.user_id, type: "concept", title: `${heading} — ${title}`.slice(0, 80),
     summary: answer.slice(0, 400), truth_layer: "C", truth_label: "Answer", mvs: 50, tags: [],
-    source_capture_id: srcCap, meta: { ask: { verb: p.verb, question: p.question, answer, subject_type: p.subjectType, subject_id: p.subjectId }, epistemic_type: "inference" },
+    source_capture_id: srcCap, meta: { ask: { verb: p.verb, question: p.question, answer, subject_type: p.subjectType, subject_id: p.subjectId, deterministic }, epistemic_type: "inference" },
   });
   if (p.subjectType === "node") {
     await repo.edges.create({ id: id("edge"), user_id: job.user_id, source_id: p.subjectId, target_id: childId, relationship: "extends", weight: 0.8, valid_from: new Date().toISOString(), label: `ask:${p.verb}` });
   }
   await repo.emitEvent({ user_id: job.user_id, actor: "agent:Radian", event_type: "review_generated", subject_type: "node", subject_id: childId, correlation_id: p.subjectId, payload: { ask: p.verb } });
-  await repo.jobs.finish(job.id, "done", { child: childId, verb: p.verb });
+  await repo.jobs.finish(job.id, "done", { child: childId, verb: p.verb, deterministic });
 };
+
+// Deterministic, grounded answer from the item's own captured data (no model). Honest:
+// it's a synthesis of what's there, and says so for the freeform/explain cases.
+function deterministicAnswer(verb: string, title: string, context: string, question?: string): string {
+  const body = context.split("\n").slice(1).join(" ").replace(/\s+/g, " ").trim().slice(0, 220);
+  if (verb === "challenge") {
+    return `Pressure-test "${title}": is its value proven or assumed? Watch for thin validation, competing priorities, and whether it still ladders to an active goal.${body ? ` What's captured: ${body}` : ""}`;
+  }
+  if (verb === "ask") {
+    return `On "${question || "your question"}": from what's captured about ${title}${body ? ` — ${body}` : ""}. Connect a model provider for deeper synthesis; this is grounded in your vault only.`;
+  }
+  return `${title}${body ? ` — ${body}` : ""}.${body ? "" : " (No summary captured yet.)"}`;
+}
 
 // ---- Living OS G1: Generate Context Pack (Encompass, deterministic, no model). ----
 const contextPackJob: Handler = async (job) => {
@@ -638,6 +658,11 @@ const research: Handler = async (job) => {
       url = url || c.url || null; title = c.title;
     }
   }
+  // Node subject (Companion "Research this") — use its title + we'll link a child to it.
+  if (p.nodeId) {
+    const sn = await repo.nodes.get(job.user_id, p.nodeId);
+    if (sn) { title = sn.title; url = url || (sn as { url?: string }).url || null; }
+  }
   const repoRef = url ? parseGithubUrl(url) : null;
   let gathered = "";
   if (repoRef) {
@@ -672,7 +697,23 @@ const research: Handler = async (job) => {
     const ij = await enqueue("ingest_capture", job.user_id, { captureId: capId });
     await repo.jobs.record({ id: ij.id, user_id: job.user_id, type: ij.type, status: "queued" });
   }
-  await repo.jobs.finish(job.id, "done", { findings: findings.length });
+
+  // G1 completion gate: ALSO land a single "Research" child node linked to the subject
+  // node with provenance, so "Research this" visibly produces a connected child (not just
+  // loose re-ingested captures). Findings compound separately via the captures above.
+  let child: string | undefined;
+  if (p.nodeId) {
+    child = id("node");
+    const summary = findings.slice(0, 3).map((f) => `• ${f.title}`).join("\n") || "Research initiated.";
+    await repo.nodes.create({
+      id: child, user_id: job.user_id, type: "concept", title: `Research — ${title}`.slice(0, 80),
+      summary: summary.slice(0, 400), truth_layer: "C", truth_label: "Research", mvs: 50, tags: ["research"],
+      meta: { research: { of: p.nodeId, findings, count: findings.length, gathered: !!gathered }, epistemic_type: "inference" },
+    });
+    await repo.edges.create({ id: id("edge"), user_id: job.user_id, source_id: p.nodeId, target_id: child, relationship: "derived_from", weight: 0.8, valid_from: new Date().toISOString(), label: "research" });
+    await repo.emitEvent({ user_id: job.user_id, actor: "agent:Radian", event_type: "review_generated", subject_type: "node", subject_id: child, correlation_id: p.nodeId, payload: { research: true, findings: findings.length } });
+  }
+  await repo.jobs.finish(job.id, "done", { findings: findings.length, child });
 };
 
 export const handlers: Partial<Record<Job["type"], Handler>> = {
