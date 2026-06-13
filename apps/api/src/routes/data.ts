@@ -28,6 +28,8 @@ capturesRouter.post("/", validate(contracts.captureCreate), async (req: Authed, 
     screenshot_ref: body.screenshot_ref || null,
   };
   await repo.captures.create(capture);
+  // Event Store: capture is the lifecycle root (correlation_id = capture.id).
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "capture_created", subject_type: "capture", subject_id: capture.id, correlation_id: capture.id, payload: { type: capture.type, source: capture.source } });
   // hand off to the worker for ingestion (normalize -> node -> graph)
   const job = await enqueue("ingest_capture", req.userId!, { captureId: capture.id });
   await repo.jobs.record({ id: job.id, user_id: req.userId!, type: job.type, status: "queued", payload: job.payload });

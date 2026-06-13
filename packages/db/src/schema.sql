@@ -239,4 +239,22 @@ CREATE TABLE IF NOT EXISTS decisions (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS decisions_user_idx ON decisions(user_id, review_by);
+-- Cognition Expansion Wave A — Event Store (the spine). Append-only audit +
+-- replay substrate; never mutated or deleted. Current-state tables stay the fast
+-- read path. Every pipeline write emits an event. Additive.
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS events (
+  id             TEXT PRIMARY KEY,
+  ts             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  user_id        TEXT,
+  actor          TEXT NOT NULL DEFAULT 'system',
+  event_type     TEXT NOT NULL,
+  subject_type   TEXT NOT NULL,
+  subject_id     TEXT,
+  payload        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  correlation_id TEXT
+);
+CREATE INDEX IF NOT EXISTS events_correlation_idx ON events(correlation_id, ts);
+CREATE INDEX IF NOT EXISTS events_subject_idx ON events(subject_type, subject_id);
+CREATE INDEX IF NOT EXISTS events_user_ts_idx ON events(user_id, ts DESC);
 

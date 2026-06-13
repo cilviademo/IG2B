@@ -107,6 +107,9 @@ uploadRouter.post("/capture/upload", (req: Authed, res) => {
       });
 
       await repo.audit.log({ user_id: userId, actor: "api", action: "capture.upload", target: assetId, meta: { mime, bytes } });
+      // Event Store: uploaded capture is the lifecycle root (correlation = captureId).
+      await repo.emitEvent({ user_id: userId, actor: "user", event_type: "capture_created", subject_type: "capture", subject_id: captureId, correlation_id: captureId, payload: { via: "upload", type: fc.type } });
+      await repo.emitEvent({ user_id: userId, actor: "user", event_type: "upload_completed", subject_type: "asset", subject_id: assetId, correlation_id: captureId, payload: { mime, bytes, kind: fc.kind } });
 
       // Hand off to the worker pipeline like other captures.
       try {
