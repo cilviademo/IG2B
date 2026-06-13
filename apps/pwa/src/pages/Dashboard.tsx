@@ -5,6 +5,12 @@ import type { DashboardData } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
 import { Dot } from "@/components/primitives";
 import QuestsPanel from "@/components/QuestsPanel";
+import CollapsibleSection from "@/components/CollapsibleSection";
+
+// Styled section label used as the collapsible header title (matches the eyebrow look).
+const secTitle = (text: string) => (
+  <span className="cap-data" style={{ color: "var(--text-dim)", letterSpacing: "0.08em" }}>{text}</span>
+);
 
 const STAT_META: { key: keyof DashboardData["stats"]; label: string }[] = [
   { key: "nodes", label: "Nodes" },
@@ -83,8 +89,7 @@ export default function Dashboard() {
 
       {/* DETECTIONS — surfaced insights, verbatim (no fabrication) */}
       {data.insights.length > 0 && (
-        <>
-          <SectionLabel>Detections</SectionLabel>
+        <CollapsibleSection persistKey="home_detections" title={secTitle("Detections")}>
           <ul>
             {data.insights.map((insight, i) => (
               <li
@@ -97,13 +102,12 @@ export default function Dashboard() {
               </li>
             ))}
           </ul>
-        </>
+        </CollapsibleSection>
       )}
 
       {/* RECOMMENDED FOCUS — urgent actions as a numbered order of march */}
       {focus.length > 0 && (
-        <>
-          <SectionLabel>Recommended focus</SectionLabel>
+        <CollapsibleSection persistKey="home_focus" title={secTitle("Recommended focus")}>
           <ul>
             {focus.map((a, i) => (
               <li
@@ -121,27 +125,28 @@ export default function Dashboard() {
               </li>
             ))}
           </ul>
-        </>
+        </CollapsibleSection>
       )}
 
       {/* RISK — derived strictly from the figures above */}
-      <SectionLabel>Risk</SectionLabel>
-      {risks.length > 0 ? (
-        <ul>
-          {risks.map((r, i) => (
-            <li
-              key={i}
-              className="flex items-start gap-3 py-3"
-              style={{ borderBottom: i === risks.length - 1 ? "none" : "1px solid var(--line)" }}
-            >
-              <span className="mt-1.5"><Dot color="var(--risk)" /></span>
-              <span style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.45 }}>{r}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="py-3" style={{ fontSize: 14, color: "var(--text-dim)" }}>No outstanding risk signals. Vault is stable.</p>
-      )}
+      <CollapsibleSection persistKey="home_risk" title={secTitle("Risk")}>
+        {risks.length > 0 ? (
+          <ul>
+            {risks.map((r, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-3 py-3"
+                style={{ borderBottom: i === risks.length - 1 ? "none" : "1px solid var(--line)" }}
+              >
+                <span className="mt-1.5"><Dot color="var(--risk)" /></span>
+                <span style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.45 }}>{r}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="py-3" style={{ fontSize: 14, color: "var(--text-dim)" }}>No outstanding risk signals. Vault is stable.</p>
+        )}
+      </CollapsibleSection>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Swords, Sparkles, Loader2 } from "lucide-react";
 import { getQuests, suggestQuests, apiEnabled, type Quest } from "@/lib/api";
 import { questBucket, type QuestBucket as Bucket } from "@/lib/quests";
 import QuestCard from "./QuestCard";
+import CollapsibleSection from "./CollapsibleSection";
 
 // Mission Control's quest surface. Every quest lands in exactly ONE clearly-labelled
 // section (via the shared `questBucket`), so after any button press the card visibly
@@ -88,11 +89,17 @@ export default function QuestsPanel({ variant = "home" }: { variant?: "home" | "
             const items = byBucket[bucket];
             // In the compact Home view, hide empty non-core sections and cap the rest.
             if (!full && items.length === 0 && (bucket === "blocked" || bucket === "completed" || bucket === "converted")) return null;
-            if (bucket === "blocked" && items.length === 0 && full) { /* show with empty copy in full */ }
             const shown = full ? items : items.slice(0, HOME_CAP);
+            // Default to collapsed for low-signal sections so the surface stays tidy.
+            const collapsedByDefault = bucket === "completed" || (bucket === "suggested" && full);
             return (
-              <div key={bucket} className="mt-3">
-                <div className="cap-data mb-1.5" style={{ color }}>{label}{items.length ? ` · ${items.length}` : ""}</div>
+              <CollapsibleSection
+                key={bucket}
+                tint={color}
+                persistKey={`quests_${full ? "full" : "home"}_${bucket}`}
+                defaultOpen={!collapsedByDefault}
+                title={<span className="cap-data" style={{ color }}>{label}{items.length ? ` · ${items.length}` : ""}</span>}
+              >
                 {items.length === 0 ? (
                   <p className="pb-1" style={{ fontSize: 12.5, color: "var(--text-dim)", opacity: 0.7 }}>{empty}</p>
                 ) : (
@@ -103,17 +110,21 @@ export default function QuestsPanel({ variant = "home" }: { variant?: "home" | "
                     )}
                   </>
                 )}
-              </div>
+              </CollapsibleSection>
             );
           })}
 
           {full && archived.length > 0 && (
-            <div className="mt-3">
-              <div className="cap-data mb-1.5" style={{ color: "var(--text-dim)" }}>Archived · {archived.length}</div>
+            <CollapsibleSection
+              tint="var(--text-dim)"
+              persistKey="quests_full_archived"
+              defaultOpen={false}
+              title={<span className="cap-data" style={{ color: "var(--text-dim)" }}>Archived · {archived.length}</span>}
+            >
               {archived.map((q) => (
                 <div key={q.id} className="py-1.5" style={{ fontSize: 13, color: "var(--text-dim)", opacity: 0.6 }}>{q.title}</div>
               ))}
-            </div>
+            </CollapsibleSection>
           )}
 
           {!full && total === 0 && byBucket.suggested.length === 0 && (
