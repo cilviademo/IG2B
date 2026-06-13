@@ -141,4 +141,16 @@ export async function buildExportBundle(userId: string) {
   };
 }
 
+/** Semantic neighbours of a query text — embeds it with the active embedder, then
+ *  cosine-ranks the user's stored embeddings of the same model. Returns subject ids
+ *  + scores. (Native pgvector `<=>` is a drop-in perf upgrade for scale.) */
+export async function semanticNeighbors(userId: string, queryText: string, k = 5, excludeId?: string) {
+  const { getEmbedder, cosineRank } = await import("@indigold/shared");
+  const embedder = getEmbedder();
+  const { vector } = await embedder.embed(queryText);
+  const repo = await import("./repos");
+  const rows = await repo.embeddings.listForUser(userId, embedder.model);
+  return { model: embedder.model, provider: embedder.provider, matches: cosineRank(vector, rows, k, excludeId) };
+}
+
 export type { ProjectRow };

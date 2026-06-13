@@ -7,6 +7,8 @@ import { id, enqueue } from "@indigold/shared";
 import { providersStatus, providerConfigured, PROVIDER_ENV, ALL_PROVIDERS, type Provider } from "@indigold/shared/providers";
 import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
+import { getEmbedder } from "@indigold/shared";
+import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
 export const projectsRouter = Router();
@@ -86,6 +88,37 @@ radianRouter.post("/decisions/:id/outcome", async (req: Authed, res) => {
 });
 radianRouter.get("/calibration", async (req: Authed, res) => {
   res.json(calibrate(await repo.decisions.forCalibration(req.userId!)));
+});
+
+// ---- Semantic memory (pgvector-backed embeddings) ----
+// Status: provider + how many nodes are embedded.
+radianRouter.get("/embeddings", async (req: Authed, res) => {
+  const e = getEmbedder();
+  res.json({ provider: e.provider, model: e.model, dim: e.dim, embedded: await repo.embeddings.count(req.userId!), active: e.provider !== "deterministic" });
+});
+// Backfill: embed every node (idempotent — content-hash skips unchanged).
+radianRouter.post("/embeddings/backfill", async (req: Authed, res) => {
+  const nodes = await repo.nodes.list(req.userId!);
+  let queued = 0;
+  for (const n of nodes) {
+    const j = await enqueue("embed", req.userId!, { nodeId: n.id });
+    await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+    queued++;
+  }
+  res.status(202).json({ queued });
+});
+// Semantic neighbours of a node (cosine over embeddings of the active model).
+radianRouter.get("/similar/:nodeId", async (req: Authed, res) => {
+  const node = await repo.nodes.get(req.userId!, req.params.nodeId);
+  if (!node) return res.status(404).json({ error: "not_found" });
+  const text = `${node.title}\n${node.summary}\n${(node.tags || []).join(" ")}`;
+  const { model, provider, matches } = await semanticNeighbors(req.userId!, text, 10, req.params.nodeId);
+  const hydrated = await repo.nodes.byIds(req.userId!, matches.map((m) => m.subject_id));
+  const byId = new Map(hydrated.map((n) => [n.id, n]));
+  res.json({
+    model, provider,
+    items: matches.map((m) => ({ id: m.subject_id, score: Number(m.score.toFixed(3)), title: byId.get(m.subject_id)?.title })).filter((x) => x.title),
+  });
 });
 
 // ---- Wave B4: Constraint Engine (owner-maintained; injected into planning) ----

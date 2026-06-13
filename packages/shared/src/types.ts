@@ -94,6 +94,7 @@ export interface Brief {
 export type JobType =
   | "ingest_capture"
   | "contextualize"
+  | "embed"
   | "assist"
   | "summarize"
   | "tag"

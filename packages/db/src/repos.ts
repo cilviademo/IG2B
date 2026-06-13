@@ -443,6 +443,35 @@ export const decisions = {
   },
 };
 
+// ---- Semantic memory (embeddings; pgvector-capable) ----
+export const embeddings = {
+  async upsert(e: { subject_type: string; subject_id: string; user_id: string; model: string; dim: number; vector: number[]; content_hash: string }) {
+    await query(
+      `INSERT INTO embeddings (subject_type,subject_id,user_id,model,dim,vector,content_hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (subject_type,subject_id) DO UPDATE SET user_id=$3, model=$4, dim=$5, vector=$6, content_hash=$7, updated_at=now()`,
+      [e.subject_type, e.subject_id, e.user_id, e.model, e.dim, JSON.stringify(e.vector), e.content_hash],
+    );
+  },
+  // content_hash so we re-embed only when content changed (cost discipline).
+  async hash(subjectType: string, subjectId: string) {
+    const r = await query<{ content_hash: string }>(`SELECT content_hash FROM embeddings WHERE subject_type=$1 AND subject_id=$2`, [subjectType, subjectId]);
+    return r.rows[0]?.content_hash ?? null;
+  },
+  // All vectors for one user + model (same model only — dims must match for cosine).
+  async listForUser(userId: string, model: string) {
+    const r = await query<{ subject_type: string; subject_id: string; model: string; vector: unknown }>(
+      `SELECT subject_type, subject_id, model, vector FROM embeddings WHERE user_id=$1 AND model=$2`,
+      [userId, model],
+    );
+    return r.rows.map((x) => ({ subject_type: x.subject_type, subject_id: x.subject_id, model: x.model, vector: (typeof x.vector === "string" ? JSON.parse(x.vector) : x.vector) as number[] }));
+  },
+  async count(userId: string) {
+    const r = await query<{ n: string }>(`SELECT COUNT(*)::text AS n FROM embeddings WHERE user_id=$1`, [userId]);
+    return Number(r.rows[0]?.n || 0);
+  },
+};
+
 export const promptOverrides = {
   async get(userId: string, key: string) {
     const r = await query<{ version: string }>(`SELECT version FROM prompt_overrides WHERE user_id=$1 AND key=$2`, [userId, key]);

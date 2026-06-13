@@ -15,6 +15,7 @@ import {
   constraintPromptBlock, reconcileAgainstConstraints, DEFAULT_CONSTRAINTS, type ConstraintProfile,
   assignMemoryTier, findResurrectionCandidates, deterministicReview, parseReview, simulationGroundingBlock,
   constitutionBlock, whatMatters, type ActivityShare,
+  getEmbedder, deterministicEmbedder, contentHash,
   type ReviewTimescale, type ShadowCandidate,
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
 } from "@indigold/shared";
@@ -130,6 +131,10 @@ const contextualize: Handler = async (job) => {
     });
   }
 
+  // Semantic memory: embed the node (cheap; deterministic fallback). Compounds.
+  const ej = await enqueue("embed", job.user_id, { nodeId });
+  await repo.jobs.record({ id: ej.id, user_id: job.user_id, type: ej.type, status: "queued" });
+
   // Stage 3 gate: actionability >= MEDIUM qualifies for the Assistance Engine.
   const actionability = String((job.payload as { actionability?: string }).actionability || "LOW");
   if (actionability === "MEDIUM" || actionability === "HIGH") {
@@ -137,6 +142,28 @@ const contextualize: Handler = async (job) => {
     await repo.jobs.record({ id: aj.id, user_id: job.user_id, type: aj.type, status: "queued" });
   }
   await repo.jobs.finish(job.id, "done", { edges: ctx.edges.length, relevance: ctx.project_relevance.length });
+};
+
+// ---- Semantic memory: embed a node into the vector store (cheap, content-hashed). ----
+const embedJob: Handler = async (job) => {
+  const nodeId = String((job.payload as { nodeId: string }).nodeId);
+  const node = await repo.nodes.get(job.user_id, nodeId);
+  if (!node) return;
+  const text = `${node.title}\n${node.summary}\n${(node.tags || []).join(" ")}`.trim();
+  const hash = contentHash(text);
+  if ((await repo.embeddings.hash("node", nodeId)) === hash) { await repo.jobs.finish(job.id, "done", { skipped: "unchanged" }); return; }
+  let embedder = getEmbedder();
+  let vec;
+  try {
+    vec = await embedder.embed(text);
+  } catch {
+    embedder = deterministicEmbedder(); // provider error -> never fail; deterministic
+    vec = await embedder.embed(text);
+  }
+  await repo.embeddings.upsert({ subject_type: "node", subject_id: nodeId, user_id: job.user_id, model: embedder.model, dim: embedder.dim, vector: vec.vector, content_hash: hash });
+  // Sentinel cost ledger (embeddings are cheap-tier; deterministic = $0).
+  await repo.aiCalls.log({ id: id("aicall"), user_id: job.user_id, purpose: "embed", provider: embedder.provider, model: embedder.model, tier: "cheap", input_tokens: vec.tokens, output_tokens: 0, cost_cents: 0, source_id: nodeId, status: "ok" });
+  await repo.jobs.finish(job.id, "done", { provider: embedder.provider, dim: embedder.dim });
 };
 
 // ---- Wave 2, Stage 3: Assistance Engine (strong tier) ----
@@ -555,6 +582,7 @@ const research: Handler = async (job) => {
 export const handlers: Partial<Record<Job["type"], Handler>> = {
   ingest_capture: ingestCapture,
   contextualize,
+  embed: embedJob,
   assist,
   summarize,
   tag,
