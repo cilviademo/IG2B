@@ -479,6 +479,49 @@ export const embeddings = {
   },
 };
 
+// ---- Living OS Wave G3: Quests / Actions ----
+export interface QuestRow {
+  id: string; user_id: string; title: string; summary: string; kind: string; state: string;
+  source_type: string; source_id?: string | null; node_id?: string | null; project_id?: string | null;
+  snooze_until?: string | null; meta?: Record<string, unknown>; created_at?: string; updated_at?: string;
+}
+export const quests = {
+  async create(q: { id: string; user_id: string; title: string; summary?: string; kind?: string; state?: string; source_type?: string; source_id?: string | null; node_id?: string | null; meta?: object }) {
+    await query(
+      `INSERT INTO quests (id,user_id,title,summary,kind,state,source_type,source_id,node_id,meta)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [q.id, q.user_id, q.title, q.summary ?? "", q.kind ?? "side", q.state ?? "suggested",
+       q.source_type ?? "system", q.source_id ?? null, q.node_id ?? null, JSON.stringify(q.meta ?? {})],
+    );
+  },
+  async list(userId: string, states?: string[]) {
+    if (states && states.length) {
+      const r = await query<QuestRow>(`SELECT * FROM quests WHERE user_id=$1 AND state = ANY($2) ORDER BY updated_at DESC`, [userId, states]);
+      return r.rows;
+    }
+    const r = await query<QuestRow>(`SELECT * FROM quests WHERE user_id=$1 ORDER BY updated_at DESC`, [userId]);
+    return r.rows;
+  },
+  async get(userId: string, id: string) {
+    const r = await query<QuestRow>(`SELECT * FROM quests WHERE user_id=$1 AND id=$2`, [userId, id]);
+    return r.rows[0] || null;
+  },
+  async setState(userId: string, id: string, state: string) {
+    await query(`UPDATE quests SET state=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, state]);
+  },
+  async snooze(userId: string, id: string, until: string) {
+    await query(`UPDATE quests SET snooze_until=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, until]);
+  },
+  async setProject(userId: string, id: string, projectId: string) {
+    await query(`UPDATE quests SET project_id=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, projectId]);
+  },
+  // Node ids that currently carry an in-play (accepted/active) quest — for Atlas badges.
+  async activeNodeIds(userId: string) {
+    const r = await query<{ node_id: string }>(`SELECT DISTINCT node_id FROM quests WHERE user_id=$1 AND node_id IS NOT NULL AND state IN ('accepted','active')`, [userId]);
+    return r.rows.map((x) => x.node_id);
+  },
+};
+
 export const promptOverrides = {
   async get(userId: string, key: string) {
     const r = await query<{ version: string }>(`SELECT version FROM prompt_overrides WHERE user_id=$1 AND key=$2`, [userId, key]);

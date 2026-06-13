@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useJson } from "@/hooks/useJson";
 import { Loading, ErrorState } from "@/components/State";
-import { getTimeMachine } from "@/lib/api";
+import { getTimeMachine, createQuest, apiEnabled } from "@/lib/api";
 import {
   timeMachine, RANGES, type RangeKey, type TimeMachineReport, type TimeMachineInput,
 } from "@/lib/timeMachine";
-import { History, Sparkles, GitCompare, Scale, RotateCcw } from "lucide-react";
+import { History, Sparkles, GitCompare, Scale, RotateCcw, Swords, Check } from "lucide-react";
 
 // Time Machine (G2) — a personal memory replay. Deterministic: it computes from the
 // data already in the vault (nodes/edges/timeline + the live Event Store/decisions when
@@ -181,7 +181,8 @@ export default function TimeMachine() {
                 <div key={g.id} className="flex items-center gap-3 py-2" style={{ borderBottom: "1px solid var(--line)" }}>
                   <span className="font-data" style={{ fontSize: 12, color: "var(--gold)", width: 28 }}>{g.mvs}</span>
                   <span style={{ fontSize: 14, color: "var(--text)" }}>{g.title}</span>
-                  <span className="cap-data ml-auto" style={{ color: "var(--text-dim)" }}>{ago(g.dormantDays)}</span>
+                  <span className="cap-data" style={{ color: "var(--text-dim)" }}>{ago(g.dormantDays)}</span>
+                  <CreateQuestButton title={`Revisit: ${g.title}`} summary={`Resurfaced after ${ago(g.dormantDays)}.`} nodeId={g.id} />
                 </div>
               ))}
             </div>
@@ -189,6 +190,25 @@ export default function TimeMachine() {
         </>
       )}
     </div>
+  );
+}
+
+// "This resurfaced; create quest?" — turns a forgotten gem into a playable quest
+// (deterministic backend). Quiet when the API is offline (nothing to persist to).
+function CreateQuestButton({ title, summary, nodeId }: { title: string; summary: string; nodeId?: string }) {
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (!apiEnabled()) return null;
+  if (done) return <span className="ml-auto flex items-center gap-1 cap-data" style={{ color: "var(--good)" }}><Check size={11} strokeWidth={1.5} /> quest</span>;
+  return (
+    <button
+      disabled={busy}
+      onClick={async () => { setBusy(true); await createQuest({ title, summary, kind: "maintenance", source_type: "time_machine", source_id: nodeId, node_id: nodeId, state: "suggested" }); setBusy(false); setDone(true); }}
+      className="ml-auto flex items-center gap-1 px-2 py-1 cap-data"
+      style={{ borderRadius: 999, border: "1px solid var(--gold-line)", color: "var(--gold)", opacity: busy ? 0.5 : 1 }}
+    >
+      <Swords size={11} strokeWidth={1.5} /> quest?
+    </button>
   );
 }
 

@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: living-os-g2 · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g3 · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -102,3 +102,11 @@ commit(s) · what/why · live-test status).
   - **PWA**: new `TimeMachine` page + route `/time-machine`, phone-first range chips, narrative (not tabular) output. Entry points added on **Timeline** (header pill) and **Home** (Mission Control header). Prefers the live API; falls back to deterministic local compute over the bundled vault so it always renders useful output.
   - **Verification**: pwa+api+worker typecheck clean; pwa+api build green; `time-machine-verify` 18/18; headless screenshot renders a real replay from the sample vault. Capture/link/text/file-upload + Service Worker + iOS Shortcut **untouched**; G1 Companion Panel/Atlas code untouched this wave.
   - **G1 integration note** recorded above: G1 UI shipped, G1 live-AI completion pending, **G2 does not depend on provider completion**; future G-module work should revisit the job-runner/provider completion gate.
+
+### 2026-06-13 · claude (Claude Code) · `claude/living-os-g3` → main
+- **Living OS Wave G3 — Quest / Action System** (deterministic-first; **no LLM required**): turns insights, brief recommendations, Companion outputs, Time Machine reflections and nodes into playable, stateful actions.
+  - **Schema**: additive `quests` table (kind main/side/research/maintenance · state suggested/accepted/active/blocked/completed/archived · source_type · node_id anchor for Atlas badges · project_id · snooze_until · meta). `schema.ts` regenerated from `schema.sql`.
+  - **Pure core** `packages/shared/src/quests.ts` (+ PWA mirror `apps/pwa/src/lib/quests.ts`): the state machine (`applyAction`/`canApply` — legal transitions only), `isInPlay`, `inferKind` (rule-based), suggestion builders (`questFromBrief/Node/Capture/TimeMachine/Companion`), `suggestQuests` (de-duped bulk), and kind/state visual styles.
+  - **API** (`repo.quests` + routes, every change emits a `state_transition` event): `GET /radian/quests[?state=]`, `GET /radian/quests/node-ids` (Atlas badges), `POST /radian/quests` (create from a seed), `POST /radian/quests/suggest` (deterministic from latest brief + Time Machine forgotten gems + blocked nodes), `POST /radian/quests/:id/action` (accept/start/block/unblock/complete/archive — illegal transitions 409), `POST /radian/quests/:id/snooze`, `POST /radian/quests/:id/convert-project` (mints a Project + links the quest).
+  - **PWA**: `QuestCard` (Accept/Snooze/Start/Complete/Convert-to-project, phone-first); `QuestsPanel` on **Mission Control** (today's Active + Blocked + Suggested with a one-tap Suggest); **Time Machine** "create quest?" on forgotten gems; **Atlas** gold-diamond badge on nodes with an in-play quest (static, reduced-motion-safe) + a legend entry.
+  - **Verification**: pwa+api+worker typecheck clean; pwa+api build green; `quests-verify` 24/24; headless screenshots (Home/Atlas/Time Machine) render correctly; **Atlas 200-node = 60.9 fps**, reduced-motion intact. Capture/link/text/file-upload + Service Worker + iOS Shortcut **untouched**; G1 + G2 behavior preserved (changes additive). Live status: pending owner live-gate.

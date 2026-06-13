@@ -4,6 +4,7 @@ import { useJson } from "@/hooks/useJson";
 import type { DashboardData } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
 import { Dot } from "@/components/primitives";
+import QuestsPanel from "@/components/QuestsPanel";
 
 const STAT_META: { key: keyof DashboardData["stats"]; label: string }[] = [
   { key: "nodes", label: "Nodes" },
@@ -76,6 +77,9 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* QUESTS — today's playable actions (active + blocked + suggested) */}
+      <QuestsPanel />
 
       {/* DETECTIONS — surfaced insights, verbatim (no fabrication) */}
       {data.insights.length > 0 && (

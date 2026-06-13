@@ -284,3 +284,26 @@ CREATE TABLE IF NOT EXISTS embeddings (
   PRIMARY KEY (subject_type, subject_id)
 );
 CREATE INDEX IF NOT EXISTS embeddings_user_idx ON embeddings(user_id);
+
+-- Living OS Wave G3 — Quest / Action System. Insights, recommendations, Companion
+-- outputs, Time Machine reflections and briefs become playable, stateful actions.
+-- Deterministic-first (no LLM required). Additive; every state change emits an event.
+CREATE TABLE IF NOT EXISTS quests (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title        TEXT NOT NULL,
+  summary      TEXT NOT NULL DEFAULT '',
+  kind         TEXT NOT NULL DEFAULT 'side',     -- main | side | research | maintenance
+  state        TEXT NOT NULL DEFAULT 'suggested', -- suggested|accepted|active|blocked|completed|archived
+  source_type  TEXT NOT NULL DEFAULT 'system',    -- brief|node|capture|time_machine|companion|system
+  source_id    TEXT,
+  node_id      TEXT REFERENCES nodes(id) ON DELETE SET NULL, -- anchor for Atlas badges
+  project_id   TEXT REFERENCES projects(id) ON DELETE SET NULL,
+  snooze_until TIMESTAMPTZ,
+  meta         JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS quests_user_state_idx ON quests(user_id, state);
+CREATE INDEX IF NOT EXISTS quests_node_idx ON quests(node_id);
+

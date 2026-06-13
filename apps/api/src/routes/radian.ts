@@ -10,6 +10,7 @@ import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNo
 import { getEmbedder } from "@indigold/shared";
 import { findVerb, verbsFor } from "@indigold/shared";
 import { timeMachine, type RangeKey, type TimeMachineInput } from "@indigold/shared";
+import { applyAction, suggestQuests, type QuestAction, type QuestSeed } from "@indigold/shared";
 import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
@@ -128,6 +129,96 @@ radianRouter.get("/time-machine", async (req: Authed, res) => {
     captures: (captures as { id: string; title?: string; captured_at?: string; source?: string }[]),
   };
   res.json(timeMachine(input, range, Date.now(), customDays));
+});
+
+// ---- Living OS G3: Quest / Action System (deterministic; every change emits an event) ----
+const QUEST_STATES_ALL = ["suggested", "accepted", "active", "blocked", "completed", "archived"];
+
+// List quests (optionally filter by comma-separated states).
+radianRouter.get("/quests", async (req: Authed, res) => {
+  const states = req.query.state ? String(req.query.state).split(",").filter(Boolean) : undefined;
+  res.json({ items: await repo.quests.list(req.userId!, states) });
+});
+
+// Node ids that carry an in-play quest — the Atlas overlays a badge on these.
+radianRouter.get("/quests/node-ids", async (req: Authed, res) => {
+  res.json({ node_ids: await repo.quests.activeNodeIds(req.userId!) });
+});
+
+// Create one quest from a seed (brief/node/capture/time_machine/companion). Defaults
+// to "suggested"; pass state:"active" to accept-and-start in one tap.
+radianRouter.post("/quests", async (req: Authed, res) => {
+  const b = (req.body || {}) as Partial<QuestSeed> & { state?: string };
+  const title = String(b.title || "").trim();
+  if (!title) return res.status(400).json({ error: "title_required" });
+  const qid = id("quest");
+  await repo.quests.create({
+    id: qid, user_id: req.userId!, title, summary: String(b.summary || ""),
+    kind: b.kind || "side", state: b.state && QUEST_STATES_ALL.includes(b.state) ? b.state : "suggested",
+    source_type: b.source_type || "system", source_id: b.source_id ?? null, node_id: b.node_id ?? null, meta: b.meta || {},
+  });
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "state_transition", subject_type: "quest", subject_id: qid, correlation_id: b.source_id || qid, payload: { created: true, kind: b.kind, source: b.source_type } });
+  res.status(201).json(await repo.quests.get(req.userId!, qid));
+});
+
+// Deterministically suggest quests from the latest brief + Time Machine forgotten gems
+// + blocked nodes. No LLM. Idempotent-ish: skips titles that already exist.
+radianRouter.post("/quests/suggest", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const [briefs, nodes, edges] = await Promise.all([repo.briefs.list(uid), repo.nodes.list(uid), repo.edges.list(uid)]);
+  const latest = briefs.find((b) => b.kind === "daily") || briefs[0];
+  const payload = (latest?.payload || {}) as { recommended_actions?: { text: string; priority?: string }[]; urgent_actions?: { text: string; priority?: string }[] };
+  const briefActions = payload.recommended_actions || payload.urgent_actions || [];
+  const tm = timeMachine({ nodes: nodes as TimeMachineInput["nodes"], edges: edges as TimeMachineInput["edges"] }, "30d");
+  const forgottenGems = tm.resurfaced.forgottenGems.map((g) => ({ id: g.id, title: g.title }));
+  const blockedIds = new Set(edges.filter((e) => /block/i.test(e.relationship)).map((e) => e.target_id));
+  const blockedNodes = nodes.filter((n) => blockedIds.has(n.id)).map((n) => ({ id: n.id, title: n.title }));
+  const seeds = suggestQuests({ briefActions, briefId: latest?.id, forgottenGems, blockedNodes });
+  const existing = new Set((await repo.quests.list(uid)).map((q) => q.title));
+  let created = 0;
+  for (const s of seeds) {
+    if (existing.has(s.title)) continue;
+    const qid = id("quest");
+    await repo.quests.create({ id: qid, user_id: uid, title: s.title, summary: s.summary, kind: s.kind, state: "suggested", source_type: s.source_type, source_id: s.source_id ?? null, node_id: s.node_id ?? null, meta: s.meta });
+    await repo.emitEvent({ user_id: uid, actor: "agent:Radian", event_type: "state_transition", subject_type: "quest", subject_id: qid, correlation_id: s.source_id || qid, payload: { suggested: true, source: s.source_type } });
+    created++;
+  }
+  res.status(201).json({ created, items: await repo.quests.list(uid, ["suggested"]) });
+});
+
+// Apply a state-machine action (accept/start/block/unblock/complete/archive).
+radianRouter.post("/quests/:id/action", async (req: Authed, res) => {
+  const action = String(req.body?.action || "") as QuestAction;
+  const q = await repo.quests.get(req.userId!, req.params.id);
+  if (!q) return res.status(404).json({ error: "not_found" });
+  const next = applyAction(q.state as never, action);
+  if (!next) return res.status(409).json({ error: "illegal_transition", from: q.state, action });
+  await repo.quests.setState(req.userId!, q.id, next);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "state_transition", subject_type: "quest", subject_id: q.id, correlation_id: q.source_id || q.id, payload: { from: q.state, to: next, action } });
+  res.json(await repo.quests.get(req.userId!, q.id));
+});
+
+// Snooze a quest (hours, default 24). Keeps state; sets a not-before timestamp.
+radianRouter.post("/quests/:id/snooze", async (req: Authed, res) => {
+  const q = await repo.quests.get(req.userId!, req.params.id);
+  if (!q) return res.status(404).json({ error: "not_found" });
+  const hours = Math.max(1, Number(req.body?.hours || 24));
+  const until = new Date(Date.now() + hours * 3600000).toISOString();
+  await repo.quests.snooze(req.userId!, q.id, until);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "state_transition", subject_type: "quest", subject_id: q.id, correlation_id: q.source_id || q.id, payload: { snooze_until: until } });
+  res.json(await repo.quests.get(req.userId!, q.id));
+});
+
+// Convert a quest into a Project (Registry) — keeps provenance + links the quest.
+radianRouter.post("/quests/:id/convert-project", async (req: Authed, res) => {
+  const q = await repo.quests.get(req.userId!, req.params.id);
+  if (!q) return res.status(404).json({ error: "not_found" });
+  const pid = id("proj");
+  await repo.projects.upsert({ id: pid, user_id: req.userId!, name: q.title, description: q.summary || "", status: "active", tags: [String(q.kind)], objectives: q.summary || "" });
+  await repo.quests.setProject(req.userId!, q.id, pid);
+  if (q.state !== "completed" && q.state !== "archived") await repo.quests.setState(req.userId!, q.id, "active");
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "state_transition", subject_type: "quest", subject_id: q.id, correlation_id: q.id, payload: { converted_to_project: pid } });
+  res.status(201).json({ quest: await repo.quests.get(req.userId!, q.id), project: pid });
 });
 
 

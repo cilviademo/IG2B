@@ -343,6 +343,27 @@ export async function getTimeMachine(range: string, days?: number): Promise<unkn
   }
 }
 
+// G3 Quests / Actions — all deterministic backend; the frontend just drives state.
+export interface Quest {
+  id: string; title: string; summary: string; kind: string; state: string;
+  source_type: string; source_id?: string | null; node_id?: string | null; project_id?: string | null; snooze_until?: string | null;
+}
+async function questReq<T>(path: string, init?: RequestInit): Promise<T | null> {
+  if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return null;
+  try {
+    const res = await fetch(`${BASE}${path}`, { ...init, headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}`, ...(init?.headers as Record<string, string>) } });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch { return null; }
+}
+export const getQuests = (states?: string) => questReq<{ items: Quest[] }>(`/radian/quests${states ? `?state=${encodeURIComponent(states)}` : ""}`);
+export const getQuestNodeIds = () => questReq<{ node_ids: string[] }>(`/radian/quests/node-ids`);
+export const suggestQuests = () => questReq<{ created: number; items: Quest[] }>(`/radian/quests/suggest`, { method: "POST", body: "{}" });
+export const createQuest = (seed: Partial<Quest> & { title: string }) => questReq<Quest>(`/radian/quests`, { method: "POST", body: JSON.stringify(seed) });
+export const questAction = (id: string, action: string) => questReq<Quest>(`/radian/quests/${id}/action`, { method: "POST", body: JSON.stringify({ action }) });
+export const snoozeQuest = (id: string, hours = 24) => questReq<Quest>(`/radian/quests/${id}/snooze`, { method: "POST", body: JSON.stringify({ hours }) });
+export const convertQuestToProject = (id: string) => questReq<{ project: string }>(`/radian/quests/${id}/convert-project`, { method: "POST", body: "{}" });
+
 /** Load a resource from the API when enabled, else fall back to a local fixture. */
 export async function loadOrFixture<T>(apiCall: () => Promise<T>, fixturePath: string): Promise<T> {
   if (apiEnabled()) {
