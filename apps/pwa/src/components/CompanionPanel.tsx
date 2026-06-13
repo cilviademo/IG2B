@@ -11,6 +11,7 @@ import BoardroomView from "./BoardroomView";
 type Entity = "node" | "project" | "brief" | "capture";
 const VERBS: { verb: string; label: string; on: Entity[] }[] = [
   { verb: "explain", label: "Explain", on: ["node", "project", "brief", "capture"] },
+  { verb: "teach", label: "Teach me", on: ["node", "project", "brief", "capture"] },
   { verb: "next_steps", label: "Next steps", on: ["node", "project", "capture"] },
   { verb: "research", label: "Research this", on: ["node", "project", "capture"] },
   { verb: "simulate", label: "Simulate", on: ["node", "project"] },

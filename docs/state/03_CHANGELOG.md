@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: living-os-g9 · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g10 · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -162,6 +162,13 @@ commit(s) · what/why · live-test status).
   - **API**: `POST /radian/whatif` (synchronous) computes deterministic signals per option by matching projects/nodes (momentum via `momentumFor`, MVS, recency, degree), runs the engine, persists an **"Analysis"** node (`meta.simulation`, shows in `GET /radian/simulations`) + a `review_generated` event.
   - **PWA**: Mission Control **Simulate** panel (collapsible) — a "What happens if…?" input + project-derived scenario/comparison chips; renders **animated best/likely/worst probability bars**, a Recommendation card, and the assumptions (incl. the "ESTIMATES, not predictions" disclaimer).
   - **Verification**: typecheck clean (pwa/api/worker); pwa+api build green; `simulation-engine-verify` **21/21**; regressions green (quests 40/40, progression 32/32, boardroom 15/15, research 15/15). **Live end-to-end** (ephemeral PG+Redis, stub mode): scenario "focus BTZ TRACE" → best 39 / likely 40 / worst 21 (sum 100), conf 0.71, "Proceed"; comparison "BTZ TRACE vs Business vs Genesis" → ranked by real feasibility (81/65/29), "Lead with BTZ TRACE; hold Genesis"; the panel **renders in-app** (verified via instrumented run — `WHATIF:comparison:2`, Recommendation on screen); screenshot `g7-simulate.png`. Capture/upload/SW/Shortcut + G1–G6 untouched. Live status: pending owner phone-gate.
+
+### 2026-06-13 · claude (Claude Code) · `claude/living-os-g10` → main
+- **Living OS Wave G10 — Companion** ("Mission Control becomes Jarvis; voice, not chat"): a **spoken commander's briefing**. Deterministic + honest — assembled by transparent rules from real signals; no LLM.
+  - **Pure engine** `packages/shared/src/companion.ts`: `timeGreeting` + `morningBriefing` build a briefing from accelerated projects (momentum), top-momentum project, resurfaced ideas, critical/active quests, recommended focus, today's XP + streak — returning display `lines`/`focus` and a single spoken `speech` string. Correct singular/plural; bootstrap copy when quiet.
+  - **API**: `GET /radian/briefing` computes momentum (accelerated/top/dormant), resurfaced (Time Machine), critical/in-play quests, recommended focus (in-play→suggested), and XP/streak (ledger), then runs the engine.
+  - **PWA**: a **Companion** card at the top of Mission Control with a **"Brief me"** button that reads the briefing aloud via the device's **Speech Synthesis** (the tap is the iOS gesture; Stop/refresh controls; graceful text-only fallback). Plus a new **"Teach me"** long-press verb (Teacher voice) across node/project/brief/capture — `askJob` framing + grounded deterministic fallback.
+  - **Verification**: `companion-verify` **12/12**; all engine regressions green (living-os/quests/progression/boardroom/research/simulation/mentor); typecheck + build green (pwa/api/worker). **Live end-to-end** (ephemeral PG+Redis, stub mode): `GET /radian/briefing` → *"Good evening. 50 XP earned today. 4 projects accelerated. BTZ Sonic Alchemy gained momentum. 4 active quests in play. Recommended focus: 1. Advance: BTZ TRACE…"*; the Companion card renders the briefing on Home (screenshot `g10-companion.png`). Capture/upload/SW/Shortcut + G1–G9 untouched. Live status: pending owner phone-gate.
 
 ### 2026-06-13 · claude (Claude Code) · `claude/g1-completion-gate` → main
 - **G1 AI-completion gate — closed in stub mode (next iteration).** The phone gate had found that "Research this" never produced a visible, connected child node and that failures could leave a job stuck at "queued". Fixes (deterministic-first; auto-upgrades when a provider key is set):

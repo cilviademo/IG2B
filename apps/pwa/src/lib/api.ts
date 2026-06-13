@@ -380,6 +380,10 @@ export interface MentorReply { intent: string; voice: string; answer: string; po
 export const askMentor = (intent: string, range?: number) =>
   questReq<{ reply: MentorReply }>(`/radian/mentor`, { method: "POST", body: JSON.stringify({ intent, range }) });
 
+// G10 Companion — the spoken commander's briefing (deterministic).
+export interface CompanionBriefing { greeting: string; lines: string[]; focus: string[]; speech: string; bootstrap: boolean }
+export const getBriefing = () => questReq<{ briefing: CompanionBriefing }>(`/radian/briefing`);
+
 export const getLiveNodes = () => questReq<{ nodes: unknown[] }>(`/nodes`);
 export const getLiveEdges = () => questReq<{ edges: unknown[] }>(`/edges`);
 export const getQuestNodeStatus = () => questReq<{ active: string[]; completed: string[] }>(`/radian/quests/node-status`);

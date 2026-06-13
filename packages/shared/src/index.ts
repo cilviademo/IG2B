@@ -28,3 +28,4 @@ export * from "./boardroom";
 export * from "./research-engine";
 export * from "./simulation-engine";
 export * from "./mentor";
+export * from "./companion";

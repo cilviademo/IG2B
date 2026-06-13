@@ -1,8 +1,11 @@
 # Current State
 
-`Last updated: 2026-06-13 · Commit: living-os-g9 (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g10 (off main) · By: claude (Claude Code)`
 
-> **G9 Mentor Mode (latest):** "talk with past you" — deterministic first-person reflection (then/changed/wrong/advice/best_self) voiced from Time Machine + decisions/calibration + active focus. `POST /radian/mentor`; Mentor panel on the Time Machine page. `mentor-verify` 11/11; live e2e verified. Atlas-zoom click regression fixed (app-zoom excludes /atlas).
+> **G10 Companion (latest):** Mission Control gets a spoken commander's briefing — `GET /radian/briefing` (deterministic, from momentum/resurfaced/quests/focus/XP), "Brief me" reads it aloud via Speech Synthesis; + a "Teach me" long-press verb. `companion-verify` 12/12; live e2e verified.
+> **G1 AI-completion gate: CLOSED in stub mode** — research lands a `derived_from` child node, ask/explain/challenge/teach give grounded answers, failures surface (job `failed`/`skipped`). Upgrades to live model output when a provider key is set.
+
+> **G9 Mentor Mode:** "talk with past you" — deterministic first-person reflection (then/changed/wrong/advice/best_self) voiced from Time Machine + decisions/calibration + active focus. `POST /radian/mentor`; Mentor panel on the Time Machine page. `mentor-verify` 11/11; live e2e verified. Atlas-zoom click regression fixed (app-zoom excludes /atlas).
 
 > **G8 Memory Palace:** Atlas alive — Legendary node state (radiant cornerstone), galaxy nebulae (skill-track clusters) + constellation edges, forgotten-gem glow + resurfaced pulse. Render-time, reduced-motion-safe, 60.6fps. `living-os-verify` 23/23; no API/schema changes.
 

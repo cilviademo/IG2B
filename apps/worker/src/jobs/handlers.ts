@@ -170,6 +170,8 @@ const askJob: Handler = async (job) => {
   }
   const framing = p.verb === "challenge"
     ? "Play skeptic: surface the strongest risks and objections to this, specifically."
+    : p.verb === "teach"
+    ? "Teach this simply, as if to a smart beginner, then give one small next learning step."
     : p.verb === "ask" ? (p.question || "Answer the owner's question about this.")
     : "Explain what this is and why it matters to the owner, concisely.";
   let answer: string;
@@ -192,7 +194,7 @@ const askJob: Handler = async (job) => {
     answer = deterministicAnswer(p.verb, title, context, p.question); deterministic = true;
   }
   const childId = id("node");
-  const heading = p.verb === "challenge" ? "Challenge" : p.verb === "ask" ? "Answer" : "Explanation";
+  const heading = p.verb === "challenge" ? "Challenge" : p.verb === "teach" ? "Lesson" : p.verb === "ask" ? "Answer" : "Explanation";
   await repo.nodes.create({
     id: childId, user_id: job.user_id, type: "concept", title: `${heading} — ${title}`.slice(0, 80),
     summary: answer.slice(0, 400), truth_layer: "C", truth_label: "Answer", mvs: 50, tags: [],
@@ -211,6 +213,9 @@ function deterministicAnswer(verb: string, title: string, context: string, quest
   const body = context.split("\n").slice(1).join(" ").replace(/\s+/g, " ").trim().slice(0, 220);
   if (verb === "challenge") {
     return `Pressure-test "${title}": is its value proven or assumed? Watch for thin validation, competing priorities, and whether it still ladders to an active goal.${body ? ` What's captured: ${body}` : ""}`;
+  }
+  if (verb === "teach") {
+    return `Think of ${title} like this: ${body || "a building block in your vault"}. Next learning step: write a one-line explanation in your own words, then connect it to one neighbouring idea.`;
   }
   if (verb === "ask") {
     return `On "${question || "your question"}": from what's captured about ${title}${body ? ` — ${body}` : ""}. Connect a model provider for deeper synthesis; this is grounded in your vault only.`;

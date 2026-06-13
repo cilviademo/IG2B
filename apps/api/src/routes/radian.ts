@@ -19,6 +19,7 @@ import { boardroom, type BoardroomSubject, type BoardroomSignals } from "@indigo
 import { horizonScan, RESEARCH_CHAIN } from "@indigold/shared";
 import { simulate, parseOptions, type SimSignals } from "@indigold/shared";
 import { mentor, type MentorIntent } from "@indigold/shared";
+import { morningBriefing } from "@indigold/shared";
 import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
@@ -106,6 +107,46 @@ radianRouter.post("/ask", async (req: Authed, res) => {
   const j = await enqueue(job, req.userId!, payload);
   await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
   res.status(202).json({ mode: "job", job: j.id, verb });
+});
+
+// ---- Living OS G10: Companion — the spoken commander's briefing (deterministic) ----
+// Assembles a "Jarvis" morning briefing from real signals (momentum, resurfaced, critical
+// quests, recommended focus, XP/streak). The PWA reads `speech` aloud. No LLM.
+radianRouter.get("/briefing", async (req: Authed, res) => {
+  const uid = req.userId!;
+  await seedProjectsIfEmpty(uid);
+  const now = Date.now();
+  const [questList, nodes, edges, projects] = await Promise.all([
+    repo.quests.list(uid), repo.nodes.list(uid), repo.edges.list(uid), repo.projects.list(uid),
+  ]);
+  // project momentum (light) → accelerated + top + dormant.
+  const day14 = 14 * 86400000;
+  const moms = projects.filter((p) => (p as { status?: string }).status === "active").map((p) => {
+    const ptags = new Set(((p.tags as string[]) || []).map((t) => t.toLowerCase()));
+    const token = p.name.toLowerCase().split(/\s+/)[0];
+    const related = nodes.filter((n) => (n.tags || []).some((t) => ptags.has((t || "").toLowerCase())) || n.title.toLowerCase().includes(token));
+    const recentNodes = related.filter((n) => { const u = (n as { updated_at?: string }).updated_at; return u && now - new Date(u).getTime() <= day14; }).length;
+    const last = Math.max(0, ...related.map((n) => new Date((n as { updated_at?: string }).updated_at || 0).getTime()));
+    const inactivity = last ? Math.round((now - last) / 86400000) : 999;
+    const pq = questList.filter((q) => q.project_id === p.id);
+    const m = momentumFor({ recentNodes, activeQuests: pq.filter((q) => q.state === "active" || q.state === "accepted").length, completedQuests: pq.filter((q) => q.state === "completed").length, blocked: pq.some((q) => q.state === "blocked"), inactivityDays: inactivity, hasHistory: related.length > 0 || pq.length > 0 });
+    return { name: p.name, m };
+  });
+  const accelerated = moms.filter((x) => x.m === "accelerating" || x.m === "compounding").map((x) => x.name);
+  const topMomentum = accelerated[0] || moms.find((x) => x.m === "active")?.name || null;
+  const tm = timeMachine({ nodes: nodes as TimeMachineInput["nodes"], edges: edges as TimeMachineInput["edges"] }, "30d");
+  const resurfaced = [...tm.resurfaced.resurfacedThemes, ...tm.resurfaced.forgottenGems.map((g) => g.title)].slice(0, 2);
+  const inPlay = questList.filter((q) => q.state === "active" || q.state === "accepted");
+  const criticalQuests = questList.filter((q) => q.state === "blocked").length;
+  const recommendedFocus = (inPlay.length ? inPlay : questList.filter((q) => q.state === "suggested")).slice(0, 3).map((q) => q.title);
+  // XP today + streak from the ledger.
+  const midnight = new Date(); midnight.setUTCHours(0, 0, 0, 0);
+  const todayXp = (await repo.xp.since(uid, midnight.toISOString())).reduce((s, r) => s + r.amount, 0);
+  const activeDays = new Set(await repo.xp.activeDays(uid)); let streak = 0;
+  for (let i = 0; i < 60; i++) { const k = new Date(now - i * 86400000).toISOString().slice(0, 10); if (activeDays.has(k)) streak++; else if (i > 0) break; }
+
+  const briefing = morningBriefing({ now, acceleratedProjects: accelerated, topMomentum, resurfaced, criticalQuests, activeQuests: inPlay.length, recommendedFocus, todayXp, streak });
+  res.json({ briefing });
 });
 
 // ---- Living OS G9: Mentor Mode — "talk with past you" (deterministic) ----

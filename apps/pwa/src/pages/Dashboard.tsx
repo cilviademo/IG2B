@@ -8,6 +8,7 @@ import QuestsPanel from "@/components/QuestsPanel";
 import ProgressionPanel from "@/components/ProgressionPanel";
 import ResearchPanel from "@/components/ResearchPanel";
 import SimulationPanel from "@/components/SimulationPanel";
+import CompanionBrief from "@/components/CompanionBrief";
 import CollapsibleSection from "@/components/CollapsibleSection";
 
 // Styled section label used as the collapsible header title (matches the eyebrow look).
@@ -65,6 +66,9 @@ export default function Dashboard() {
         </Link>
         <span className="cap-data font-data" style={{ color: "var(--text-dim)", letterSpacing: "0.02em" }}>{today()}</span>
       </div>
+
+      {/* COMPANION — the spoken commander's briefing (G10) */}
+      <div className="mt-4"><CompanionBrief /></div>
 
       {/* SITUATION — the standing brief, then a single status line from the stats */}
       <SectionLabel>Situation</SectionLabel>

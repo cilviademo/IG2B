@@ -4,7 +4,7 @@
 
 // ---- Companion Panel verbs ----
 export type AskVerb =
-  | "explain" | "next_steps" | "research" | "simulate" | "challenge" | "create_task" | "context_pack" | "ask";
+  | "explain" | "teach" | "next_steps" | "research" | "simulate" | "challenge" | "create_task" | "context_pack" | "ask";
 
 export interface VerbSpec {
   verb: AskVerb;
@@ -19,6 +19,7 @@ export interface VerbSpec {
 // panel is orchestration, not new intelligence.
 export const VERBS: VerbSpec[] = [
   { verb: "explain", label: "Explain", fulfilment: { kind: "job", job: "ask" }, on: ["node", "project", "brief", "capture"] },
+  { verb: "teach", label: "Teach me", fulfilment: { kind: "job", job: "ask" }, on: ["node", "project", "brief", "capture"] },
   { verb: "next_steps", label: "Next steps", fulfilment: { kind: "job", job: "assist" }, on: ["node", "project", "capture"] },
   { verb: "research", label: "Research this", fulfilment: { kind: "job", job: "research" }, on: ["node", "project", "capture"] },
   { verb: "simulate", label: "Simulate", fulfilment: { kind: "job", job: "simulation" }, on: ["node", "project"] },
