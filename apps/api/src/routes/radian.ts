@@ -130,6 +130,30 @@ radianRouter.get("/attention", async (req: Authed, res) => {
   res.json({ items: scored.slice(0, 25) });
 });
 
+// ---- Wave C2: Multi-timescale reviews ----
+radianRouter.get("/reviews", async (req: Authed, res) => {
+  const kinds = new Set(["monthly_review", "quarterly_review", "annual_review"]);
+  const items = (await repo.briefs.list(req.userId!)).filter((b) => kinds.has(b.kind));
+  res.json({ items });
+});
+radianRouter.post("/reviews/:timescale", async (req: Authed, res) => {
+  const t = req.params.timescale;
+  if (!["monthly", "quarterly", "annual"].includes(t)) return res.status(400).json({ error: "bad_timescale" });
+  const j = await enqueue(`${t}_review` as "monthly_review", req.userId!, {});
+  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+  res.status(202).json({ queued: true, job: j.id });
+});
+
+// ---- Wave C1: promote a node to CORE memory (owner-confirmed only) ----
+radianRouter.post("/nodes/:id/promote-core", async (req: Authed, res) => {
+  const node = await repo.nodes.get(req.userId!, req.params.id);
+  if (!node) return res.status(404).json({ error: "not_found" });
+  const meta = (node as { meta?: Record<string, unknown> }).meta || {};
+  await repo.nodes.setMeta(req.userId!, req.params.id, { ...meta, memory_tier: "core" });
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "state_transition", subject_type: "node", subject_id: req.params.id, correlation_id: req.params.id, payload: { memory_tier: "core" } });
+  res.json({ ok: true, memory_tier: "core" });
+});
+
 // ---- Stage 6: Execution Agents (proposal-only drafts) ----
 radianRouter.post("/agent-tasks", async (req: Authed, res) => {
   const kind = String(req.body?.kind || "") as AgentKind;

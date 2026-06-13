@@ -85,7 +85,7 @@ export interface ContextPack {
 export interface Brief {
   id: string;
   user_id: string;
-  kind: "daily" | "weekly" | "forecast";
+  kind: "daily" | "weekly" | "forecast" | "monthly_review" | "quarterly_review" | "annual_review";
   period: string;
   payload: Record<string, unknown>;
   created_at?: string;
@@ -108,6 +108,9 @@ export type JobType =
   | "meta_review"
   | "daily_brief"
   | "weekly_review"
+  | "monthly_review"
+  | "quarterly_review"
+  | "annual_review"
   | "monitor_scan";
 
 export interface Job<T = Record<string, unknown>> {

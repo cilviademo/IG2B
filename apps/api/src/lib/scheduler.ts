@@ -16,6 +16,8 @@ async function runOncePerDay() {
   const now = new Date();
   const isMonday = now.getUTCDay() === 1;
   const isMonthFirst = now.getUTCDate() === 1;
+  const isQuarterFirst = isMonthFirst && now.getUTCMonth() % 3 === 0; // Jan/Apr/Jul/Oct 1
+  const isYearFirst = isMonthFirst && now.getUTCMonth() === 0; // Jan 1
   const res = await query<{ id: string }>("SELECT id FROM users");
   for (const u of res.rows) {
     await enqueue("daily_brief", u.id, {});
@@ -25,9 +27,14 @@ async function runOncePerDay() {
       await enqueue("weekly_review", u.id, {});
       await enqueue("opportunity_scan", u.id, {}); // Stage 7 weekly
     }
-    if (isMonthFirst) await enqueue("calibration", u.id, {}); // Stage 8 monthly
+    if (isMonthFirst) {
+      await enqueue("calibration", u.id, {}); // Stage 8 monthly
+      await enqueue("monthly_review", u.id, {}); // Wave C2 monthly (+ shadow memory)
+    }
+    if (isQuarterFirst) await enqueue("quarterly_review", u.id, {}); // Wave C2 quarterly
+    if (isYearFirst) await enqueue("annual_review", u.id, {}); // Wave C2 annual
   }
-  console.log(`[api/scheduler] fan-out for ${res.rows.length} users (weekly=${isMonday}, monthly=${isMonthFirst})`);
+  console.log(`[api/scheduler] fan-out for ${res.rows.length} users (weekly=${isMonday}, monthly=${isMonthFirst}, quarter=${isQuarterFirst}, year=${isYearFirst})`);
 }
 
 export function startScheduler() {

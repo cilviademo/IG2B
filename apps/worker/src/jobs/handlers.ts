@@ -13,6 +13,8 @@ import {
   deterministicSimulation, parseSimulation,
   deterministicMetaMemo, parseMetaMemo,
   constraintPromptBlock, reconcileAgainstConstraints, DEFAULT_CONSTRAINTS, type ConstraintProfile,
+  assignMemoryTier, findResurrectionCandidates, deterministicReview, parseReview, simulationGroundingBlock,
+  type ReviewTimescale, type ShadowCandidate,
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
 } from "@indigold/shared";
 import { model } from "../lib/model";
@@ -327,8 +329,50 @@ const consolidateJob: Handler = async (job) => {
   const { adjustments, themes } = consolidate(nodes, referenced);
   for (const a of adjustments) await repo.nodes.update(job.user_id, a.id, { mvs: a.after });
   for (const t of themes) await repo.nodes.upsertTheme(job.user_id, t.tag, t.node_ids);
-  await repo.audit.log({ user_id: job.user_id, actor: "worker", action: "consolidate", meta: { adjusted: adjustments.length, themes: themes.length } });
-  await repo.jobs.finish(job.id, "done", { adjusted: adjustments.length, themes: themes.length });
+  // C1: assign memory tiers (working/long_term). Core is owner-confirmed only and sticky.
+  let tiered = 0;
+  for (const n of nodes) {
+    const meta = (n as { meta?: Record<string, unknown> }).meta || {};
+    const tier = assignMemoryTier({ mvs: n.mvs, current_tier: meta.memory_tier as string }, referenced.has(n.id));
+    if (meta.memory_tier !== tier) { await repo.nodes.setMeta(job.user_id, n.id, { ...meta, memory_tier: tier }); tiered++; }
+  }
+  await repo.audit.log({ user_id: job.user_id, actor: "agent:Archivist", action: "consolidate", meta: { adjusted: adjustments.length, themes: themes.length, tiered } });
+  await repo.jobs.finish(job.id, "done", { adjusted: adjustments.length, themes: themes.length, tiered });
+};
+
+// ---- Wave C2: Multi-timescale reviews (strong tier; each compounds on the prior). ----
+const reviewJob = (timescale: ReviewTimescale): Handler => async (job) => {
+  const nodes = await repo.nodes.list(job.user_id);
+  const counts = await repo.events.countByType(job.user_id);
+  const priorBriefs = await repo.briefs.list(job.user_id);
+  const prior = priorBriefs.find((b) => b.kind === `${timescale}_review`);
+  const priorSummary = (prior?.payload as { summary?: string } | undefined)?.summary;
+  const cal = calibrate(await repo.decisions.forCalibration(job.user_id));
+  // C3 Shadow Memory — monthly "From the vault" resurrection.
+  let shadow: ShadowCandidate[] = [];
+  if (timescale === "monthly") {
+    const recent = nodes.slice(0, 12);
+    const recentContext = { text: recent.map((n) => `${n.title} ${n.summary}`).join(" "), tags: [...new Set(recent.flatMap((n) => n.tags || []))] };
+    shadow = findResurrectionCandidates(nodes as never[], recentContext);
+  }
+  const inputs = { timescale, topNodes: nodes.slice(0, 5).map((n) => ({ title: n.title, mvs: n.mvs })), eventCounts: counts, priorSummary, calibrationNote: cal.note, shadow };
+  let review;
+  try {
+    const r = await repo.governedComplete({
+      userId: job.user_id, tier: "strong", task: "synthesis", purpose: `${timescale}_review`, json: true,
+      system: `You are RADIAN's ${timescale} reviewer (agent:Chronos). Compound on the prior ${timescale} review; surface themes + blind spots. Return JSON {summary,themes,blind_spots}.`,
+      prompt: JSON.stringify({ top: inputs.topNodes, counts, prior: priorSummary, calibration: cal.note }),
+    });
+    const parsed = parseReview(r.text, timescale);
+    review = parsed ? { ...parsed, from_the_vault: shadow } : deterministicReview(inputs);
+  } catch (e) {
+    if (e instanceof BudgetExceededError) { await repo.jobs.finish(job.id, "queued", undefined, "budget_governor"); return; }
+    review = deterministicReview(inputs);
+  }
+  const briefId = id("brief");
+  await repo.briefs.create({ id: briefId, user_id: job.user_id, kind: `${timescale}_review`, period: new Date().toISOString().slice(0, 10), payload: review as unknown as Record<string, unknown> });
+  await repo.emitEvent({ user_id: job.user_id, actor: "agent:Chronos", event_type: "review_generated", subject_type: "brief", subject_id: briefId, correlation_id: briefId, payload: { timescale, shadow: shadow.length } });
+  await repo.jobs.finish(job.id, "done", { timescale, themes: review.themes.length, shadow: shadow.length });
 };
 
 // ---- Wave 3, Stage 8: Decision calibration (monthly, cheap) ----
@@ -376,12 +420,16 @@ const simulation: Handler = async (job) => {
   const ctxNodes = p.contextNodeIds?.length ? await repo.nodes.byIds(job.user_id, p.contextNodeIds) : [];
   const context = ctxNodes.map((n) => `${n.title}: ${n.summary}`).join("\n");
   const fallback = () => deterministicSimulation(p.question, context);
+  // C6: ground the simulation in the owner's real constraints + calibration.
+  const profile = { ...DEFAULT_CONSTRAINTS, ...((await repo.constraints.get(job.user_id)) || {}) } as ConstraintProfile;
+  const cal = calibrate(await repo.decisions.forCalibration(job.user_id));
+  const grounding = simulationGroundingBlock({ constraints: constraintPromptBlock(profile), calibrationNote: cal.note });
   let sim;
   try {
     const r = await repo.governedComplete({
       userId: job.user_id, tier: "strong", task: "planning", purpose: "simulation", json: true,
-      system: "You are RADIAN's systems thinker. Compare 2-4 paths. Output is an ESTIMATE, not fact. Return JSON {question,paths:[{name,effort,risk,dependencies,expected_leverage,tradeoffs}],assumptions,confidence,recommendation}.",
-      prompt: `WHAT IF: ${p.question}\n\nCONTEXT:\n${context}`,
+      system: "You are RADIAN's systems thinker. Compare 2-4 paths grounded in the owner's constraints + calibration. Output is an ESTIMATE, not fact. Return JSON {question,paths:[{name,effort,risk,dependencies,expected_leverage,tradeoffs}],assumptions,confidence,recommendation}.",
+      prompt: `WHAT IF: ${p.question}\n\nCONTEXT:\n${context}\n\n${grounding}`,
     });
     sim = parseSimulation(r.text, p.question) ?? fallback();
   } catch (e) {
@@ -493,6 +541,9 @@ export const handlers: Partial<Record<Job["type"], Handler>> = {
   graph_update: graphUpdate,
   daily_brief: briefJob("daily"),
   weekly_review: briefJob("weekly"),
+  monthly_review: reviewJob("monthly"),
+  quarterly_review: reviewJob("quarterly"),
+  annual_review: reviewJob("annual"),
   monitor_scan: monitorScan,
   research,
   opportunity_scan: opportunityScan,

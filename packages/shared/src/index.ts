@@ -17,3 +17,4 @@ export * from "./radian-stages4";
 export * from "./events";
 export * from "./vectorstore";
 export * from "./cognition-b";
+export * from "./cognition-c";
