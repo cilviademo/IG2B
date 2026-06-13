@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: ux-polish-pass · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g7 · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -155,3 +155,10 @@ commit(s) · what/why · live-test status).
   - **Items lead somewhere** (no more dead "grey on select"): Home **stat tiles** link to the relevant screen (Nodes/Projects/Edges→Atlas, Inbox→Inbox, Review→Quests); **progression track bars** link to Quests; added a `.tap-row` press/hover affordance for tappable rows; the shared `Button` already has `.press` feedback.
   - **Honest loading**: API-backed panels (Progression, Quests) note "free-tier API may be waking" while the (sleeping) free dyno cold-starts, so a slow first load reads as expected, not broken.
   - **Verification**: typecheck + build green; screenshots confirm larger type + TopBar (Back active on sub-pages); no logic changed (engines/regressions untouched). Capture/upload/SW/Shortcut + G1–G6 untouched. Note for phone-gate: confirm bottom-sheets position correctly under the global zoom.
+
+### 2026-06-13 · claude (Claude Code) · `claude/living-os-g7` → main
+- **Living OS Wave G7 — Simulation Engine** ("what happens if…?"): **synchronous + deterministic + honest** best / likely / worst with **probability estimates** computed by transparent rules from real graph signals — explicitly ESTIMATES, never predictions. Works in stub mode (no provider); the async `simulation` job stays the deeper live-reasoning path.
+  - **Pure engine** `packages/shared/src/simulation-engine.ts`: `feasibilityFrom` (weighted momentum/MVS/constraint-fit/recency/degree → 0..1), `outcomesFor` (three bands whose probabilities **sum to 100**; higher feasibility shifts mass to best, lower to worst; likely keeps the most mass), `simulateScenario`, `simulateComparison` (scores + ranks options best-first), `parseOptions` ("A vs B vs C" / "A or B"), and `simulate` dispatch. Bootstrap copy + low confidence when data is sparse — no fabricated certainty.
+  - **API**: `POST /radian/whatif` (synchronous) computes deterministic signals per option by matching projects/nodes (momentum via `momentumFor`, MVS, recency, degree), runs the engine, persists an **"Analysis"** node (`meta.simulation`, shows in `GET /radian/simulations`) + a `review_generated` event.
+  - **PWA**: Mission Control **Simulate** panel (collapsible) — a "What happens if…?" input + project-derived scenario/comparison chips; renders **animated best/likely/worst probability bars**, a Recommendation card, and the assumptions (incl. the "ESTIMATES, not predictions" disclaimer).
+  - **Verification**: typecheck clean (pwa/api/worker); pwa+api build green; `simulation-engine-verify` **21/21**; regressions green (quests 40/40, progression 32/32, boardroom 15/15, research 15/15). **Live end-to-end** (ephemeral PG+Redis, stub mode): scenario "focus BTZ TRACE" → best 39 / likely 40 / worst 21 (sum 100), conf 0.71, "Proceed"; comparison "BTZ TRACE vs Business vs Genesis" → ranked by real feasibility (81/65/29), "Lead with BTZ TRACE; hold Genesis"; the panel **renders in-app** (verified via instrumented run — `WHATIF:comparison:2`, Recommendation on screen); screenshot `g7-simulate.png`. Capture/upload/SW/Shortcut + G1–G6 untouched. Live status: pending owner phone-gate.

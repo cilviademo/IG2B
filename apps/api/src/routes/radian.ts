@@ -17,6 +17,7 @@ import {
 } from "@indigold/shared";
 import { boardroom, type BoardroomSubject, type BoardroomSignals } from "@indigold/shared";
 import { horizonScan, RESEARCH_CHAIN } from "@indigold/shared";
+import { simulate, parseOptions, type SimSignals } from "@indigold/shared";
 import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
@@ -104,6 +105,57 @@ radianRouter.post("/ask", async (req: Authed, res) => {
   const j = await enqueue(job, req.userId!, payload);
   await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
   res.status(202).json({ mode: "job", job: j.id, verb });
+});
+
+// ---- Living OS G7: Simulation Engine — synchronous "what happens if…?" (deterministic) ----
+// Best / likely / worst with probability ESTIMATES, computed from real graph signals
+// (momentum, value, recency, connectedness). Comparisons ("A vs B") score each option
+// against its matching project. Persisted as an "Analysis" node. No LLM; the async
+// `simulation` job stays the deeper live path.
+radianRouter.post("/whatif", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const question = String(req.body?.question || "").trim();
+  if (!question) return res.status(400).json({ error: "question_required" });
+  await seedProjectsIfEmpty(uid);
+  const [projects, nodes, edges, quests] = await Promise.all([repo.projects.list(uid), repo.nodes.list(uid), repo.edges.list(uid), repo.quests.list(uid)]);
+  const now = Date.now();
+
+  // Compute deterministic signals for a named option by matching a project/node.
+  const signalsFor = (name: string): SimSignals => {
+    const n = name.toLowerCase();
+    const proj = projects.find((p) => p.name.toLowerCase().includes(n) || n.includes(p.name.toLowerCase().split(/\s+/)[0]));
+    const ptags = new Set(((proj?.tags as string[]) || []).map((t) => t.toLowerCase()));
+    const token = (proj?.name || name).toLowerCase().split(/\s+/)[0];
+    const related = nodes.filter((x) => (x.tags || []).some((t) => ptags.has((t || "").toLowerCase())) || x.title.toLowerCase().includes(token));
+    if (!proj && related.length === 0) return { hasData: false };
+    const lastTouch = Math.max(0, ...related.map((x) => new Date((x as { updated_at?: string }).updated_at || 0).getTime()));
+    const recencyDays = lastTouch ? Math.round((now - lastTouch) / 86400000) : 999;
+    const recentNodes = related.filter((x) => { const u = (x as { updated_at?: string }).updated_at; return u && now - new Date(u).getTime() <= 14 * 86400000; }).length;
+    const pq = proj ? quests.filter((q) => q.project_id === proj.id) : [];
+    const mom = momentumFor({
+      recentNodes, activeQuests: pq.filter((q) => q.state === "active" || q.state === "accepted").length,
+      completedQuests: pq.filter((q) => q.state === "completed").length,
+      blocked: pq.some((q) => q.state === "blocked"), inactivityDays: recencyDays, hasHistory: related.length > 0 || pq.length > 0,
+    });
+    return { hasData: true, momentum: mom, mvs: Math.max(0, ...related.map((x) => x.mvs || 0)), recencyDays, degree: related.length };
+  };
+
+  const optionNames = Array.isArray(req.body?.options) && req.body.options.length >= 2
+    ? req.body.options.map(String) : parseOptions(question);
+  const result = optionNames.length >= 2
+    ? simulate({ question, options: optionNames.map((name: string) => ({ name, sig: signalsFor(name) })) })
+    : simulate({ question, signals: signalsFor(question) });
+
+  // persist as an Analysis node (shows in GET /radian/simulations).
+  const sid = id("node");
+  await repo.nodes.create({
+    id: sid, user_id: uid, type: "concept", title: `What-if — ${question.slice(0, 60)}`,
+    summary: result.recommendation.slice(0, 400), truth_layer: "C", truth_label: "Analysis", mvs: 55, tags: ["simulation", "whatif"],
+    meta: { simulation: result, estimate: true, epistemic_type: "inference" },
+  });
+  await repo.emitEvent({ user_id: uid, actor: "agent:Radian", event_type: "review_generated", subject_type: "node", subject_id: sid, correlation_id: sid, payload: { whatif: true, kind: result.kind } });
+
+  res.json({ result, node: sid });
 });
 
 // ---- Living OS G6: Research Engine — horizon scan (deterministic planner) ----

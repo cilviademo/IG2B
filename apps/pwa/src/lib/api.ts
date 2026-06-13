@@ -368,6 +368,13 @@ export interface HorizonDirection { domain: string; topic: string; rationale: st
 export const getHorizon = () => questReq<{ horizon: { payload: { directions: HorizonDirection[]; scanned_at: string } } | null; chain: string[] }>(`/radian/horizon`);
 export const runHorizonScan = () => questReq<{ directions: HorizonDirection[]; quests_created: number; chain: string[] }>(`/radian/horizon-scan`, { method: "POST", body: "{}" });
 
+// G7 Simulation — synchronous deterministic "what happens if…?".
+export interface SimOutcome { band: "best" | "likely" | "worst"; probability: number; summary: string }
+export interface SimOption { name: string; score: number; outcomes: SimOutcome[]; rationale: string }
+export interface SimulationResult { question: string; kind: "scenario" | "comparison"; outcomes?: SimOutcome[]; options?: SimOption[]; recommendation: string; assumptions: string[]; confidence: number; estimate: boolean; bootstrap: boolean }
+export const runWhatIf = (question: string, options?: string[]) =>
+  questReq<{ result: SimulationResult; node: string }>(`/radian/whatif`, { method: "POST", body: JSON.stringify({ question, options }) });
+
 export const getLiveNodes = () => questReq<{ nodes: unknown[] }>(`/nodes`);
 export const getLiveEdges = () => questReq<{ edges: unknown[] }>(`/edges`);
 export const getQuestNodeStatus = () => questReq<{ active: string[]; completed: string[] }>(`/radian/quests/node-status`);
