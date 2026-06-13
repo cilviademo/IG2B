@@ -1,21 +1,13 @@
 import { useJson } from "@/hooks/useJson";
 import type { WeeklyBriefData } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
-import {
-  Compass,
-  Brain,
-  TrendingUp,
-  AlertTriangle,
-  Sparkles,
-  ChevronRight,
-} from "lucide-react";
-
-const BRIEF_IMG = "/images/weekly-brief.png";
+import { ChevronRight } from "lucide-react";
+import { SectionRule } from "@/components/primitives";
 
 const ACTION_DOT: Record<WeeklyBriefData["actions"][number]["priority"], string> = {
-  high: "oklch(0.62 0.13 85)",
-  medium: "oklch(0.5 0.2 264)",
-  low: "oklch(0.46 0.02 280)",
+  high: "var(--gold)",
+  medium: "var(--info)",
+  low: "var(--text-dim)",
 };
 
 export default function WeeklyBrief() {
@@ -27,133 +19,82 @@ export default function WeeklyBrief() {
   const ke = data.knowledge_evolution;
 
   return (
-    <div className="pb-6">
-      {/* hero */}
-      <div className="relative h-36 overflow-hidden">
-        <img src={BRIEF_IMG} alt="" className="absolute inset-0 w-full h-full object-cover opacity-55" />
-        <div
-          className="absolute inset-0"
-          style={{
-            background: "linear-gradient(to bottom, oklch(0.985 0.004 280 / 0.55), oklch(0.985 0.004 280) 95%)",
-          }}
-        />
-        <div className="absolute bottom-4 left-5">
-          <div className="flex items-center gap-2 mb-1">
-            <Compass size={16} style={{ color: "oklch(0.62 0.13 85)" }} />
-            <span className="label-mono">Radian Engine</span>
-          </div>
-          <h1 className="text-xl glow-text-gold">Weekly Brief</h1>
-          <span className="label-mono">{data.period}</span>
-        </div>
-      </div>
+    <div className="px-5 pt-8 pb-6">
+      {/* Masthead — the magazine moment */}
+      <div className="cap-data mb-1" style={{ color: "var(--text-dim)" }}>Radian · {data.period}</div>
+      <h1 className="font-display" style={{ fontSize: 28, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em" }}>Weekly brief</h1>
 
-      <div className="px-5 space-y-4">
-        {/* exec summary */}
-        <section className="rounded-2xl p-4 border-glow" style={{ background: "oklch(0.965 0.006 280)" }}>
-          <div className="flex items-center gap-2 mb-2">
-            <Brain size={15} style={{ color: "oklch(0.5 0.2 264)" }} />
-            <span className="label-mono">Executive Summary</span>
-          </div>
-          <p className="text-sm leading-relaxed" style={{ color: "oklch(0.38 0.02 280)" }}>
-            {data.summary}
-          </p>
-        </section>
+      {/* Executive summary as set prose */}
+      <p className="mt-4" style={{ fontSize: 18, lineHeight: 1.6, color: "var(--text)", maxWidth: "60ch" }}>{data.summary}</p>
 
-        {/* forecasts */}
-        <div>
-          <span className="label-mono">Strategic Forecast</span>
-          <div className="space-y-3 mt-2">
-            {data.forecasts.map((f, i) => {
-              const isOpp = f.type === "Opportunity";
-              const color = isOpp ? "oklch(0.62 0.13 85)" : "oklch(0.6 0.22 25)";
-              const Icon = isOpp ? TrendingUp : AlertTriangle;
-              return (
-                <section
-                  key={i}
-                  className="rounded-2xl p-4 border-glow animate-fade-in-up"
-                  style={{ background: "oklch(0.965 0.006 280)", animationDelay: `${i * 50}ms` }}
-                >
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Icon size={15} style={{ color }} />
-                    <span className="text-[10px] font-mono uppercase tracking-wide" style={{ color }}>
-                      {f.type}
-                    </span>
-                    <span className="ml-auto font-mono text-xs" style={{ color: "oklch(0.46 0.02 280)" }}>
-                      {f.confidence}%
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-semibold mb-1">{f.title}</h3>
-                  <p className="text-xs leading-relaxed mb-2" style={{ color: "oklch(0.46 0.02 280)" }}>
-                    {f.detail}
-                  </p>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "oklch(0.9 0.01 280)" }}>
-                    <div className="h-full rounded-full" style={{ width: `${f.confidence}%`, background: color }} />
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* knowledge evolution */}
-        <section className="rounded-2xl p-4 border-glow" style={{ background: "oklch(0.965 0.006 280)" }}>
-          <span className="label-mono">Knowledge Evolution</span>
-          <div className="grid grid-cols-3 gap-2 mt-2 mb-3">
-            {[
-              { label: "New Nodes", value: ke.new_nodes },
-              { label: "New Edges", value: ke.new_edges },
-              { label: "Decay Alerts", value: ke.decay_alerts.length },
-            ].map((s) => (
-              <div key={s.label} className="rounded-xl p-2.5" style={{ background: "oklch(0.93 0.008 280)" }}>
-                <div className="text-lg font-semibold" style={{ color: "oklch(0.22 0.02 280)" }}>
-                  {s.value}
+      {/* Forecasts — big mono figure right-aligned, dot+label, 2px hairline meter */}
+      <div className="mt-8"><SectionRule label="Strategic forecast" /></div>
+      {data.forecasts.map((f, i) => {
+        const isOpp = f.type === "Opportunity";
+        const color = isOpp ? "var(--good)" : "var(--risk)";
+        return (
+          <div key={i} className="mt-5 animate-fade-in-up" style={{ animationDelay: `${i * 40}ms` }}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: color }} />
+                  <span style={{ fontSize: 12, color: "var(--text-dim)" }}>{f.type}</span>
                 </div>
-                <div className="label-mono">{s.label}</div>
+                <h3 className="font-semibold" style={{ fontSize: 16, color: "var(--text)" }}>{f.title}</h3>
               </div>
-            ))}
+              <div className="font-data" style={{ fontSize: 30, lineHeight: 1, color: "var(--text)" }}>{f.confidence}</div>
+            </div>
+            <p className="mt-1.5 mb-2" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text-dim)" }}>{f.detail}</p>
+            <div style={{ height: 2, background: "var(--line)", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${f.confidence}%`, background: color }} />
+            </div>
           </div>
-          <p className="text-xs mb-2" style={{ color: "oklch(0.46 0.02 280)" }}>
-            <span style={{ color: "oklch(0.62 0.13 85)" }}>Strongest cluster:</span> {ke.strongest_cluster}
-          </p>
-          <p className="text-xs mb-2" style={{ color: "oklch(0.46 0.02 280)" }}>
-            <span style={{ color: "oklch(0.5 0.12 195)" }}>Emerging bridge:</span> {ke.emerging_bridge}
-          </p>
-          <ul className="space-y-1">
-            {ke.decay_alerts.map((d, i) => (
-              <li key={i} className="text-xs flex items-center gap-1.5" style={{ color: "oklch(0.6 0.15 60)" }}>
-                <AlertTriangle size={11} /> {d}
-              </li>
-            ))}
-          </ul>
-        </section>
+        );
+      })}
 
-        {/* boardroom synthesis */}
-        <section className="rounded-2xl p-4 border-glow" style={{ background: "oklch(0.965 0.006 280)" }}>
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={15} style={{ color: "oklch(0.62 0.13 85)" }} />
-            <span className="label-mono">Boardroom Synthesis</span>
+      {/* Knowledge evolution — hairline-ruled stat row + prose */}
+      <div className="mt-8"><SectionRule label="Knowledge evolution" /></div>
+      <div className="grid grid-cols-3 mt-3" style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
+        {[
+          { label: "New nodes", value: ke.new_nodes },
+          { label: "New edges", value: ke.new_edges },
+          { label: "Decay alerts", value: ke.decay_alerts.length },
+        ].map((s, i) => (
+          <div key={s.label} className="py-3 px-1 text-center" style={{ borderLeft: i === 0 ? "none" : "1px solid var(--line)" }}>
+            <div className="font-data" style={{ fontSize: 18, color: "var(--text)" }}>{s.value}</div>
+            <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>{s.label}</div>
           </div>
-          <p className="text-sm leading-relaxed" style={{ color: "oklch(0.38 0.02 280)" }}>
-            {data.boardroom_synthesis}
-          </p>
-        </section>
-
-        {/* actions */}
-        <section className="rounded-2xl p-4 border-glow" style={{ background: "oklch(0.965 0.006 280)" }}>
-          <span className="label-mono">Recommended Actions</span>
-          <ul className="mt-2 divide-y" style={{ borderColor: "oklch(0.55 0.03 264 / 0.25)" }}>
-            {data.actions.map((a, i) => (
-              <li key={i} className="flex items-center gap-2.5 py-2.5">
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: ACTION_DOT[a.priority] }} />
-                <span className="text-sm flex-1" style={{ color: "oklch(0.38 0.02 280)" }}>
-                  {a.text}
-                </span>
-                <ChevronRight size={15} style={{ color: "oklch(0.55 0.015 280)" }} />
-              </li>
-            ))}
-          </ul>
-        </section>
+        ))}
       </div>
+      <p className="mt-3" style={{ fontSize: 14, color: "var(--text-dim)" }}>
+        <span style={{ color: "var(--text)" }}>Strongest cluster:</span> {ke.strongest_cluster}
+      </p>
+      <p className="mt-1.5" style={{ fontSize: 14, color: "var(--text-dim)" }}>
+        <span style={{ color: "var(--text)" }}>Emerging bridge:</span> {ke.emerging_bridge}
+      </p>
+      <ul className="mt-2">
+        {ke.decay_alerts.map((d, i) => (
+          <li key={i} className="flex items-center gap-2 py-1" style={{ fontSize: 13, color: "var(--text-dim)" }}>
+            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--gold)", flexShrink: 0 }} /> {d}
+          </li>
+        ))}
+      </ul>
+
+      {/* Boardroom synthesis — prose */}
+      <div className="mt-8"><SectionRule label="Boardroom synthesis" /></div>
+      <p className="mt-3" style={{ fontSize: 16, lineHeight: 1.55, color: "var(--text)", maxWidth: "60ch" }}>{data.boardroom_synthesis}</p>
+
+      {/* Recommended actions — plain rows, semantic dots, hairline separators */}
+      <div className="mt-8"><SectionRule label="Recommended actions" /></div>
+      <ul className="mt-1">
+        {data.actions.map((a, i) => (
+          <li key={i} className="flex items-center gap-3 py-3" style={{ borderBottom: i === data.actions.length - 1 ? "none" : "1px solid var(--line)" }}>
+            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: ACTION_DOT[a.priority], flexShrink: 0 }} />
+            <span className="flex-1" style={{ fontSize: 14, color: "var(--text)" }}>{a.text}</span>
+            <ChevronRight size={15} strokeWidth={1.5} style={{ color: "var(--text-dim)" }} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

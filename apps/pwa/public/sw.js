@@ -9,11 +9,14 @@
  *   the documented path to fully-local assets is to self-host the fonts.
  * - No analytics, no telemetry, no data exfiltration. */
 
-const CACHE = "indigold-v0.21.0";
+const CACHE = "indigold-v0.22.0";
 
 const PRECACHE = [
   "/",
   "/manifest.json",
+  "/fonts/inter-tight-var.woff2",
+  "/fonts/syne-var.woff2",
+  "/fonts/ibm-plex-mono-400.woff2",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/images/hero-dashboard.png",

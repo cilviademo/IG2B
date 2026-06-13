@@ -43,13 +43,13 @@ function App() {
   const routerProps = isFileProtocol ? { hook: useHashLocation } : {};
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultTheme="dark">
         <TooltipProvider delayDuration={200}>
           <Toaster />
           <WouterRouter {...routerProps}>
             <div
               className="min-h-[100dvh] flex flex-col safe-top"
-              style={{ background: "oklch(0.985 0.004 280)" }}
+              style={{ background: "var(--bg)" }}
             >
               <main className="flex-1 overflow-y-auto pb-20">
                 <Routes />

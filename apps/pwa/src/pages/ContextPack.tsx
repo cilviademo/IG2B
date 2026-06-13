@@ -1,7 +1,7 @@
 import { useJson } from "@/hooks/useJson";
 import { type ContextPackData, TRUTH_LAYER_COLORS } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
-import { FileText } from "lucide-react";
+import { SectionRule } from "@/components/primitives";
 
 export default function ContextPack() {
   const { data, loading, error } = useJson<ContextPackData>("/data/sample_context_pack.json");
@@ -10,87 +10,57 @@ export default function ContextPack() {
   if (error || !data) return <ErrorState message={error ?? "no data"} />;
 
   const pct = Math.min(100, Math.round((data.token_budget.used / data.token_budget.total) * 100));
-  const over = pct > 90;
+  const over = pct > 95;
 
   return (
-    <div className="px-5 pt-5 pb-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <FileText size={18} style={{ color: "oklch(0.5 0.2 264)" }} />
-        <h1 className="text-xl">Context Pack</h1>
-        <span className="label-mono ml-auto">Encompass Layer</span>
+    <div className="px-5 pt-6 pb-6">
+      <div className="flex items-baseline justify-between mb-1">
+        <h1 className="text-xl font-display">Context pack</h1>
+        <span className="cap-data">Encompass</span>
+      </div>
+      <h2 className="mt-3" style={{ fontSize: 16, color: "var(--text)" }}>{data.title}</h2>
+      <p className="mt-1" style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text-dim)" }}>{data.purpose}</p>
+
+      {/* Token budget — mono fraction + 2px hairline meter */}
+      <div className="mt-6"><SectionRule label="Token budget" /></div>
+      <div className="flex items-baseline justify-between mt-3 mb-1.5">
+        <span className="font-data" style={{ fontSize: 15, color: "var(--text)" }}>
+          {data.token_budget.used.toLocaleString()} / {data.token_budget.total.toLocaleString()}
+        </span>
+        <span className="cap-data" style={{ color: over ? "var(--risk)" : "var(--text-dim)" }}>{pct}%</span>
+      </div>
+      <div style={{ height: 2, background: "var(--line)", borderRadius: 2, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: over ? "var(--risk)" : "var(--gold)" }} />
+      </div>
+      <div className="cap-data mt-2" style={{ color: "var(--text-dim)" }}>assembled {new Date(data.updated_at).toLocaleString("en-US")}</div>
+
+      {/* Source nodes — text chips, hairline border */}
+      <div className="mt-6"><SectionRule label="Source nodes" /></div>
+      <div className="flex flex-wrap gap-1.5 mt-3">
+        {data.source_nodes.map((id) => (
+          <span key={id} className="text-[11px] font-mono px-2 py-0.5" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>{id}</span>
+        ))}
       </div>
 
-      {/* Title / purpose */}
-      <section className="rounded-2xl p-4 border-glow" style={{ background: "oklch(0.965 0.006 280)" }}>
-        <h2 className="text-base mb-1">{data.title}</h2>
-        <p className="text-sm" style={{ color: "oklch(0.38 0.02 280)" }}>
-          {data.purpose}
-        </p>
-      </section>
-
-      {/* Token budget */}
-      <section className="rounded-2xl p-4 border-glow" style={{ background: "oklch(0.965 0.006 280)" }}>
-        <div className="flex items-center justify-between mb-2">
-          <span className="label-mono">Token Budget</span>
-          <span className="font-mono text-xs" style={{ color: over ? "oklch(0.6 0.22 25)" : "oklch(0.62 0.13 85)" }}>
-            {data.token_budget.used.toLocaleString()} / {data.token_budget.total.toLocaleString()} · {pct}%
-          </span>
-        </div>
-        <div className="h-2 rounded-full overflow-hidden" style={{ background: "oklch(0.9 0.01 280)" }}>
-          <div
-            className="h-full rounded-full transition-glow"
-            style={{
-              width: `${pct}%`,
-              background: over
-                ? "oklch(0.6 0.22 25)"
-                : "linear-gradient(90deg, oklch(0.45 0.22 264), oklch(0.62 0.13 85))",
-            }}
-          />
-        </div>
-        <div className="label-mono mt-2">
-          assembled {new Date(data.updated_at).toLocaleString("en-US")}
-        </div>
-      </section>
-
-      {/* Source nodes */}
-      <section className="rounded-2xl p-4 border-glow" style={{ background: "oklch(0.965 0.006 280)" }}>
-        <span className="label-mono">Source Nodes</span>
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {data.source_nodes.map((id) => (
-            <span
-              key={id}
-              className="text-[10px] font-mono px-2 py-0.5 rounded-full"
-              style={{ background: "oklch(0.45 0.22 264 / 0.15)", color: "oklch(0.5 0.2 264)" }}
-            >
-              {id}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      {/* Sections */}
+      {/* Sections — ruled, provenance badge as a mono glyph in a thin circle */}
       {data.sections.map((s, i) => {
         const color = TRUTH_LAYER_COLORS[s.truth_layer];
         return (
-          <section
-            key={i}
-            className="rounded-2xl p-4 border-glow animate-fade-in-up"
-            style={{ background: "oklch(0.965 0.006 280)", animationDelay: `${i * 50}ms` }}
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <h3 className="text-sm font-semibold">{s.heading}</h3>
+          <div key={i} className="mt-6 animate-fade-in-up" style={{ animationDelay: `${i * 40}ms` }}>
+            <hr className="rule mb-3" />
+            <div className="flex items-start justify-between gap-3 mb-1.5">
+              <h3 className="font-semibold" style={{ fontSize: 15, color: "var(--text)" }}>{s.heading}</h3>
               <span
-                className="text-[10px] font-mono px-2 py-0.5 rounded-full"
-                style={{ background: color + "22", color }}
+                className="font-data shrink-0 flex items-center justify-center"
+                style={{ width: 22, height: 22, borderRadius: 999, border: `1px solid ${color}`, color, fontSize: 12 }}
+                title={`Truth layer ${s.truth_layer}`}
               >
                 {s.truth_layer}
               </span>
             </div>
-            <p className="text-sm leading-relaxed mb-2" style={{ color: "oklch(0.38 0.02 280)" }}>
-              {s.content}
-            </p>
-            <span className="label-mono">provenance · {s.provenance}</span>
-          </section>
+            <p style={{ fontSize: 14, lineHeight: 1.55, color: "var(--text-dim)" }}>{s.content}</p>
+            <span className="cap-data mt-1.5 inline-block" style={{ color: "var(--text-dim)" }}>provenance · {s.provenance}</span>
+          </div>
         );
       })}
     </div>

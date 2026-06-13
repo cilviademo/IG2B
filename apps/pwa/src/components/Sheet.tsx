@@ -6,23 +6,25 @@ export default function Sheet({ title, onClose, children }: { title: string; onC
   return (
     <div
       className="fixed inset-0 flex items-end"
-      style={{ background: "oklch(0.45 0.03 280 / 0.4)", zIndex: 60 }}
+      style={{ background: "rgba(8,9,12,0.55)", zIndex: 60 }}
       onClick={onClose}
     >
       <div
-        className="relative w-full rounded-t-3xl p-5 safe-bottom animate-fade-in-up"
+        className="relative w-full p-5 safe-bottom animate-fade-in-up"
         style={{
-          background: "oklch(0.955 0.006 280)",
-          border: "1px solid oklch(0.55 0.03 264 / 0.35)",
+          background: "var(--surface)",
+          borderTop: "1px solid var(--line)",
+          borderTopLeftRadius: 10,
+          borderTopRightRadius: 10,
           maxHeight: "90vh",
           overflowY: "auto",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg">{title}</h2>
-          <button onClick={onClose} aria-label="Close" style={{ color: "oklch(0.46 0.02 280)" }}>
-            <X size={20} />
+          <h2 className="text-lg font-display">{title}</h2>
+          <button onClick={onClose} aria-label="Close" style={{ color: "var(--text-dim)" }}>
+            <X size={20} strokeWidth={1.5} />
           </button>
         </div>
         {children}

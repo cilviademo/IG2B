@@ -13,3 +13,8 @@ dist/
 .DS_Store
 Thumbs.db
 .pptr/
+apps/pwa/scripts/shots/
+apps/pwa/dist-verify/
+
+# headless verification scratch build
+apps/pwa/dist-verify/

@@ -112,6 +112,55 @@ Shortcut URL** test buttons.
   enrichment → graph → context-pack → search pipeline) using a silent per-device
   account — no login screen. Offline/asleep → stays local and re-syncs later.
 
+## File / binary capture (images, PDFs, audio, documents)
+
+Files are stored as **private objects** (Cloudflare R2 / S3-compatible) and are
+only ever served back through **short-lived signed URLs** (default 15 min). No
+public links are ever produced. There is no separate "upload" UI to learn — a
+file is just another capture.
+
+### In-app (works today, no Shortcut)
+**Universal Intake Queue → Add manually → Attach file.** Pick any image, PDF,
+audio or document (≤ 50 MB). On **Upload File**:
+- the bytes are saved locally first (IndexedDB) so the file is **never lost**;
+- they're pushed to the authenticated `POST /capture/upload` endpoint, which
+  auto-classifies by MIME (image→screenshot, pdf/doc→document, audio→voice_memo,
+  video→reel, text→document) and files the capture into the vault;
+- the on-screen status reports the **real** result — `uploaded ✓` on success, or
+  `NOT uploaded — <reason> (file kept locally, will retry on refresh)` if the API
+  is asleep/offline. A queued file re-uploads automatically on the next **Refresh**.
+- Oversize files are blocked **before** any upload with a clear limit message
+  (server `UPLOAD_MAX_BYTES`, default 50 MB, is still the authority → `413`).
+
+Open an uploaded file from its capture detail: the preview/Open link fetches a
+**fresh** signed URL each time, so it never breaks on expiry.
+
+### iOS Shortcut — file branch (zero-tap from the Photos/Files share sheet)
+The same single "Indigold Capture" shortcut can carry a **file** instead of a
+link/text. Add a branch on the shared content type:
+
+1. In the shortcut, add **If** → **Shortcut Input** → *has any value*, then a
+   nested check: **If `Shortcut Input` is of type `Images`/`Media`/`Files`/`PDF`**.
+2. In that file branch, add **Get Contents of URL** (POST):
+   - **URL:** `https://indigold-pwa.onrender.com` is the PWA; the **file endpoint
+     is the API host** — `https://indigold-api.onrender.com/capture/upload`.
+   - **Method:** `POST`
+   - **Headers:** `Authorization` = `Bearer <your device token>` (copy it once from
+     **I/O → Device token → Copy**; it's the silent per-device account token).
+   - **Request Body:** `Form`
+     - `file` → the **Shortcut Input** (the shared image/PDF/audio) — *field name
+       must be `file`*
+     - `title` (optional) → a name
+     - `source` (optional) → `ios_share_sheet`
+     - `note` (optional) → any note text
+3. The text/link branch keeps using `…/capture?raw=…` exactly as before — **this
+   file branch is additive and does not change the link/text deep-link contract.**
+
+> The Shortcut talks to the **API host** for files (multipart can't go through the
+> static-site deep link), while link/text still go through the PWA `/capture`
+> route. Both file into the same Universal Intake Queue. See `apps/api/UPLOADS.md`
+> for the full endpoint contract (response shape, error codes, signed-URL TTL).
+
 ## iOS reality (important)
 Apple Safari does **not** implement the Web Share Target API, so on iPhone the PWA
 will **not** appear in the native share sheet today (text or files). The Apple

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Trash2, Link2, Camera, FileDown, Loader2 } from "lucide-react";
 import Sheet from "./Sheet";
 import {
@@ -40,113 +40,111 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
   const body = item.body || item.note || "";
 
   // Uploaded-file assets are private; fetch a fresh, time-limited signed URL when
-  // the detail opens. The URL is never stored/cached — re-minted each view.
+  // the detail opens. The URL is never stored/cached — re-minted each view, and
+  // re-requested if it expires (signed links are short-lived: ~15 min default).
   const [assetUrl, setAssetUrl] = useState<string | null>(null);
   const [assetLoading, setAssetLoading] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    if (item.assetId) {
-      setAssetLoading(true);
-      assetSignedUrl(item.assetId)
-        .then((u) => !cancelled && setAssetUrl(u))
-        .finally(() => !cancelled && setAssetLoading(false));
-    }
-    return () => {
-      cancelled = true;
-    };
+  const imgRetried = useRef(false);
+
+  const loadAssetUrl = useCallback(async () => {
+    if (!item.assetId) return null;
+    setAssetLoading(true);
+    const u = await assetSignedUrl(item.assetId);
+    setAssetUrl(u);
+    setAssetLoading(false);
+    return u;
   }, [item.assetId]);
+
+  useEffect(() => {
+    imgRetried.current = false;
+    if (item.assetId) void loadAssetUrl();
+  }, [item.assetId, loadAssetUrl]);
+
+  // If the preview image fails to load, the most likely cause is an expired
+  // signed URL — re-request once before giving up.
+  const onImgError = () => {
+    if (imgRetried.current) return;
+    imgRetried.current = true;
+    void loadAssetUrl();
+  };
+
+  // Always mint a fresh URL at click time so the opened link can't be expired.
+  const openFile = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const fresh = (await loadAssetUrl()) || assetUrl;
+    if (fresh) window.open(fresh, "_blank", "noopener,noreferrer");
+  };
   const isImage = /(png|jpe?g|gif|webp|heic)/i.test(item.type) || item.type === "screenshot";
 
   return (
     <Sheet title="Capture" onClose={onClose}>
       <div className="space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.45 0.22 264 / 0.2)", color: "oklch(0.5 0.2 264)" }}>
+          <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
             {CAPTURE_TYPE_LABEL[item.type]}
           </span>
-          <span className="label-mono">{item.source}</span>
+          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>{item.source}</span>
           {item.domain && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.5 0.12 195 / 0.16)", color: "oklch(0.5 0.12 195)" }}>
-              {item.domain}{item.media ? ` · ${item.media}` : ""}
-            </span>
+            <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{item.domain}{item.media ? ` · ${item.media}` : ""}</span>
           )}
-          {item.auto_classified && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.62 0.13 85 / 0.16)", color: "oklch(0.62 0.13 85)" }}>
-              auto
-            </span>
-          )}
+          {item.auto_classified && <span className="cap-data" style={{ color: "var(--text-dim)" }}>auto</span>}
           {item.synced && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.52 0.15 145 / 0.16)", color: "oklch(0.52 0.15 150)" }}>
-              synced
+            <span className="flex items-center gap-1" style={{ fontSize: 11, color: "var(--good)" }}>
+              <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--good)" }} /> synced
             </span>
           )}
-          <span className="text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wide" style={{ color: sens, border: `1px solid ${sens}` }}>
-            {item.sensitivity}
-          </span>
-          {item.local && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "oklch(0.62 0.13 85 / 0.16)", color: "oklch(0.62 0.13 85)" }}>
-              local
-            </span>
-          )}
+          <span className="ml-auto" style={{ fontSize: 11, color: sens }}>{item.sensitivity}</span>
         </div>
 
-        <h3 className="text-base font-semibold">{item.title}</h3>
+        <h3 className="text-base font-semibold font-display" style={{ color: "var(--text)" }}>{item.title}</h3>
 
         {item.url && (
-          <div className="flex items-center gap-1.5 text-xs font-mono break-all" style={{ color: "oklch(0.5 0.12 195)" }}>
-            <Link2 size={12} className="shrink-0" /> {item.url}
+          <div className="flex items-center gap-1.5 text-xs font-mono break-all" style={{ color: "var(--info)" }}>
+            <Link2 size={12} strokeWidth={1.5} className="shrink-0" /> {item.url}
           </div>
         )}
 
         {/* Uploaded file asset — shown via a private, time-limited signed URL */}
         {item.assetId && (
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid oklch(0.55 0.03 264 / 0.35)" }}>
+          <div className="overflow-hidden" style={{ border: "1px solid var(--line)", borderRadius: 10 }}>
             {assetLoading && (
-              <div className="flex items-center gap-2 p-3 label-mono">
-                <Loader2 size={14} className="animate-spin" /> loading file…
+              <div className="flex items-center gap-2 p-3" style={{ fontSize: 12, color: "var(--text-dim)" }}>
+                <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> loading file…
               </div>
             )}
             {!assetLoading && assetUrl && isImage && (
-              <img src={assetUrl} alt={item.title} className="w-full max-h-72 object-contain" style={{ background: "oklch(0.97 0.005 280)" }} />
+              <img src={assetUrl} alt={item.title} onError={onImgError} className="w-full max-h-72 object-contain" style={{ background: "var(--bg)" }} />
             )}
             {!assetLoading && assetUrl && (
-              <a
-                href={assetUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-1.5 p-2.5 text-xs font-semibold"
-                style={{ background: "oklch(0.965 0.006 280)", color: "oklch(0.5 0.12 195)" }}
-              >
-                <FileDown size={14} /> Open file (signed link · expires)
+              <a href={assetUrl} onClick={openFile} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 p-2.5 text-xs font-semibold" style={{ background: "var(--surface-2)", color: "var(--info)" }}>
+                <FileDown size={14} strokeWidth={1.5} /> Open file (fresh signed link)
               </a>
             )}
             {!assetLoading && !assetUrl && (
-              <div className="p-3 label-mono" style={{ color: "oklch(0.6 0.22 25)" }}>
-                file unavailable (sign in / online required)
-              </div>
+              <div className="p-3" style={{ fontSize: 12, color: "var(--risk)" }}>file unavailable (sign in / online required)</div>
             )}
           </div>
         )}
 
         {body && (
           <div>
-            <div className="label-mono mb-1">Body</div>
-            <p className="text-sm whitespace-pre-wrap" style={{ color: "oklch(0.38 0.02 280)" }}>{body}</p>
+            <div className="mb-1" style={{ fontSize: 12, color: "var(--text-dim)" }}>Body</div>
+            <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--text)" }}>{body}</p>
           </div>
         )}
 
         {item.user_note && (
           <div>
-            <div className="label-mono mb-1">User note</div>
-            <p className="text-sm" style={{ color: "oklch(0.38 0.02 280)" }}>{item.user_note}</p>
+            <div className="mb-1" style={{ fontSize: 12, color: "var(--text-dim)" }}>User note</div>
+            <p className="text-sm" style={{ color: "var(--text)" }}>{item.user_note}</p>
           </div>
         )}
 
         {item.files && item.files.length > 0 && (
           <div>
-            <div className="label-mono mb-1">Attached files</div>
+            <div className="mb-1" style={{ fontSize: 12, color: "var(--text-dim)" }}>Attached files</div>
             {item.files.map((f, i) => (
-              <div key={i} className="text-xs font-mono" style={{ color: "oklch(0.5 0.12 195)" }}>
+              <div key={i} className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>
                 {f.name} · {f.type || "file"} · {Math.max(1, Math.round(f.size / 1024))} KB
               </div>
             ))}
@@ -154,28 +152,28 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
         )}
 
         <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: proc.color }} />
-          <span className="label-mono" style={{ color: proc.color }}>{proc.label}</span>
-          <span className="label-mono" style={{ color: "oklch(0.55 0.015 280)" }}>· Layer A · {new Date(item.captured_at).toLocaleString()}</span>
+          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: proc.color }} />
+          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>{proc.label}</span>
+          <span className="cap-data" style={{ color: "var(--text-dim)" }}>· Layer A · {new Date(item.captured_at).toLocaleString()}</span>
         </div>
 
         {item.tags && item.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {item.tags.map((t) => (
-              <span key={t} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "oklch(0.93 0.008 280)", color: "oklch(0.46 0.02 280)" }}>{t}</span>
+              <span key={t} className="text-[10px] px-2 py-0.5" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>{t}</span>
             ))}
           </div>
         )}
 
         {item.provenance && (
-          <div className="flex items-center gap-1.5 label-mono" style={{ color: "oklch(0.55 0.015 280)" }}>
-            <Camera size={11} /> {item.provenance.capture_method} · {item.provenance.device} · {item.provenance.app_context}
+          <div className="flex items-center gap-1.5 cap-data" style={{ color: "var(--text-dim)" }}>
+            <Camera size={11} strokeWidth={1.5} /> {item.provenance.capture_method} · {item.provenance.device} · {item.provenance.app_context}
           </div>
         )}
 
         {item.local && onDelete && (
-          <button onClick={onDelete} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold mt-1" style={{ background: "oklch(0.6 0.22 25 / 0.15)", color: "oklch(0.58 0.2 25)" }}>
-            <Trash2 size={15} /> Delete capture
+          <button onClick={onDelete} className="w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold mt-1" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--risk)" }}>
+            <Trash2 size={15} strokeWidth={1.5} /> Delete capture
           </button>
         )}
       </div>

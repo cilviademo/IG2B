@@ -185,6 +185,11 @@ export async function syncCaptureToApi(cap: SyncableCapture): Promise<boolean> {
   }
 }
 
+// Mirror of the server's UPLOAD_MAX_BYTES default (apps/api/src/routes/upload.ts).
+// The server is authoritative (it may be raised via env), but a client-side
+// pre-check avoids uploading a doomed 50 MB+ file over a phone connection.
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB
+
 export interface UploadResult {
   capture: { id: string; type: string; title: string; source: string };
   asset: { id: string; filename: string; mime: string; size_bytes: number; kind: string };
