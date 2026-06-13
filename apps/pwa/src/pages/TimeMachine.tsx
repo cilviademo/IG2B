@@ -4,6 +4,7 @@ import { Loading, ErrorState } from "@/components/State";
 import { getTimeMachine, getProgression, createQuest, apiEnabled } from "@/lib/api";
 import { trackLabel, type Track } from "@/lib/progression";
 import CollapsibleSection from "@/components/CollapsibleSection";
+import MentorPanel from "@/components/MentorPanel";
 import { TrendingUp } from "lucide-react";
 import {
   timeMachine, RANGES, type RangeKey, type TimeMachineReport, type TimeMachineInput,
@@ -108,6 +109,9 @@ export default function TimeMachine() {
           </button>
         ))}
       </div>
+
+      {/* Mentor Mode (G9) — talk with past you, voiced from real history */}
+      <MentorPanel rangeDays={RANGES.find((r) => r.key === range)?.days ?? 30} />
 
       {/* Progression over time (G4) — deterministic XP/momentum deltas for the window */}
       {prog && (

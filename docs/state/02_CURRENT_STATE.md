@@ -1,8 +1,10 @@
 # Current State
 
-`Last updated: 2026-06-13 · Commit: living-os-g8 (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g9 (off main) · By: claude (Claude Code)`
 
-> **G8 Memory Palace (latest):** Atlas alive — Legendary node state (radiant cornerstone), galaxy nebulae (skill-track clusters) + constellation edges, forgotten-gem glow + resurfaced pulse. Render-time, reduced-motion-safe, 60.6fps. `living-os-verify` 23/23; no API/schema changes.
+> **G9 Mentor Mode (latest):** "talk with past you" — deterministic first-person reflection (then/changed/wrong/advice/best_self) voiced from Time Machine + decisions/calibration + active focus. `POST /radian/mentor`; Mentor panel on the Time Machine page. `mentor-verify` 11/11; live e2e verified. Atlas-zoom click regression fixed (app-zoom excludes /atlas).
+
+> **G8 Memory Palace:** Atlas alive — Legendary node state (radiant cornerstone), galaxy nebulae (skill-track clusters) + constellation edges, forgotten-gem glow + resurfaced pulse. Render-time, reduced-motion-safe, 60.6fps. `living-os-verify` 23/23; no API/schema changes.
 
 > **G7 Simulation Engine:** synchronous deterministic "what happens if…?" → best/likely/worst probability estimates (sum 100) from real signals; `POST /radian/whatif`; Mission Control **Simulate** panel. Honest (estimates, not predictions). `simulation-engine-verify` 21/21; live e2e verified. The async `simulation` job remains the deep live path.
 

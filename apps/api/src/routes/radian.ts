@@ -18,6 +18,7 @@ import {
 import { boardroom, type BoardroomSubject, type BoardroomSignals } from "@indigold/shared";
 import { horizonScan, RESEARCH_CHAIN } from "@indigold/shared";
 import { simulate, parseOptions, type SimSignals } from "@indigold/shared";
+import { mentor, type MentorIntent } from "@indigold/shared";
 import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
@@ -105,6 +106,39 @@ radianRouter.post("/ask", async (req: Authed, res) => {
   const j = await enqueue(job, req.userId!, payload);
   await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
   res.status(202).json({ mode: "job", job: j.id, verb });
+});
+
+// ---- Living OS G9: Mentor Mode — "talk with past you" (deterministic) ----
+// Voices the owner's real history (Time Machine window + decisions/calibration + active
+// focus + constraints) as first-person reflection. No LLM; nothing fabricated.
+radianRouter.post("/mentor", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const intent = String(req.body?.intent || "then") as MentorIntent;
+  const days = req.body?.range ? Math.max(1, parseInt(String(req.body.range)) || 90) : 90;
+  if (!["then", "changed", "wrong", "advice", "best_self"].includes(intent)) return res.status(400).json({ error: "bad_intent" });
+
+  const [nodes, edges, decisionsR, constraintsR] = await Promise.all([
+    repo.nodes.list(uid), repo.edges.list(uid), repo.decisions.list(uid), repo.constraints.get(uid),
+  ]);
+  const tm = timeMachine({ nodes: nodes as TimeMachineInput["nodes"], edges: edges as TimeMachineInput["edges"] }, "custom", Date.now(), days);
+  const cal = calibrate(await repo.decisions.forCalibration(uid));
+  const decisions = (decisionsR as { decision: string; confidence?: number; outcome_success?: boolean | null; outcome?: string }[])
+    .map((d) => ({ decision: d.decision, confidence: d.confidence, success: d.outcome_success ?? null, outcome: d.outcome }));
+  const activeFocus = [...nodes].sort((a, b) => b.mvs - a.mvs).slice(0, 4).map((n) => ({ title: n.title, mvs: n.mvs }));
+  const profile = (constraintsR || {}) as { weekly_hours?: number; risk_tolerance?: string };
+
+  const reply = mentor(intent, {
+    windowLabel: tm.window.label.toLowerCase(),
+    topNodes: tm.replay.topNodes.map((n) => ({ title: n.title, mvs: n.mvs })),
+    themes: tm.replay.themes.map((t) => t.tag),
+    newThemes: tm.changes.newThemes,
+    decayedThemes: tm.changes.decayedThemes,
+    resurfacedThemes: tm.resurfaced.resurfacedThemes,
+    decisions, calibrationNote: cal.note, activeFocus,
+    constraints: { weekly_hours: profile.weekly_hours, risk_tolerance: profile.risk_tolerance },
+  });
+  await repo.emitEvent({ user_id: uid, actor: "agent:Chronos", event_type: "review_generated", subject_type: "mentor", subject_id: uid, correlation_id: uid, payload: { intent, bootstrap: reply.bootstrap } });
+  res.json({ reply });
 });
 
 // ---- Living OS G7: Simulation Engine — synchronous "what happens if…?" (deterministic) ----

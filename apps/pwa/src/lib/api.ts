@@ -375,6 +375,11 @@ export interface SimulationResult { question: string; kind: "scenario" | "compar
 export const runWhatIf = (question: string, options?: string[]) =>
   questReq<{ result: SimulationResult; node: string }>(`/radian/whatif`, { method: "POST", body: JSON.stringify({ question, options }) });
 
+// G9 Mentor Mode — "talk with past you" (deterministic; voiced from real history).
+export interface MentorReply { intent: string; voice: string; answer: string; points: string[]; suggestion?: string; bootstrap: boolean }
+export const askMentor = (intent: string, range?: number) =>
+  questReq<{ reply: MentorReply }>(`/radian/mentor`, { method: "POST", body: JSON.stringify({ intent, range }) });
+
 export const getLiveNodes = () => questReq<{ nodes: unknown[] }>(`/nodes`);
 export const getLiveEdges = () => questReq<{ edges: unknown[] }>(`/edges`);
 export const getQuestNodeStatus = () => questReq<{ active: string[]; completed: string[] }>(`/radian/quests/node-status`);
