@@ -6,6 +6,7 @@ import { seedProjectsIfEmpty, budgetStatus } from "@indigold/db";
 import { id, enqueue } from "@indigold/shared";
 import { providersStatus, providerConfigured, PROVIDER_ENV, ALL_PROVIDERS, type Provider } from "@indigold/shared/providers";
 import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
+import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
 import type { Authed } from "../middleware/auth";
 
 export const projectsRouter = Router();
@@ -85,6 +86,48 @@ radianRouter.post("/decisions/:id/outcome", async (req: Authed, res) => {
 });
 radianRouter.get("/calibration", async (req: Authed, res) => {
   res.json(calibrate(await repo.decisions.forCalibration(req.userId!)));
+});
+
+// ---- Wave B4: Constraint Engine (owner-maintained; injected into planning) ----
+radianRouter.get("/constraints", async (req: Authed, res) => {
+  const saved = await repo.constraints.get(req.userId!);
+  res.json({ ...DEFAULT_CONSTRAINTS, ...(saved || {}) });
+});
+radianRouter.put("/constraints", async (req: Authed, res) => {
+  const body = (req.body || {}) as ConstraintProfile;
+  const profile: ConstraintProfile = {
+    weekly_hours: Math.max(0, Number(body.weekly_hours ?? DEFAULT_CONSTRAINTS.weekly_hours)),
+    money_budget_cents: body.money_budget_cents != null ? Math.max(0, Number(body.money_budget_cents)) : undefined,
+    energy_notes: typeof body.energy_notes === "string" ? body.energy_notes : undefined,
+    max_concurrent_builds: body.max_concurrent_builds != null ? Math.max(1, Number(body.max_concurrent_builds)) : DEFAULT_CONSTRAINTS.max_concurrent_builds,
+    risk_tolerance: ["low", "medium", "high"].includes(String(body.risk_tolerance)) ? body.risk_tolerance : DEFAULT_CONSTRAINTS.risk_tolerance,
+    commitments: Array.isArray(body.commitments) ? body.commitments.map(String) : [],
+    updated_at: new Date().toISOString(),
+  };
+  await repo.constraints.set(req.userId!, profile);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "constraint_updated", subject_type: "constraints", subject_id: req.userId!, correlation_id: req.userId!, payload: { weekly_hours: profile.weekly_hours } });
+  res.json(profile);
+});
+
+// ---- Wave B6: Attention Layer (importance/urgency/recency/signal, not raw MVS) ----
+radianRouter.get("/attention", async (req: Authed, res) => {
+  const nodes = await repo.nodes.list(req.userId!);
+  const evts = await repo.events.recent(req.userId!, 500);
+  const stn = computeSignalToNoise(evts as { event_type: string; payload?: { source?: string } }[]);
+  const now = Date.now();
+  const scored = nodes.map((n) => {
+    const meta = (n as { meta?: { review_by?: string } }).meta || {};
+    const updated = (n as { updated_at?: string }).updated_at;
+    const recencyDays = updated ? (now - new Date(updated).getTime()) / 86400000 : 30;
+    const attention = attentionScore({
+      importance: n.mvs,
+      urgency: urgencyFromDate(meta.review_by, now),
+      recencyDays,
+      signal: stn[n.type] ?? 0.6,
+    });
+    return { id: n.id, title: n.title, type: n.type, mvs: n.mvs, attention };
+  }).sort((a, b) => b.attention - a.attention);
+  res.json({ items: scored.slice(0, 25) });
 });
 
 // ---- Stage 6: Execution Agents (proposal-only drafts) ----
