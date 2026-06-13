@@ -188,6 +188,13 @@ export const jobs = {
     await query(`UPDATE jobs SET status=$2, result=$3, error=$4, updated_at=now() WHERE id=$1`,
       [id, status, result ? JSON.stringify(result) : null, error ?? null]);
   },
+  async get(userId: string, id: string) {
+    const r = await query<{ id: string; type: string; status: string; result: unknown; error: string | null; updated_at: string }>(
+      `SELECT id, type, status, result, error, updated_at FROM jobs WHERE user_id=$1 AND id=$2`,
+      [userId, id],
+    );
+    return r.rows[0] || null;
+  },
 };
 
 export const audit = {

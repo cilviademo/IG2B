@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Trash2, Link2, Camera, FileDown, Loader2 } from "lucide-react";
+import { Trash2, Link2, Camera, FileDown, Loader2, Sparkles } from "lucide-react";
 import Sheet from "./Sheet";
+import CompanionPanel from "./CompanionPanel";
 import {
   type CaptureType,
   type Sensitivity,
@@ -38,6 +39,7 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
   const sens = SENSITIVITY_COLOR[item.sensitivity];
   const proc = PROCESSING_META[item.processing_status];
   const body = item.body || item.note || "";
+  const [companion, setCompanion] = useState(false);
 
   // Uploaded-file assets are private; fetch a fresh, time-limited signed URL when
   // the detail opens. The URL is never stored/cached — re-minted each view, and
@@ -97,6 +99,16 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
         </div>
 
         <h3 className="text-base font-semibold font-display" style={{ color: "var(--text)" }}>{item.title}</h3>
+
+        {!item.local && (
+          <button
+            onClick={() => setCompanion(true)}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold"
+            style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}
+          >
+            <Sparkles size={13} strokeWidth={1.5} /> Ask Radian
+          </button>
+        )}
 
         {item.url && (
           <div className="flex items-center gap-1.5 text-xs font-mono break-all" style={{ color: "var(--info)" }}>
@@ -177,6 +189,9 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
           </button>
         )}
       </div>
+      {companion && (
+        <CompanionPanel subjectType="capture" subjectId={item.id} title={item.title} onClose={() => setCompanion(false)} />
+      )}
     </Sheet>
   );
 }

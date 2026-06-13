@@ -95,6 +95,7 @@ export type JobType =
   | "ingest_capture"
   | "contextualize"
   | "embed"
+  | "ask"
   | "assist"
   | "summarize"
   | "tag"

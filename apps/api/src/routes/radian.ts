@@ -8,6 +8,7 @@ import { providersStatus, providerConfigured, PROVIDER_ENV, ALL_PROVIDERS, type 
 import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
 import { getEmbedder } from "@indigold/shared";
+import { findVerb, verbsFor } from "@indigold/shared";
 import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
@@ -48,6 +49,62 @@ projectsRouter.patch("/:id", async (req: Authed, res) => {
 });
 
 export const radianRouter = Router();
+
+// ---- Living OS G1: Companion Panel — "Ask Radian" verb router ----
+// Every verb maps to an EXISTING system (assistance/research/Oracle/Encompass) and
+// runs async through the job queue (governed + ledgered + provenanced). The frontend
+// makes NO direct model calls; it polls GET /radian/job/:id for honest job state.
+radianRouter.get("/verbs/:entity", (req: Authed, res) => {
+  const e = req.params.entity as "node" | "project" | "brief" | "capture";
+  res.json({ verbs: verbsFor(e).map((v) => ({ verb: v.verb, label: v.label })) });
+});
+
+radianRouter.post("/ask", async (req: Authed, res) => {
+  const subjectType = String(req.body?.subject_type || "");
+  const subjectId = String(req.body?.subject_id || "");
+  const verb = String(req.body?.verb || "");
+  const question = req.body?.question ? String(req.body.question) : undefined;
+  const spec = findVerb(verb);
+  if (!spec) return res.status(400).json({ error: "unknown_verb" });
+  if (!["node", "project", "brief", "capture"].includes(subjectType) || !subjectId) return res.status(400).json({ error: "bad_subject" });
+
+  // create_task is synchronous (no model): a Task node linked to the subject.
+  if (spec.fulfilment.kind === "sync") {
+    const subjTitle = subjectType === "node" ? (await repo.nodes.get(req.userId!, subjectId))?.title : subjectId;
+    const tid = id("node");
+    await repo.nodes.create({
+      id: tid, user_id: req.userId!, type: "concept", title: `Task — ${String(subjTitle || subjectId).slice(0, 60)}`,
+      summary: question || "Owner-created task", truth_layer: "B", truth_label: "Task", mvs: 60, tags: ["task"],
+      meta: { task: { status: "open", subject_type: subjectType, subject_id: subjectId }, epistemic_type: "decision" },
+    });
+    if (subjectType === "node") await repo.edges.create({ id: id("edge"), user_id: req.userId!, source_id: subjectId, target_id: tid, relationship: "depends_on", weight: 0.7, valid_from: new Date().toISOString(), label: "task" });
+    await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "state_transition", subject_type: "node", subject_id: tid, correlation_id: subjectId, payload: { created: "task" } });
+    return res.status(201).json({ mode: "done", task: tid });
+  }
+
+  // Job-backed verbs → enqueue the right existing job with the right payload.
+  const job = spec.fulfilment.job;
+  let payload: Record<string, unknown>;
+  if (job === "assist") payload = { nodeId: subjectId };
+  else if (job === "research") payload = subjectType === "capture" ? { captureId: subjectId } : { nodeId: subjectId };
+  else if (job === "simulation") {
+    const t = subjectType === "node" ? (await repo.nodes.get(req.userId!, subjectId))?.title : subjectId;
+    payload = { question: question || `What if I prioritize "${t || subjectId}"?`, contextNodeIds: subjectType === "node" ? [subjectId] : [] };
+  } else if (job === "context_pack") payload = { subjectId, purpose: `Pack for ${subjectType}` };
+  else payload = { subjectType, subjectId, verb, question }; // "ask"
+
+  const j = await enqueue(job, req.userId!, payload);
+  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+  res.status(202).json({ mode: "job", job: j.id, verb });
+});
+
+// Honest job state for the panel (queued/running/done/failed + result).
+radianRouter.get("/job/:id", async (req: Authed, res) => {
+  const j = await repo.jobs.get(req.userId!, req.params.id);
+  if (!j) return res.status(404).json({ error: "not_found" });
+  res.json(j);
+});
+
 
 // ---- Stage 7: Opportunities (review queue; never auto-promoted) ----
 radianRouter.get("/opportunities", async (req: Authed, res) => {

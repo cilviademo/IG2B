@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-12 · Commit: 603527b · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g1 · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -71,3 +71,12 @@ commit(s) · what/why · live-test status).
 
 ### 2026-06-13 · claude (Claude Code) · `claude/semantic-memory` → main
 - **Semantic memory enabled** (pgvector live, v0.8.1): embedding adapters (OpenAI text-embedding-3-small / Voyage voyage-3-lite / deterministic-32 fallback) behind `getEmbedder`; `embeddings` repo + `semanticNeighbors` (cosine; native pgvector `<=>` is a drop-in perf upgrade). New `embed` job (content-hashed, cheap, ledgered) enqueued after contextualize; `POST /radian/embeddings/backfill`, `GET /radian/embeddings` (status), `GET /radian/similar/:nodeId`. **OFF by default** (deterministic, $0) until `RADIAN_EMBED=on` + a provider key. Tests: semantic-verify 15/15; all 11 suites green. Live status: pending owner backfill + spot-check.
+
+### 2026-06-13 · claude (Claude Code) · `claude/living-os-g1` → main
+- **Living OS Wave G1 — "Inhabit, Don't Operate":**
+  - **Companion Panel** (`POST /radian/ask` + `GET /radian/verbs/:entity` + `GET /radian/job/:id`): a verb router (Explain/Next steps/Research this/Simulate/Challenge/Create task/Context pack + freeform Ask) reachable on every node/project/brief/capture. Every verb maps to an EXISTING governed job (`ask`/`assist`/`research`/`simulation`/`context_pack`) or a sync `create_task`; results land as **child nodes with provenance** (+ `events`). The frontend makes **no direct model calls** — `CompanionPanel.tsx` only orchestrates + polls honest job state (queued/running/done/failed/budget_governor).
+  - **Living Atlas node states**: `computeNodeState`/`deriveNodeState` (pure, render-time, zero model calls) classify each node Growing/Decaying/Blocked/Dormant/Emerging/Critical/Stable from data already on the client. Visuals via ring/glow/dim/badge; **pulse only for growing+critical and only when motion is allowed** (`reduceMotion` guard). A quiet "states" legend gives explainability.
+  - **Phone-first interaction**: long-press a node (~500ms) → Companion Panel; "Ask Radian" buttons on the node sheet + capture detail.
+  - **Mission Control voice**: Home rewritten into a commander's briefing — Situation → Detections → Recommended focus (numbered) → Risk — strictly from existing dashboard data (risk signals derived from the stat figures, **no fabricated insight**).
+  - Pure core in `packages/shared/src/living-os.ts`, mirrored for the standalone PWA in `apps/pwa/src/lib/nodeState.ts`.
+  - **Verification**: pwa+api+worker typecheck clean; pwa+api build green; `living-os-verify` 18/18; headless screenshots (Home + Atlas) render correctly; **Atlas 200-node synthetic = 60.8 fps**; reduced-motion path freezes drift + suppresses pulse. Capture/link/text/file-upload + Service Worker + iOS Shortcut path **untouched** (CaptureDetail change is a gated viewer button only). Live status: pending owner live-gate.

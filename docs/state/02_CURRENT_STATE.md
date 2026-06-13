@@ -1,9 +1,15 @@
 # Current State
 
-`Last updated: 2026-06-12 · Commit: 603527b · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g1 (off main @ 019d887) · By: claude (Claude Code)`
 
 > Keep this file SHORT and ruthlessly current. Prune stale lines. Truth levels:
 > **🟢 live** = owner confirmed on device · **🟡 local** = headless/stub verified only.
+
+## 🟡 ON `main` NOW (full app merged @ 019d887, deployed)
+- Full app (file-upload + Vault redesign + RADIAN 2.0 + Cognition A–D + provider framework) is on `main` (release merge `6793efb`).
+- 🟢 **pgvector live** (v0.8.1) — `GET /radian/pgvector-check`.
+- 🟡 **Semantic memory** wired (`019d887`), OFF by default (deterministic, $0) until `RADIAN_EMBED=on` + a key.
+- 🟡 **Living OS Wave G1** (`claude/living-os-g1`): Companion Panel (`POST /radian/ask`), Living Atlas node states, long-press → Companion, Mission Control briefing voice. No frontend model calls; capture/upload/SW/Shortcut untouched. Atlas 60.8fps@200, reduced-motion guarded, `living-os-verify` 18/18. Pending owner live-gate.
 
 ## ✅ VERIFIED WORKING (on `main` @ 603527b)
 - 🟢 **Link/text capture sync** — iOS Shortcut → `/capture` form **Save** pushes to the API; saved to Postgres; on-screen status shows the real HTTP result.

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useJson } from "@/hooks/useJson";
 import { type GraphNode, type GraphEdge } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
-import { Share2, X, Plus, Minus, Locate } from "lucide-react";
+import { Share2, X, Plus, Minus, Locate, Sparkles } from "lucide-react";
+import CompanionPanel from "@/components/CompanionPanel";
+import { deriveNodeState, NODE_STATE_STYLE, LEGEND, type NodeState } from "@/lib/nodeState";
 
 // Atlas — the constellation. Flat luminous points on a deep indigo-black field,
 // hairline edges, organic force layout. Color encodes node type (a desaturated
@@ -64,6 +66,7 @@ export default function Atlas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [selected, setSelected] = useState<GraphNode | null>(null);
+  const [companion, setCompanion] = useState<GraphNode | null>(null);
   const selectedRef = useRef<string | null>(null);
   const apiRef = useRef<{ zoom: (f: number) => void; reset: () => void } | null>(null);
   const [hintOff, setHintOff] = useState(() => localStorage.getItem("indigold_atlas_hint") === "off");
@@ -112,6 +115,13 @@ export default function Atlas() {
       adj[e.target_id]?.add(e.source_id);
     });
 
+    // Living node states — computed once at render time from the graph we already
+    // hold (no model calls). Pulse only applies when motion is allowed.
+    const now = Date.now();
+    const stateById = new Map<string, NodeState>();
+    nodes.forEach((n) => stateById.set(n.id, deriveNodeState(n, edges, now)));
+    const hasPulse = !reduceMotion && nodes.some((n) => NODE_STATE_STYLE[stateById.get(n.id)!].pulse);
+
     // Flat points: radius 3–8px by MVS + a gentle degree boost.
     const sim: SimNode[] = nodes.map((node, i) => {
       const a = (i / nodes.length) * Math.PI * 2;
@@ -158,6 +168,13 @@ export default function Atlas() {
     let moved = false;
     let last = { x: 0, y: 0 };
     let pinchDist = 0;
+    let longPress: number | null = null;
+    const clearLongPress = () => {
+      if (longPress !== null) {
+        clearTimeout(longPress);
+        longPress = null;
+      }
+    };
 
     function localPoint(ev: PointerEvent) {
       const rect = canvas!.getBoundingClientRect();
@@ -186,11 +203,22 @@ export default function Atlas() {
         pinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
         dragNode = null;
         panning = false;
+        clearLongPress();
         return;
       }
       const hit = pick(p.x, p.y);
-      if (hit) dragNode = hit;
-      else panning = true;
+      if (hit) {
+        dragNode = hit;
+        // Long-press a node → open the Companion Panel (phone-first interaction).
+        clearLongPress();
+        longPress = window.setTimeout(() => {
+          longPress = null;
+          if (!moved) {
+            dragNode = null; // a long-press is intent to ask, not to drag
+            setCompanion(hit.node);
+          }
+        }, 500);
+      } else panning = true;
       kick();
     }
     function onPointerMove(ev: PointerEvent) {
@@ -216,7 +244,10 @@ export default function Atlas() {
       }
       const dx = p.x - last.x;
       const dy = p.y - last.y;
-      if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+      if (Math.abs(dx) + Math.abs(dy) > 3) {
+        moved = true;
+        clearLongPress();
+      }
       if (dragNode) {
         const w = screenToWorld(p.x, p.y);
         dragNode.x = w.x;
@@ -231,6 +262,7 @@ export default function Atlas() {
       kick();
     }
     function onPointerUp(ev: PointerEvent) {
+      clearLongPress();
       const p = pointers.get(ev.pointerId);
       pointers.delete(ev.pointerId);
       if (!moved && p && pointers.size === 0) {
@@ -338,7 +370,8 @@ export default function Atlas() {
       }
       energyFrames--;
       draw();
-      if (energyFrames > 0 || dragNode || panning) raf = requestAnimationFrame(tick);
+      // Keep a gentle heartbeat alive when living nodes pulse (motion allowed only).
+      if (energyFrames > 0 || dragNode || panning || hasPulse) raf = requestAnimationFrame(tick);
       else raf = 0;
     }
 
@@ -393,6 +426,9 @@ export default function Atlas() {
         ctx!.stroke();
       }
 
+      // a slow shared pulse phase (0..1), only when motion is allowed
+      const pulseT = hasPulse ? (Math.sin(performance.now() * 0.0028) + 1) / 2 : 0;
+
       // nodes — flat luminous points
       for (const s of sim) {
         const sx = s.x * scale + tx;
@@ -400,8 +436,23 @@ export default function Atlas() {
         const sr = Math.max(2, s.r * Math.min(1.6, Math.max(0.85, scale)));
         const base = hexToRgb(NODE_COLOR[s.node.type] || FALLBACK_COLOR);
         const lit = isLit(s.node.id);
-        const alpha = lit ? 0.85 : 0.25;
+        const st = NODE_STATE_STYLE[stateById.get(s.node.id) || "stable"];
+        const alpha = (lit ? 0.85 : 0.25) * st.dim;
         const isSel = selectedRef.current === s.node.id;
+
+        // living-state glow — a soft colored halo whose strength breathes for
+        // pulsing states (growing/critical). Suppressed for dimmed/far nodes.
+        if (st.glow > 0 && st.ring && lit) {
+          const ringRgb = hexToRgb(st.ring);
+          const g = st.glow * (st.pulse ? 0.55 + pulseT * 0.45 : 1);
+          const halo = ctx!.createRadialGradient(sx, sy, sr, sx, sy, sr * 3.4);
+          halo.addColorStop(0, rgba(ringRgb, 0.28 * g));
+          halo.addColorStop(1, rgba(ringRgb, 0));
+          ctx!.fillStyle = halo;
+          ctx!.beginPath();
+          ctx!.arc(sx, sy, sr * 3.4, 0, Math.PI * 2);
+          ctx!.fill();
+        }
 
         if (isSel) {
           // the only glow: soft gold halo + ring
@@ -424,6 +475,26 @@ export default function Atlas() {
         ctx!.beginPath();
         ctx!.arc(sx, sy, sr, 0, Math.PI * 2);
         ctx!.stroke();
+
+        // living-state ring — a thin colored emphasis ring (not the selection halo).
+        if (st.ring && lit && !isSel) {
+          const ringRgb = hexToRgb(st.ring);
+          const ra = (st.pulse ? 0.55 + pulseT * 0.4 : 0.7);
+          ctx!.lineWidth = 1.25;
+          ctx!.strokeStyle = rgba(ringRgb, ra);
+          ctx!.beginPath();
+          ctx!.arc(sx, sy, sr + 3, 0, Math.PI * 2);
+          ctx!.stroke();
+        }
+        // badge — a small marker for blocked (⊘) / critical (!) nodes.
+        if (st.badge && lit && scale >= 0.85) {
+          const bx = sx + sr + 4;
+          const by = sy - sr - 4;
+          ctx!.fillStyle = rgba(hexToRgb(st.ring || "#C25450"), 0.95);
+          ctx!.font = '600 10px "Inter Tight", system-ui, sans-serif';
+          ctx!.textAlign = "center";
+          ctx!.fillText(st.badge, bx, by + 3);
+        }
 
         if (isSel) {
           ctx!.lineWidth = 1.5;
@@ -455,6 +526,7 @@ export default function Atlas() {
     return () => {
       cancelAnimationFrame(raf);
       raf = 0;
+      clearLongPress();
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
@@ -490,7 +562,7 @@ export default function Atlas() {
         </div>
         {!hintOff && (
           <div className="flex items-center gap-2 mt-2 pointer-events-auto">
-            <span className="text-xs" style={{ color: "#8E929C" }}>Tap a node to focus · drag to move · pinch to zoom</span>
+            <span className="text-xs" style={{ color: "#8E929C" }}>Tap to focus · long-press to ask Radian · drag · pinch to zoom</span>
             <button onClick={dismissHint} aria-label="Dismiss hint" style={{ color: "#8E929C" }}>
               <X size={13} strokeWidth={1.5} />
             </button>
@@ -517,12 +589,76 @@ export default function Atlas() {
         ))}
       </div>
 
-      {selected && <NodeSheet node={selected} onClose={() => setSelected(null)} />}
+      {/* State legend — explainability for the living visuals (quiet, bottom-left) */}
+      <StateLegend />
+
+      {selected && (
+        <NodeSheet
+          node={selected}
+          onClose={() => setSelected(null)}
+          onAsk={() => {
+            setCompanion(selected);
+            setSelected(null);
+          }}
+        />
+      )}
+
+      {companion && (
+        <CompanionPanel
+          subjectType="node"
+          subjectId={companion.id}
+          title={companion.title}
+          onClose={() => setCompanion(null)}
+        />
+      )}
     </div>
   );
 }
 
-function NodeSheet({ node, onClose }: { node: GraphNode; onClose: () => void }) {
+function StateLegend() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="absolute left-4 bottom-4">
+      {open ? (
+        <div
+          className="p-3 animate-fade-in-up"
+          style={{ background: "rgba(19,21,26,0.82)", border: "1px solid #22252D", borderRadius: 10, backdropFilter: "blur(8px)" }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span className="cap-data" style={{ color: "#8E929C" }}>node states</span>
+            <button onClick={() => setOpen(false)} aria-label="Hide legend" className="ml-auto" style={{ color: "#8E929C" }}>
+              <X size={12} strokeWidth={1.5} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            {LEGEND.map((s) => {
+              const st = NODE_STATE_STYLE[s];
+              return (
+                <div key={s} className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block w-2 h-2 rounded-full"
+                    style={{ background: st.ring || "#3A3D45", boxShadow: st.glow ? `0 0 5px ${st.ring}` : undefined, opacity: st.dim }}
+                  />
+                  <span className="text-[11px]" style={{ color: "#8E929C" }}>{st.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className="px-2.5 h-9 rounded-full text-[11px]"
+          style={{ background: "rgba(19,21,26,0.7)", border: "1px solid #22252D", color: "#8E929C", backdropFilter: "blur(8px)" }}
+        >
+          states
+        </button>
+      )}
+    </div>
+  );
+}
+
+function NodeSheet({ node, onClose, onAsk }: { node: GraphNode; onClose: () => void; onAsk: () => void }) {
   const color = NODE_COLOR[node.type] || FALLBACK_COLOR;
   return (
     <div className="absolute inset-0 z-40 flex items-end" onClick={onClose}>
@@ -541,7 +677,14 @@ function NodeSheet({ node, onClose }: { node: GraphNode; onClose: () => void }) 
           <span className="cap-data" style={{ color: "#8E929C" }}>· Layer {node.truth_layer} · {node.truth_label}</span>
         </div>
         <h2 className="text-lg font-display mb-1.5" style={{ color: "#EAE6DA" }}>{node.title}</h2>
-        <p className="text-sm leading-relaxed mb-4" style={{ color: "#8E929C" }}>{node.summary}</p>
+        <p className="text-sm leading-relaxed mb-3" style={{ color: "#8E929C" }}>{node.summary}</p>
+        <button
+          onClick={onAsk}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold mb-4"
+          style={{ borderRadius: 6, border: "1px solid #3A3320", color: "#C9A45C" }}
+        >
+          <Sparkles size={13} strokeWidth={1.5} /> Ask Radian
+        </button>
         <div className="flex items-end gap-5">
           <div>
             <div className="text-xs mb-0.5" style={{ color: "#8E929C" }}>Memory value</div>

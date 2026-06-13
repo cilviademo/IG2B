@@ -1,0 +1,96 @@
+import { useState } from "react";
+import { Sparkles, Loader2, Check, AlertTriangle } from "lucide-react";
+import Sheet from "./Sheet";
+import { Button, Dot } from "./primitives";
+import { askRadian, getJob } from "@/lib/api";
+
+// "Ask Radian" — the Companion Panel. Orchestration only: every verb maps to an
+// existing governed backend job; the frontend makes NO direct model calls and shows
+// honest job state (queued/running/done/failed). Mirrors packages/shared VERBS.
+type Entity = "node" | "project" | "brief" | "capture";
+const VERBS: { verb: string; label: string; on: Entity[] }[] = [
+  { verb: "explain", label: "Explain", on: ["node", "project", "brief", "capture"] },
+  { verb: "next_steps", label: "Next steps", on: ["node", "project", "capture"] },
+  { verb: "research", label: "Research this", on: ["node", "project", "capture"] },
+  { verb: "simulate", label: "Simulate", on: ["node", "project"] },
+  { verb: "challenge", label: "Challenge this", on: ["node", "project", "brief", "capture"] },
+  { verb: "create_task", label: "Create task", on: ["node", "project", "capture"] },
+  { verb: "context_pack", label: "Context pack", on: ["node", "project"] },
+];
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export default function CompanionPanel({
+  subjectType, subjectId, title, onClose,
+}: { subjectType: Entity; subjectId: string; title: string; onClose: () => void }) {
+  const [running, setRunning] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [done, setDone] = useState<"ok" | "err" | null>(null);
+  const [question, setQuestion] = useState("");
+
+  async function run(verb: string, q?: string) {
+    setRunning(verb); setDone(null); setStatus("queued…");
+    const r = await askRadian(subjectType, subjectId, verb, q);
+    if (!r) { setStatus("couldn't reach Radian (offline or API asleep)"); setDone("err"); setRunning(null); return; }
+    if (r.mode === "done") { setStatus("✓ task created in your vault"); setDone("ok"); setRunning(null); return; }
+    // Poll the job honestly (no fake success).
+    const jobId = r.job!;
+    for (let i = 0; i < 24; i++) {
+      await sleep(1500);
+      const j = await getJob(jobId);
+      if (!j) { setStatus("running… (job state unavailable)"); continue; }
+      if (j.status === "done") { setStatus(`✓ ${verb.replace("_", " ")} done — a child node was added with provenance`); setDone("ok"); setRunning(null); return; }
+      if (j.status === "failed") { setStatus(`✗ ${verb}: ${j.error || "failed"}`); setDone("err"); setRunning(null); return; }
+      if (j.status === "queued" && j.error === "budget_governor") { setStatus("queued — over budget; will run when the budget allows"); setDone("ok"); setRunning(null); return; }
+      setStatus(`${verb.replace("_", " ")}: ${j.status}…`);
+    }
+    setStatus(`${verb.replace("_", " ")}: still running — check the vault shortly`); setRunning(null);
+  }
+
+  const verbs = VERBS.filter((v) => v.on.includes(subjectType));
+  return (
+    <Sheet title="Ask Radian" onClose={onClose}>
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--gold)" }} />
+        <span className="text-sm" style={{ color: "var(--text)" }}>{title}</span>
+        <span className="cap-data ml-auto">{subjectType}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {verbs.map((v) => (
+          <Button key={v.verb} variant="ghost" disabled={!!running} onClick={() => void run(v.verb)}>
+            {running === v.verb ? <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> : null} {v.label}
+          </Button>
+        ))}
+      </div>
+
+      <div className="mt-3">
+        <label className="block mb-1" style={{ fontSize: 12, color: "var(--text-dim)" }}>Ask Radian about this…</label>
+        <div className="flex gap-2">
+          <input
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="e.g. how does this connect to BTZ?"
+            className="flex-1 px-3 py-2.5 text-sm"
+            style={{ background: "var(--bg)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 6 }}
+          />
+          <Button variant="primary" disabled={!!running || !question.trim()} onClick={() => void run("ask", question.trim())}>Ask</Button>
+        </div>
+      </div>
+
+      {status && (
+        <div className="flex items-start gap-2 mt-3">
+          <span className="mt-0.5">
+            {done === "ok" ? <Check size={14} strokeWidth={1.5} style={{ color: "var(--good)" }} />
+              : done === "err" ? <AlertTriangle size={14} strokeWidth={1.5} style={{ color: "var(--risk)" }} />
+              : <Dot color="var(--gold)" pulse />}
+          </span>
+          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>{status}</span>
+        </div>
+      )}
+      <p className="cap-data mt-3" style={{ color: "var(--text-dim)" }}>
+        Runs through Radian/Encompass · results land as child nodes with provenance · no on-device model calls.
+      </p>
+    </Sheet>
+  );
+}

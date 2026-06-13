@@ -296,6 +296,38 @@ export async function fetchLlmStatus(): Promise<LlmStatus | null> {
   }
 }
 
+// ---- Living OS G1: Companion Panel ("Ask Radian"). The frontend NEVER calls a
+// model directly — it asks the governed backend, which enqueues an existing job and
+// returns state we poll honestly. ----
+export interface AskResult { mode: "job" | "done"; job?: string; task?: string; verb?: string }
+export async function askRadian(subjectType: string, subjectId: string, verb: string, question?: string): Promise<AskResult | null> {
+  if (!apiEnabled()) return null;
+  if (!getToken() && !(await ensureSession())) return null;
+  try {
+    const res = await fetch(`${BASE}/radian/ask`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId, verb, question }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as AskResult;
+  } catch {
+    return null;
+  }
+}
+
+export interface JobState { id: string; type: string; status: string; result?: unknown; error?: string | null }
+export async function getJob(id: string): Promise<JobState | null> {
+  if (!apiEnabled() || !getToken()) return null;
+  try {
+    const res = await fetch(`${BASE}/radian/job/${id}`, { headers: { authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) return null;
+    return (await res.json()) as JobState;
+  } catch {
+    return null;
+  }
+}
+
 /** Load a resource from the API when enabled, else fall back to a local fixture. */
 export async function loadOrFixture<T>(apiCall: () => Promise<T>, fixturePath: string): Promise<T> {
   if (apiEnabled()) {

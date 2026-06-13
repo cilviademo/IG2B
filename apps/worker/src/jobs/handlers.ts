@@ -1,6 +1,6 @@
 import * as repo from "@indigold/db";
 import { enqueue, id, type Job } from "@indigold/shared";
-import { forecast } from "@indigold/shared/intelligence";
+import { forecast, assemble } from "@indigold/shared/intelligence";
 import {
   getPrompt, BudgetExceededError, getTools, isResearchSafe,
   deterministicIngest, parseIngest, kindToNodeType,
@@ -142,6 +142,71 @@ const contextualize: Handler = async (job) => {
     await repo.jobs.record({ id: aj.id, user_id: job.user_id, type: aj.type, status: "queued" });
   }
   await repo.jobs.finish(job.id, "done", { edges: ctx.edges.length, relevance: ctx.project_relevance.length });
+};
+
+// ---- Living OS G1: Companion Panel "ask" (explain/challenge/freeform). Strong tier,
+// governed; produces a child node with provenance + an event. Reuses existing systems. ----
+const askJob: Handler = async (job) => {
+  const p = job.payload as { subjectType: string; subjectId: string; verb: string; question?: string };
+  let title = "item";
+  let context = "";
+  let srcCap: string | undefined;
+  if (p.subjectType === "node") {
+    const n = await repo.nodes.get(job.user_id, p.subjectId);
+    if (!n) return;
+    title = n.title; context = `${n.title}\n${n.summary}\nTags: ${(n.tags || []).join(", ")}`;
+  } else if (p.subjectType === "capture") {
+    const c = await repo.captures.get(job.user_id, p.subjectId);
+    if (!c) return;
+    title = c.title; context = `${c.title}\n${c.note}\n${c.url || ""}`; srcCap = c.id;
+  } else if (p.subjectType === "project") {
+    const proj = (await repo.projects.list(job.user_id)).find((x) => x.id === p.subjectId);
+    if (!proj) return;
+    title = proj.name; context = `${proj.name}\n${proj.description}\nObjectives: ${proj.objectives}`;
+  } else {
+    const b = (await repo.briefs.list(job.user_id)).find((x) => x.id === p.subjectId);
+    title = b ? `${b.kind} brief` : "brief"; context = b ? JSON.stringify(b.payload).slice(0, 1000) : "";
+  }
+  const framing = p.verb === "challenge"
+    ? "Play skeptic: surface the strongest risks and objections to this, specifically."
+    : p.verb === "ask" ? (p.question || "Answer the owner's question about this.")
+    : "Explain what this is and why it matters to the owner, concisely.";
+  let answer: string;
+  try {
+    const r = await repo.governedComplete({
+      userId: job.user_id, tier: "strong", task: "synthesis", purpose: `ask_${p.verb}`, sourceId: p.subjectId,
+      system: "You are RADIAN answering about ONE specific item the owner asked about. Be concise and specific, cite the item, never invent facts.",
+      prompt: `${framing}\n\nITEM:\n${context}`,
+    });
+    answer = r.text || "(no answer)";
+  } catch (e) {
+    if (e instanceof BudgetExceededError) { await repo.jobs.finish(job.id, "queued", undefined, "budget_governor"); return; }
+    answer = `Enrichment paused — "${p.verb}" couldn't run a model call right now (kept honest, no fake answer). Item: ${title}.`;
+  }
+  const childId = id("node");
+  const heading = p.verb === "challenge" ? "Challenge" : p.verb === "ask" ? "Answer" : "Explanation";
+  await repo.nodes.create({
+    id: childId, user_id: job.user_id, type: "concept", title: `${heading} — ${title}`.slice(0, 80),
+    summary: answer.slice(0, 400), truth_layer: "C", truth_label: "Answer", mvs: 50, tags: [],
+    source_capture_id: srcCap, meta: { ask: { verb: p.verb, question: p.question, answer, subject_type: p.subjectType, subject_id: p.subjectId }, epistemic_type: "inference" },
+  });
+  if (p.subjectType === "node") {
+    await repo.edges.create({ id: id("edge"), user_id: job.user_id, source_id: p.subjectId, target_id: childId, relationship: "extends", weight: 0.8, valid_from: new Date().toISOString(), label: `ask:${p.verb}` });
+  }
+  await repo.emitEvent({ user_id: job.user_id, actor: "agent:Radian", event_type: "review_generated", subject_type: "node", subject_id: childId, correlation_id: p.subjectId, payload: { ask: p.verb } });
+  await repo.jobs.finish(job.id, "done", { child: childId, verb: p.verb });
+};
+
+// ---- Living OS G1: Generate Context Pack (Encompass, deterministic, no model). ----
+const contextPackJob: Handler = async (job) => {
+  const p = job.payload as { purpose?: string; subjectId?: string };
+  const nodes = await repo.nodes.list(job.user_id);
+  const edges = await repo.edges.list(job.user_id);
+  const pack = assemble({ purpose: p.purpose || "Companion context pack", tokenBudget: 4000, nodes, edges });
+  const cid = id("ctx");
+  await repo.contextPacks.create({ id: cid, user_id: job.user_id, title: pack.title, purpose: pack.purpose, token_budget: pack.token_budget, source_nodes: pack.source_nodes, sections: pack.sections as never });
+  await repo.emitEvent({ user_id: job.user_id, actor: "agent:Encompass", event_type: "review_generated", subject_type: "context_pack", subject_id: cid, correlation_id: p.subjectId || cid, payload: {} });
+  await repo.jobs.finish(job.id, "done", { pack: cid });
 };
 
 // ---- Semantic memory: embed a node into the vector store (cheap, content-hashed). ----
@@ -583,6 +648,8 @@ export const handlers: Partial<Record<Job["type"], Handler>> = {
   ingest_capture: ingestCapture,
   contextualize,
   embed: embedJob,
+  ask: askJob,
+  context_pack: contextPackJob,
   assist,
   summarize,
   tag,
