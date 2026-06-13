@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Crosshair, Loader2 } from "lucide-react";
 import { buildContext, apiEnabled, type ContextPlan } from "@/lib/api";
+import { useTasks } from "@/contexts/TaskCenter";
 
 // G11 Context Engineering — type a goal, get ONLY the relevant slice of the vault packed
 // into a token budget (not the whole graph). Deterministic retrieval; explainable per
@@ -9,16 +10,20 @@ const KIND_LABEL: Record<string, string> = { node: "Nodes", research: "Research"
 
 export default function ContextBuilder() {
   const [goal, setGoal] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [plan, setPlan] = useState<ContextPlan | null>(null);
-  const [provider, setProvider] = useState<string>("");
+  const { runTask, tasks, latest } = useTasks();
 
-  async function run(g: string) {
+  // The pack runs as a background task in the Task Center — leave this tab and it keeps
+  // going; you're notified when ready. The result is read back from the latest task, so
+  // it survives navigation away and back.
+  const busy = tasks.some((t) => t.tab === "/context" && t.status === "running");
+  const done = latest("/context");
+  const result = done?.result as { plan?: ContextPlan; semantic_provider?: string } | null | undefined;
+  const plan = result?.plan ?? null;
+  const provider = result?.semantic_provider ?? "none";
+
+  function run(g: string) {
     if (!g.trim() || busy) return;
-    setBusy(true); setPlan(null);
-    const r = await buildContext(g.trim());
-    setPlan(r?.plan ?? null); setProvider(r?.semantic_provider ?? "none");
-    setBusy(false);
+    runTask({ label: `Context pack: ${g.trim()}`, tab: "/context", run: () => buildContext(g.trim()) });
   }
 
   if (!apiEnabled()) return null;

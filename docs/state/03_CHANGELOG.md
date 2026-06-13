@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: living-os-g11 · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: task-center · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -162,6 +162,14 @@ commit(s) · what/why · live-test status).
   - **API**: `POST /radian/whatif` (synchronous) computes deterministic signals per option by matching projects/nodes (momentum via `momentumFor`, MVS, recency, degree), runs the engine, persists an **"Analysis"** node (`meta.simulation`, shows in `GET /radian/simulations`) + a `review_generated` event.
   - **PWA**: Mission Control **Simulate** panel (collapsible) — a "What happens if…?" input + project-derived scenario/comparison chips; renders **animated best/likely/worst probability bars**, a Recommendation card, and the assumptions (incl. the "ESTIMATES, not predictions" disclaimer).
   - **Verification**: typecheck clean (pwa/api/worker); pwa+api build green; `simulation-engine-verify` **21/21**; regressions green (quests 40/40, progression 32/32, boardroom 15/15, research 15/15). **Live end-to-end** (ephemeral PG+Redis, stub mode): scenario "focus BTZ TRACE" → best 39 / likely 40 / worst 21 (sum 100), conf 0.71, "Proceed"; comparison "BTZ TRACE vs Business vs Genesis" → ranked by real feasibility (81/65/29), "Lead with BTZ TRACE; hold Genesis"; the panel **renders in-app** (verified via instrumented run — `WHATIF:comparison:2`, Recommendation on screen); screenshot `g7-simulate.png`. Capture/upload/SW/Shortcut + G1–G6 untouched. Live status: pending owner phone-gate.
+
+### 2026-06-13 · claude (Claude Code) · `claude/task-center` → main
+- **Task Center — in-app background tasks + notifications** (owner request): trigger an action, leave the tab, and the work keeps running with an in-app pop-up + tab badge when it's ready (social-style).
+  - **`TaskProvider`** (`apps/pwa/src/contexts/TaskCenter.tsx`) holds each action's promise at App level, so navigating between tabs never cancels it. `runTask({label, tab, run})` registers a background task; on resolve it's `ready` (result kept), on reject `error`. Exposes `accept` (View → navigate to the tab), `snooze` (keep a bubble), `latest(tab)` (read the result back), `badge(tab)`, `toastTask`. Visiting a tab clears its notifications.
+  - **`TaskToast`** — a "✓ Ready · {label}" pop-up (above the tab bar) for a task that finished **off** the current tab, with **View** / **Snooze** / dismiss.
+  - **TabBar badges** — a gold count bubble on any tab with unseen ready/snoozed tasks (social-media style); clears on visit; `pulse-soft`.
+  - **Wired the Context "Pack"** (the owner's example) end-to-end: it now runs as a background task (leave the Context tab, get notified when ready); the result is read back from the Task Center so it survives navigating away and back.
+  - **Verified live** (ephemeral PG+Redis): started a context pack, navigated to **/atlas**, the **Ready toast appeared off-tab**, **Snooze** left a **"Context (1 ready)"** badge on the Context tab that persists until visited (screenshots `ux-toast.png`, `ux-badge.png`). pwa typecheck + build green; no backend changes. The same `runTask` wrapper is reusable for the other actions (Boardroom/Research/Simulate/Mentor) incrementally.
 
 ### 2026-06-13 · claude (Claude Code) · `claude/living-os-g11` → main
 - **Living OS Wave G11 — Context Engineering Engine** ("better than ChatGPT memory"): goal-scoped, token-budgeted, dynamic retrieval — sends **only the relevant slice** of the vault for a goal, not the whole graph. Deterministic + explainable; no LLM.

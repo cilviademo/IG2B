@@ -9,6 +9,7 @@ import {
   ArrowUpDown,
   Swords,
 } from "lucide-react";
+import { useTasks } from "@/contexts/TaskCenter";
 
 const tabs = [
   { path: "/", icon: LayoutDashboard, label: "Home" },
@@ -23,6 +24,7 @@ const tabs = [
 
 export default function TabBar() {
   const [location] = useLocation();
+  const { badge } = useTasks();
 
   return (
     <nav
@@ -38,15 +40,24 @@ export default function TabBar() {
         {tabs.map((tab) => {
           const isActive = location === tab.path;
           const Icon = tab.icon;
+          const count = badge(tab.path);
           return (
             <Link key={tab.path} href={tab.path}>
               <button
-                aria-label={tab.label}
+                aria-label={count > 0 ? `${tab.label} (${count} ready)` : tab.label}
                 aria-current={isActive ? "page" : undefined}
-                className="flex flex-col items-center gap-0.5 px-1.5 py-1.5 min-w-[44px]"
+                className="relative flex flex-col items-center gap-0.5 px-1.5 py-1.5 min-w-[44px]"
                 style={{ color: isActive ? "var(--gold)" : "var(--text-dim)" }}
               >
                 <Icon size={18} strokeWidth={1.5} />
+                {count > 0 && (
+                  <span
+                    className="absolute pulse-soft"
+                    style={{ top: 2, right: "calc(50% - 16px)", minWidth: 15, height: 15, padding: "0 4px", borderRadius: 999, background: "var(--gold)", color: "#161118", fontSize: 9, fontWeight: 700, lineHeight: "15px", textAlign: "center" }}
+                  >
+                    {count > 9 ? "9+" : count}
+                  </span>
+                )}
                 <span className="text-[9px] font-medium" style={{ letterSpacing: 0 }}>{tab.label}</span>
               </button>
             </Link>

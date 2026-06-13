@@ -6,8 +6,10 @@ import { useHashLocation } from "wouter/use-hash-location";
 import { lazy, Suspense } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { TaskProvider } from "./contexts/TaskCenter";
 import TabBar from "./components/TabBar";
 import TopBar from "./components/TopBar";
+import TaskToast from "./components/TaskToast";
 import { Loading } from "./components/State";
 import Dashboard from "./pages/Dashboard";
 
@@ -60,7 +62,9 @@ function App() {
         <TooltipProvider delayDuration={200}>
           <Toaster />
           <WouterRouter {...routerProps}>
-            <Shell />
+            <TaskProvider>
+              <Shell />
+            </TaskProvider>
           </WouterRouter>
         </TooltipProvider>
       </ThemeProvider>
@@ -83,6 +87,7 @@ function Shell() {
       <main className="flex-1 overflow-y-auto pb-20">
         <Routes />
       </main>
+      <TaskToast />
       <TabBar />
     </div>
   );

@@ -1,6 +1,8 @@
 # Current State
 
-`Last updated: 2026-06-13 · Commit: living-os-g11 (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: task-center (off main) · By: claude (Claude Code)`
+
+> **Task Center (latest):** in-app background tasks — trigger an action, leave the tab, it keeps running; a "Ready" pop-up (View/Snooze) surfaces it; snoozed → a notification bubble on the tab (clears on visit). `TaskProvider` + `TaskToast` + TabBar badges; Context "Pack" wired through it (reusable `runTask` for other actions). Live-verified.
 
 > **G11 Context Engineering (latest):** goal-scoped, token-budgeted, explainable retrieval — `POST /radian/context {goal}` packs only the relevant slice (semantic + lexical + recency + hot cache) and persists a context pack. Context tab "Goal-scoped context" builder. `context-engine-verify` 12/12; live e2e verified.
 
