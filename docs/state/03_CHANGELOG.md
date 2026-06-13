@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: task-center-all · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: fix-worker-redis-blocking · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -162,6 +162,9 @@ commit(s) · what/why · live-test status).
   - **API**: `POST /radian/whatif` (synchronous) computes deterministic signals per option by matching projects/nodes (momentum via `momentumFor`, MVS, recency, degree), runs the engine, persists an **"Analysis"** node (`meta.simulation`, shows in `GET /radian/simulations`) + a `review_generated` event.
   - **PWA**: Mission Control **Simulate** panel (collapsible) — a "What happens if…?" input + project-derived scenario/comparison chips; renders **animated best/likely/worst probability bars**, a Recommendation card, and the assumptions (incl. the "ESTIMATES, not predictions" disclaimer).
   - **Verification**: typecheck clean (pwa/api/worker); pwa+api build green; `simulation-engine-verify` **21/21**; regressions green (quests 40/40, progression 32/32, boardroom 15/15, research 15/15). **Live end-to-end** (ephemeral PG+Redis, stub mode): scenario "focus BTZ TRACE" → best 39 / likely 40 / worst 21 (sum 100), conf 0.71, "Proceed"; comparison "BTZ TRACE vs Business vs Genesis" → ranked by real feasibility (81/65/29), "Lead with BTZ TRACE; hold Genesis"; the panel **renders in-app** (verified via instrumented run — `WHATIF:comparison:2`, Recommendation on screen); screenshot `g7-simulate.png`. Capture/upload/SW/Shortcut + G1–G6 untouched. Live status: pending owner phone-gate.
+
+### 2026-06-13 · claude (Claude Code) · `claude/fix-worker-redis-blocking` → main
+- **Fix: the embedded worker starved every API request (the real "slow to load").** In the low-cost single-service profile (`RUN_WORKER=true`, the deployed config) the worker's blocking `BRPOPLPUSH` (5s) ran on the **shared** ioredis client — so every authenticated API request queued behind the rate-limit/session Redis calls that were stuck behind the worker's blocking pop. Measured locally: **every endpoint ~15s** (login 22s, `GET /nodes` 15s) while `/health` (pre-middleware) was 2ms. Fix: `consume()` now uses a **dedicated** Redis connection (`redis().duplicate()`) for the blocking loop, leaving the shared client free. After: login **22s → 0.09s**, `GET /nodes` **15s → 0.005s**, progression/briefing ~15ms, **5 concurrent Home requests total 37ms**; worker still processes jobs (research/ask `done` on first poll). One-line root-cause fix in `packages/shared/src/queue.ts`; api/worker typecheck + build green. (This is why everything felt slow — not the free tier or cold start.)
 
 ### 2026-06-13 · claude (Claude Code) · `claude/task-center-all` → main
 - **Task Center rolled out to ALL actions** (owner request: "same action for all tabs and actions"). Added a `kind` to each task + a reusable **`useTaskAction(kind, tab)`** hook (background run + result read-back + busy), and a `latest(tab, kind)` so multiple actions sharing a tab don't conflate. Wired:

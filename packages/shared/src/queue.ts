@@ -19,9 +19,13 @@ export async function enqueue<T extends Record<string, unknown>>(
   return job;
 }
 
-/** Blocking consume loop. `handler` throws to signal failure (job is re-queued). */
+/** Blocking consume loop. `handler` throws to signal failure (job is re-queued).
+ *  Uses a DEDICATED Redis connection: BRPOPLPUSH blocks the connection for up to its
+ *  timeout, so it must never share the app's main client (rate-limit/session/etc.) — in
+ *  the embedded single-service profile that would stall every API request behind the
+ *  worker's blocking pop. */
 export async function consume(handler: (job: Job) => Promise<void>, opts: { onError?: (e: unknown, job: Job) => void } = {}) {
-  const r = redis();
+  const r = redis().duplicate();
   // eslint-disable-next-line no-constant-condition
   while (true) {
     let raw: string | null;
