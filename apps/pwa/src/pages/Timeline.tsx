@@ -1,7 +1,8 @@
+import { Link } from "wouter";
 import { useJson } from "@/hooks/useJson";
 import type { TimelineEvent } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
-import { Users, Star, Lightbulb, FolderOpen, Layers, Target } from "lucide-react";
+import { Users, Star, Lightbulb, FolderOpen, Layers, Target, History } from "lucide-react";
 
 const TYPE_CONFIG: Record<TimelineEvent["type"], { icon: typeof Users; color: string }> = {
   connection: { icon: Users, color: "var(--info)" },
@@ -36,7 +37,16 @@ export default function Timeline() {
 
   return (
     <div className="px-5 pt-6 pb-6">
-      <h1 className="text-xl font-display mb-1">Timeline</h1>
+      <div className="flex items-center gap-2 mb-1">
+        <h1 className="text-xl font-display">Timeline</h1>
+        <Link
+          href="/time-machine"
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+          style={{ borderRadius: 999, border: "1px solid var(--gold-line)", color: "var(--gold)" }}
+        >
+          <History size={13} strokeWidth={1.5} /> Time Machine
+        </Link>
+      </div>
       <p className="mb-5" style={{ fontSize: 12, color: "var(--text-dim)" }}>Temporal view of the vault</p>
 
       <div className="relative pl-7">

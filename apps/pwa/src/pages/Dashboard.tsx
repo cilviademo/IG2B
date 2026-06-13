@@ -1,3 +1,5 @@
+import { Link } from "wouter";
+import { History } from "lucide-react";
 import { useJson } from "@/hooks/useJson";
 import type { DashboardData } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
@@ -47,7 +49,10 @@ export default function Dashboard() {
       <div className="flex items-center gap-2">
         <Dot color="var(--gold)" pulse />
         <span style={{ fontSize: 12, color: "var(--text-dim)" }}>Mission control</span>
-        <span className="cap-data ml-auto font-data" style={{ color: "var(--text-dim)", letterSpacing: "0.02em" }}>{today()}</span>
+        <Link href="/time-machine" className="ml-auto flex items-center gap-1" style={{ fontSize: 11, color: "var(--gold)" }}>
+          <History size={12} strokeWidth={1.5} /> Time Machine
+        </Link>
+        <span className="cap-data font-data" style={{ color: "var(--text-dim)", letterSpacing: "0.02em" }}>{today()}</span>
       </div>
 
       {/* SITUATION — the standing brief, then a single status line from the stats */}

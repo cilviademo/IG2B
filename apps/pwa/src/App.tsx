@@ -15,6 +15,7 @@ import WeeklyBrief from "./pages/WeeklyBrief";
 import ImportExport from "./pages/ImportExport";
 import CaptureDeepLink from "./pages/CaptureDeepLink";
 import Share from "./pages/Share";
+import TimeMachine from "./pages/TimeMachine";
 
 // When opened directly from disk (the self-contained single-file build),
 // the page is file:// and pushState is forbidden — so use hash routing there.
@@ -27,6 +28,7 @@ function Routes() {
       <Route path="/" component={Dashboard} />
       <Route path="/inbox" component={Inbox} />
       <Route path="/timeline" component={Timeline} />
+      <Route path="/time-machine" component={TimeMachine} />
       <Route path="/atlas" component={Atlas} />
       <Route path="/context" component={ContextPack} />
       <Route path="/brief" component={WeeklyBrief} />

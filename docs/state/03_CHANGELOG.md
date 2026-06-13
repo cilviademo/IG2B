@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: living-os-g1 · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g2 · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -80,3 +80,25 @@ commit(s) · what/why · live-test status).
   - **Mission Control voice**: Home rewritten into a commander's briefing — Situation → Detections → Recommended focus (numbered) → Risk — strictly from existing dashboard data (risk signals derived from the stat figures, **no fabricated insight**).
   - Pure core in `packages/shared/src/living-os.ts`, mirrored for the standalone PWA in `apps/pwa/src/lib/nodeState.ts`.
   - **Verification**: pwa+api+worker typecheck clean; pwa+api build green; `living-os-verify` 18/18; headless screenshots (Home + Atlas) render correctly; **Atlas 200-node synthetic = 60.8 fps**; reduced-motion path freezes drift + suppresses pulse. Capture/link/text/file-upload + Service Worker + iOS Shortcut path **untouched** (CaptureDetail change is a gated viewer button only). Live status: pending owner live-gate.
+
+### 2026-06-13 · claude (Claude Code) · G1 phone-gate result + completion-gate diagnosis
+- **G1 UI gate PASSED on device:** Atlas long-press opens the Companion Panel, the action sheet works, "Research this" fires, the job is created/queued, polling starts, no crash.
+- **G1 backend completion gate PENDING:** a research job doesn't land a visible child node. Diagnosis (code-grounded; Render env values not readable from the sandbox):
+  1. **LLM_MODE** — not set in `render.yaml`; `llmMode()` infers `live` only if a provider key is present, else **`stub`**. No provider key is declared in `render.yaml` → effectively **stub mode** unless one was added in the Render dashboard.
+  2. **`GET /llm/status`** exists (returns `mode`, per-provider `configured`, default, budget — never the key). Owner can curl it to confirm mode/providers.
+  3. **Provider key** — `ANTHROPIC_API_KEY` (or any LLM key) is **not** in `render.yaml`; must be set via dashboard. If absent → stub.
+  4. **`/radian/ask` job type — correct.** "research" verb → enqueues job type `research` (`{nodeId}`/`{captureId}`) and records the Postgres job row with the same id.
+  5. **Worker** runs in-process (`RUN_WORKER=true`) via `consume()` (Redis BRPOPLPUSH). NOTE: API is on the **free plan** → sleeps after ~15 min idle; the embedded worker only runs while awake (jobs persist + drain on next wake).
+  6. **Adapter IS in stub/deterministic mode** without a key — the owner's hypothesis is correct: "live AI" is effectively off.
+  7. **Budget governor NOT the blocker** — deterministic calls are $0; governor stays `ok`.
+  8. **Failed-job surfacing** is partial: handlers expose `status`/`error` via `GET /radian/job/:id`, but a handler **early-return** (subject not found) or a **thrown** error leaves the Postgres job row stuck at `queued` (no `jobs.finish`), so the panel can't tell "stuck" from "in progress".
+- **Root cause (the actual completion gap, independent of AI):** the **research verb never creates a child node edged to the subject** — `research` spawns *captures* (`radian_research`) that re-ingest into *separate, unlinked* nodes. So even on a successful (stub or live) run, no child appears hanging off the researched node, and the panel's "a child node was added" copy is inaccurate for `research`. The verbs that DO produce a provenance child are `explain`/`challenge`/`ask` (`askJob`) and `assist`.
+- **Tracked as:** *G1 backend completion gate pending; revisit during provider/job-runner integration* (link research results back to the subject with a `derived_from`/`extends` edge + emit provenance; finish jobs on early-return/throw so failure is visible). **Not fixed now per owner; does not block G2.**
+
+### 2026-06-13 · claude (Claude Code) · `claude/living-os-g2` → main
+- **Living OS Wave G2 — Time Machine / Memory Replay** (deterministic; **works in stub mode**, never waits on an LLM):
+  - Pure core `packages/shared/src/time-machine.ts` (+ PWA mirror `apps/pwa/src/lib/timeMachine.ts`): `windowFor`/`priorWindow`, `memoryReplay` ("what was I thinking then?"), `changeDetection` (new/faded themes, strengthened, abandoned, contradictions, missed follow-ups), `decisionReflection` ("where was I wrong?" — calibration over the existing decision journal; over/under-confidence + per-decision lessons), `resurfaced` (returned themes + forgotten high-value gems), and `timeMachine()` assembling all four.
+  - **API**: `GET /radian/time-machine?range=7d|30d|90d|180d|365d|custom&days=N` assembles the owner's real data (Event Store + captures + nodes/edges + timeline + briefs + decisions) and runs the core. No new schema — the **decision journal already exists** (`decisions` table: decision/confidence/expected_outcome/outcome/outcome_success/status/review_by), so reflection is event-backed and provenance-preserving.
+  - **PWA**: new `TimeMachine` page + route `/time-machine`, phone-first range chips, narrative (not tabular) output. Entry points added on **Timeline** (header pill) and **Home** (Mission Control header). Prefers the live API; falls back to deterministic local compute over the bundled vault so it always renders useful output.
+  - **Verification**: pwa+api+worker typecheck clean; pwa+api build green; `time-machine-verify` 18/18; headless screenshot renders a real replay from the sample vault. Capture/link/text/file-upload + Service Worker + iOS Shortcut **untouched**; G1 Companion Panel/Atlas code untouched this wave.
+  - **G1 integration note** recorded above: G1 UI shipped, G1 live-AI completion pending, **G2 does not depend on provider completion**; future G-module work should revisit the job-runner/provider completion gate.

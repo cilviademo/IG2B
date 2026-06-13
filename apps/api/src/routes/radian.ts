@@ -9,6 +9,7 @@ import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
 import { getEmbedder } from "@indigold/shared";
 import { findVerb, verbsFor } from "@indigold/shared";
+import { timeMachine, type RangeKey, type TimeMachineInput } from "@indigold/shared";
 import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
@@ -103,6 +104,30 @@ radianRouter.get("/job/:id", async (req: Authed, res) => {
   const j = await repo.jobs.get(req.userId!, req.params.id);
   if (!j) return res.status(404).json({ error: "not_found" });
   res.json(j);
+});
+
+// ---- Living OS G2: Time Machine / Memory Replay (deterministic; NO model calls) ----
+// Assembles the owner's real data (Event Store + captures + nodes/edges + timeline +
+// briefs + decisions) and runs the pure G2 core. Works identically in stub/live mode
+// — it never waits on an LLM. ?range=7d|30d|90d|180d|365d|custom (&days=N for custom).
+radianRouter.get("/time-machine", async (req: Authed, res) => {
+  const range = String(req.query.range || "30d") as RangeKey;
+  const customDays = req.query.days ? Number(req.query.days) : undefined;
+  const uid = req.userId!;
+  const [nodes, edges, events, timeline, briefs, decisions, captures] = await Promise.all([
+    repo.nodes.list(uid), repo.edges.list(uid), repo.events.listForUser(uid),
+    repo.timeline.list(uid), repo.briefs.list(uid), repo.decisions.list(uid), repo.captures.list(uid),
+  ]);
+  const input: TimeMachineInput = {
+    nodes: nodes as TimeMachineInput["nodes"],
+    edges: edges as TimeMachineInput["edges"],
+    events: (events as { event_type: string; created_at?: string; actor?: string }[]),
+    timeline: (timeline as TimeMachineInput["timeline"]),
+    briefs: (briefs as TimeMachineInput["briefs"]),
+    decisions: (decisions as TimeMachineInput["decisions"]),
+    captures: (captures as { id: string; title?: string; captured_at?: string; source?: string }[]),
+  };
+  res.json(timeMachine(input, range, Date.now(), customDays));
 });
 
 

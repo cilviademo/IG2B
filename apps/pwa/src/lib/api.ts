@@ -328,6 +328,21 @@ export async function getJob(id: string): Promise<JobState | null> {
   }
 }
 
+// G2 Time Machine — fetch the deterministic replay from the live API (when reachable).
+// Returns null when standalone/offline so the page falls back to local computation over
+// the bundled data. No model dependency either way.
+export async function getTimeMachine(range: string, days?: number): Promise<unknown | null> {
+  if (!apiEnabled() || !getToken()) return null;
+  try {
+    const q = `range=${encodeURIComponent(range)}${days ? `&days=${days}` : ""}`;
+    const res = await fetch(`${BASE}/radian/time-machine?${q}`, { headers: { authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 /** Load a resource from the API when enabled, else fall back to a local fixture. */
 export async function loadOrFixture<T>(apiCall: () => Promise<T>, fixturePath: string): Promise<T> {
   if (apiEnabled()) {

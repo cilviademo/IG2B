@@ -21,3 +21,4 @@ export * from "./cognition-b";
 export * from "./cognition-c";
 export * from "./cognition-d";
 export * from "./living-os";
+export * from "./time-machine";

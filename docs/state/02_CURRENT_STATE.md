@@ -1,6 +1,6 @@
 # Current State
 
-`Last updated: 2026-06-13 · Commit: living-os-g1 (off main @ 019d887) · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g2 (off main) · By: claude (Claude Code)`
 
 > Keep this file SHORT and ruthlessly current. Prune stale lines. Truth levels:
 > **🟢 live** = owner confirmed on device · **🟡 local** = headless/stub verified only.
@@ -9,7 +9,8 @@
 - Full app (file-upload + Vault redesign + RADIAN 2.0 + Cognition A–D + provider framework) is on `main` (release merge `6793efb`).
 - 🟢 **pgvector live** (v0.8.1) — `GET /radian/pgvector-check`.
 - 🟡 **Semantic memory** wired (`019d887`), OFF by default (deterministic, $0) until `RADIAN_EMBED=on` + a key.
-- 🟡 **Living OS Wave G1** (`claude/living-os-g1`): Companion Panel (`POST /radian/ask`), Living Atlas node states, long-press → Companion, Mission Control briefing voice. No frontend model calls; capture/upload/SW/Shortcut untouched. Atlas 60.8fps@200, reduced-motion guarded, `living-os-verify` 18/18. Pending owner live-gate.
+- 🟢/🟡 **Living OS Wave G1**: UI gate **PASSED on device** (long-press → Companion, "Research this" fires, job queues, polling, no crash). **Backend completion gate PENDING** — research doesn't land a visible child node (root cause: `research` spawns re-ingested captures, not a child edged to the subject; also live AI is in stub mode without a provider key). Tracked for the provider/job-runner integration pass; does NOT block G2.
+- 🟡 **Living OS Wave G2 — Time Machine** (`claude/living-os-g2`): `GET /radian/time-machine` + `/time-machine` PWA page (memory replay / change detection / decision reflection / resurfaced). **Deterministic — works in stub mode, no LLM dependency.** `time-machine-verify` 18/18; typecheck+build green; capture/upload/SW/Shortcut untouched. Pending owner live-gate.
 
 ## ✅ VERIFIED WORKING (on `main` @ 603527b)
 - 🟢 **Link/text capture sync** — iOS Shortcut → `/capture` form **Save** pushes to the API; saved to Postgres; on-screen status shows the real HTTP result.
