@@ -1,5 +1,6 @@
 // Thin repository layer over Postgres. Returns plain rows.
 import { query } from "./client";
+import { id, type IndigoldEvent, type EventType, type EventActor } from "@indigold/shared";
 import type {
   Capture,
   GraphNode,
@@ -180,6 +181,55 @@ export const audit = {
       [entry.user_id ?? null, entry.actor, entry.action, entry.target ?? null, JSON.stringify(entry.meta ?? {})]);
   },
 };
+
+// ---- Cognition Wave A: Event Store (append-only spine) ----
+export interface EventInput {
+  user_id?: string | null;
+  actor: EventActor;
+  event_type: EventType;
+  subject_type: string;
+  subject_id?: string | null;
+  payload?: object;
+  correlation_id?: string | null;
+}
+export const events = {
+  async append(e: EventInput) {
+    const evId = id("evt");
+    await query(
+      `INSERT INTO events (id,user_id,actor,event_type,subject_type,subject_id,payload,correlation_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [evId, e.user_id ?? null, e.actor, e.event_type, e.subject_type, e.subject_id ?? null, JSON.stringify(e.payload ?? {}), e.correlation_id ?? null],
+    );
+    return evId;
+  },
+  // Full lifecycle of one subject (usually a capture) in order — the replay path.
+  async byCorrelation(correlationId: string) {
+    const r = await query<IndigoldEvent>(`SELECT * FROM events WHERE correlation_id=$1 ORDER BY ts ASC`, [correlationId]);
+    return r.rows;
+  },
+  async bySubject(subjectType: string, subjectId: string) {
+    const r = await query<IndigoldEvent>(`SELECT * FROM events WHERE subject_type=$1 AND subject_id=$2 ORDER BY ts ASC`, [subjectType, subjectId]);
+    return r.rows;
+  },
+  async recent(userId: string, limit = 50) {
+    const r = await query<IndigoldEvent>(`SELECT * FROM events WHERE user_id=$1 ORDER BY ts DESC LIMIT $2`, [userId, limit]);
+    return r.rows;
+  },
+  async countByType(userId: string) {
+    const r = await query<{ event_type: string; n: string }>(`SELECT event_type, COUNT(*)::text AS n FROM events WHERE user_id=$1 GROUP BY event_type`, [userId]);
+    return r.rows.map((x) => ({ event_type: x.event_type, count: Number(x.n) }));
+  },
+};
+
+/** Best-effort emit. An event-log failure must NEVER fail a business write
+ *  (Wave A iron rule). Emit in the same logical operation as the state change. */
+export async function emitEvent(e: EventInput): Promise<void> {
+  try {
+    await events.append(e);
+  } catch (err) {
+    console.error("[events] emit failed:", (err as Error)?.message);
+  }
+}
 
 export interface Asset {
   id: string;

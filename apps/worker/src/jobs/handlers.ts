@@ -24,6 +24,9 @@ const ingestCapture: Handler = async (job) => {
     const j = await enqueue(t, job.user_id, { nodeId });
     await repo.jobs.record({ id: j.id, user_id: job.user_id, type: j.type, status: "queued" });
   }
+  // Event Store: node + classification, tied to the capture lifecycle.
+  await repo.emitEvent({ user_id: job.user_id, actor: "agent:Atlas", event_type: "node_created", subject_type: "node", subject_id: nodeId, correlation_id: captureId, payload: { from: "ingest" } });
+  await repo.emitEvent({ user_id: job.user_id, actor: "agent:Radian", event_type: "classified", subject_type: "capture", subject_id: captureId, correlation_id: captureId, payload: { nodeId } });
   await repo.captures.setProcessing(captureId, "processed");
   await repo.jobs.finish(job.id, "done", { nodeId });
 };
@@ -59,12 +62,14 @@ const graphUpdate: Handler = async (job) => {
   for (const other of all) {
     if (other.id === nodeId) continue;
     if ((other.tags || []).some((t) => tset.has(t))) {
+      const edgeId = id("edge");
       await repo.edges.create({
-        id: id("edge"), user_id: job.user_id,
+        id: edgeId, user_id: job.user_id,
         source_id: nodeId, target_id: other.id,
         relationship: "relates_to", weight: 0.5,
         valid_from: new Date().toISOString(), label: "shared tag",
       });
+      await repo.emitEvent({ user_id: job.user_id, actor: "agent:Atlas", event_type: "edge_created", subject_type: "edge", subject_id: edgeId, correlation_id: (target as { source_capture_id?: string }).source_capture_id ?? nodeId, payload: { relationship: "relates_to", source: nodeId, target: other.id } });
       if (++made >= 5) break;
     }
   }
@@ -76,7 +81,9 @@ const briefJob = (kind: "daily" | "weekly"): Handler => async (job) => {
   const nodes = await repo.nodes.list(job.user_id);
   const edges = await repo.edges.list(job.user_id);
   const payload = forecast(nodes, edges, kind === "daily" ? "day" : "week") as unknown as Record<string, unknown>;
-  await repo.briefs.create({ id: id("brief"), user_id: job.user_id, kind, period: new Date().toISOString().slice(0, 10), payload });
+  const briefId = id("brief");
+  await repo.briefs.create({ id: briefId, user_id: job.user_id, kind, period: new Date().toISOString().slice(0, 10), payload });
+  await repo.emitEvent({ user_id: job.user_id, actor: "agent:Radian", event_type: "brief_generated", subject_type: "brief", subject_id: briefId, correlation_id: briefId, payload: { kind } });
   await repo.jobs.finish(job.id, "done");
 };
 

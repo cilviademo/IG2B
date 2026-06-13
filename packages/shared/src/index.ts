@@ -6,3 +6,5 @@ export * from "./ids";
 export * from "./kv";
 export * from "./queue";
 export { redis, redisHealthy } from "./redis";
+export * from "./events";
+export * from "./vectorstore";
