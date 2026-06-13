@@ -258,3 +258,21 @@ CREATE INDEX IF NOT EXISTS events_correlation_idx ON events(correlation_id, ts);
 CREATE INDEX IF NOT EXISTS events_subject_idx ON events(subject_type, subject_id);
 CREATE INDEX IF NOT EXISTS events_user_ts_idx ON events(user_id, ts DESC);
 
+
+-- Living OS / pgvector readiness — semantic memory. `vector` is JSONB here so the
+-- table works WITHOUT the pgvector extension; once `CREATE EXTENSION vector` is
+-- verified live (GET /radian/pgvector-check), an additive ALTER converts it to the
+-- native vector type + adds an ivfflat index. The VectorStore seam flips with no
+-- pipeline change.
+CREATE TABLE IF NOT EXISTS embeddings (
+  subject_type TEXT NOT NULL,
+  subject_id   TEXT NOT NULL,
+  user_id      TEXT,
+  model        TEXT NOT NULL,
+  dim          INTEGER NOT NULL DEFAULT 0,
+  vector       JSONB NOT NULL DEFAULT '[]'::jsonb,
+  content_hash TEXT NOT NULL DEFAULT '',
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (subject_type, subject_id)
+);
+CREATE INDEX IF NOT EXISTS embeddings_user_idx ON embeddings(user_id);

@@ -133,6 +133,18 @@ radianRouter.get("/status", async (req: Authed, res) => {
   res.json(await budgetStatus(req.userId!));
 });
 
+// pgvector verdict (owner-gated). Attempts the extension + reports honestly so the
+// owner can confirm semantic memory with one curl — the sandbox can't reach the DB.
+radianRouter.get("/pgvector-check", async (_req: Authed, res) => {
+  try {
+    await repo.query(`CREATE EXTENSION IF NOT EXISTS vector`);
+    const r = await repo.query<{ extversion: string }>(`SELECT extversion FROM pg_extension WHERE extname='vector'`);
+    res.json({ available: true, version: r.rows[0]?.extversion ?? "unknown", note: "pgvector available — embeddings can be enabled; the VectorStore seam switches with no pipeline change." });
+  } catch (e) {
+    res.json({ available: false, reason: e instanceof Error ? e.message.slice(0, 200) : "unknown", note: "pgvector not available on this plan — entity/tag retrieval remains active. Upgrade the Postgres plan or keep the fallback." });
+  }
+});
+
 // "Research this" — manual Stage 4 trigger for a node (rate-capped per day).
 radianRouter.post("/research/:nodeId", async (req: Authed, res) => {
   const node = await repo.nodes.get(req.userId!, req.params.nodeId);
