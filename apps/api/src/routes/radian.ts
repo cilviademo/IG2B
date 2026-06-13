@@ -15,6 +15,7 @@ import {
   questReward, computeTracks, momentumFor, progressionSummary, inferTracks, TRACKS,
   MOMENTUM_STYLE, type Track, type CompletedQuest, type CaptureNode,
 } from "@indigold/shared";
+import { boardroom, type BoardroomSubject, type BoardroomSignals } from "@indigold/shared";
 import { semanticNeighbors } from "@indigold/db";
 import type { Authed } from "../middleware/auth";
 
@@ -102,6 +103,73 @@ radianRouter.post("/ask", async (req: Authed, res) => {
   const j = await enqueue(job, req.userId!, payload);
   await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
   res.status(202).json({ mode: "job", job: j.id, verb });
+});
+
+// ---- Living OS G5: Boardroom & Multi-Agent Council (synchronous + deterministic) ----
+// Six personas deliberate over a subject and converge on a resolved action. Works with
+// NO provider key (stub) — every line is rule-derived from the subject + its graph. The
+// result is persisted as a "Boardroom" node with provenance + an event.
+radianRouter.post("/boardroom", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const subjectType = String(req.body?.subject_type || "");
+  const subjectId = String(req.body?.subject_id || "");
+  const question = req.body?.question ? String(req.body.question) : undefined;
+  if (!["node", "project", "brief", "capture"].includes(subjectType) || !subjectId) return res.status(400).json({ error: "bad_subject" });
+
+  let subject: BoardroomSubject | null = null;
+  const sig: BoardroomSignals = { question };
+  const now = Date.now();
+
+  if (subjectType === "node") {
+    const n = await repo.nodes.get(uid, subjectId);
+    if (!n) return res.status(404).json({ error: "not_found" });
+    const edges = await repo.edges.list(uid);
+    const touching = edges.filter((e) => e.source_id === subjectId || e.target_id === subjectId);
+    const neighborIds = touching.map((e) => (e.source_id === subjectId ? e.target_id : e.source_id));
+    const all = await repo.nodes.list(uid);
+    const byId = new Map(all.map((x) => [x.id, x]));
+    subject = { title: n.title, summary: n.summary, mvs: n.mvs, tags: n.tags || [], type: n.type };
+    sig.degree = touching.length;
+    sig.recentEdges = touching.filter((e) => e.valid_from && now - new Date(e.valid_from).getTime() <= 14 * 86400000).length;
+    sig.inboundBlocked = touching.some((e) => e.target_id === subjectId && /block/i.test(e.relationship));
+    sig.recencyDays = (n as { updated_at?: string }).updated_at ? Math.round((now - new Date((n as { updated_at?: string }).updated_at!).getTime()) / 86400000) : 0;
+    sig.related = neighborIds.map((idv) => byId.get(idv)?.title).filter((t): t is string => !!t).slice(0, 3);
+  } else if (subjectType === "capture") {
+    const c = await repo.captures.get(uid, subjectId);
+    if (!c) return res.status(404).json({ error: "not_found" });
+    subject = { title: c.title, summary: c.note || c.url || "", mvs: 50, tags: [], type: "capture" };
+  } else if (subjectType === "project") {
+    const proj = (await repo.projects.list(uid)).find((x) => x.id === subjectId);
+    if (!proj) return res.status(404).json({ error: "not_found" });
+    const all = await repo.nodes.list(uid);
+    const ptags = new Set((proj.tags || []).map((t: string) => t.toLowerCase()));
+    const related = all.filter((n) => (n.tags || []).some((t) => ptags.has((t || "").toLowerCase())));
+    subject = { title: proj.name, summary: proj.description || proj.objectives, mvs: 70, tags: proj.tags || [], type: "project" };
+    sig.degree = related.length;
+    sig.related = related.slice(0, 3).map((n) => n.title);
+  } else {
+    const b = (await repo.briefs.list(uid)).find((x) => x.id === subjectId);
+    subject = { title: b ? `${b.kind} brief` : "brief", summary: b ? JSON.stringify(b.payload).slice(0, 200) : "", mvs: 50, type: "brief" };
+  }
+
+  // shared signals: decision calibration → Historian.
+  try { sig.calibrationNote = calibrate(await repo.decisions.forCalibration(uid)).note; } catch { /* none */ }
+
+  const synthesis = boardroom(subject!, sig);
+
+  // persist as a Boardroom node with provenance.
+  const bid = id("node");
+  await repo.nodes.create({
+    id: bid, user_id: uid, type: "concept", title: `Boardroom — ${subject!.title}`.slice(0, 80),
+    summary: synthesis.resolved.slice(0, 400), truth_layer: "C", truth_label: "Boardroom", mvs: 60, tags: ["boardroom"],
+    meta: { boardroom: synthesis, subject_type: subjectType, subject_id: subjectId, epistemic_type: "inference" },
+  });
+  if (subjectType === "node") {
+    await repo.edges.create({ id: id("edge"), user_id: uid, source_id: subjectId, target_id: bid, relationship: "extends", weight: 0.8, valid_from: new Date().toISOString(), label: "boardroom" });
+  }
+  await repo.emitEvent({ user_id: uid, actor: "agent:Radian", event_type: "review_generated", subject_type: "node", subject_id: bid, correlation_id: subjectId, payload: { boardroom: true } });
+
+  res.json({ synthesis, node: bid });
 });
 
 // Honest job state for the panel (queued/running/done/failed + result).

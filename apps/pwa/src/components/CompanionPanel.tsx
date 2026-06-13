@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Sparkles, Loader2, Check, AlertTriangle } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, Users } from "lucide-react";
 import Sheet from "./Sheet";
 import { Button, Dot } from "./primitives";
-import { askRadian, getJob } from "@/lib/api";
+import { askRadian, getJob, conveneBoardroom, type BoardroomSynthesis } from "@/lib/api";
+import BoardroomView from "./BoardroomView";
 
 // "Ask Radian" — the Companion Panel. Orchestration only: every verb maps to an
 // existing governed backend job; the frontend makes NO direct model calls and shows
@@ -27,6 +28,17 @@ export default function CompanionPanel({
   const [status, setStatus] = useState<string | null>(null);
   const [done, setDone] = useState<"ok" | "err" | null>(null);
   const [question, setQuestion] = useState("");
+  const [board, setBoard] = useState<{ synthesis: BoardroomSynthesis; node: string } | null>(null);
+  const [boardBusy, setBoardBusy] = useState(false);
+
+  async function convene() {
+    if (boardBusy) return;
+    setBoardBusy(true); setBoard(null);
+    const r = await conveneBoardroom(subjectType, subjectId, question.trim() || undefined);
+    if (!r) setStatus("couldn't reach the Boardroom (offline or API asleep)");
+    setBoard(r);
+    setBoardBusy(false);
+  }
 
   async function run(verb: string, q?: string) {
     setRunning(verb); setDone(null); setStatus("queued…");
@@ -56,7 +68,14 @@ export default function CompanionPanel({
         <span className="cap-data ml-auto">{subjectType}</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      {/* G5 Boardroom — the multi-agent council. Synchronous + deterministic (works
+          today with no provider key); renders the six-persona synthesis inline. */}
+      <Button variant="primary" full disabled={boardBusy} onClick={() => void convene()} style={{ marginBottom: 8 }}>
+        {boardBusy ? <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> : <Users size={14} strokeWidth={1.5} />} Convene Boardroom
+      </Button>
+      {board && <BoardroomView synthesis={board.synthesis} nodeId={subjectType === "node" ? subjectId : undefined} />}
+
+      <div className="grid grid-cols-2 gap-2 mt-1">
         {verbs.map((v) => (
           <Button key={v.verb} variant="ghost" disabled={!!running} onClick={() => void run(v.verb)}>
             {running === v.verb ? <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> : null} {v.label}

@@ -357,6 +357,12 @@ async function questReq<T>(path: string, init?: RequestInit): Promise<T | null> 
     return (await res.json()) as T;
   } catch { return null; }
 }
+// G5 Boardroom — synchronous, deterministic multi-agent council. No polling needed.
+export interface BoardroomLine { persona: string; name: string; role: string; color: string; line: string }
+export interface BoardroomSynthesis { subject: string; question?: string; lines: BoardroomLine[]; resolved: string; resolvedAction: string; bootstrap: boolean }
+export const conveneBoardroom = (subjectType: string, subjectId: string, question?: string) =>
+  questReq<{ synthesis: BoardroomSynthesis; node: string }>(`/radian/boardroom`, { method: "POST", body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId, question }) });
+
 export const getLiveNodes = () => questReq<{ nodes: unknown[] }>(`/nodes`);
 export const getLiveEdges = () => questReq<{ edges: unknown[] }>(`/edges`);
 export const getQuestNodeStatus = () => questReq<{ active: string[]; completed: string[] }>(`/radian/quests/node-status`);
