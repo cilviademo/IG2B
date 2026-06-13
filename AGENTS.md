@@ -1,0 +1,21 @@
+# Indigold — agent entry point
+
+Indigold is a local-first, AI-native **Personal Intelligence OS** (iPhone → Apple
+Shortcut → PWA → auto-classify → vault), deployed on Render as a low-cost monorepo.
+
+## 🤖 MANDATORY: follow the Agent Protocol in [`docs/state/00_INDEX.md`](docs/state/00_INDEX.md) before any work.
+
+**Read first (every session):** `docs/state/00_INDEX.md` → `02_CURRENT_STATE.md` →
+`08_CONSTRAINTS.md`, plus any file for your task area. Summarize current state back before
+changing code. **After work:** append `03_CHANGELOG.md`, update `02_CURRENT_STATE.md`, log
+any bug in `05_DEBUGGING_LOG.md`, refresh header stamps. *Work without a doc update is incomplete.*
+
+## Top 5 constraints (full list in `docs/state/08_CONSTRAINTS.md`)
+1. **Never change the iOS Shortcut link/text path** (`/capture?raw=…` is a byte-for-byte contract).
+2. **Service worker NEVER caches API traffic**; any SW change needs a cache-version bump.
+3. **Capture is instant; AI is async** — a failed model call must never fail a capture.
+4. **No secrets in the repo** — Render env only; never expose keys/tokens to the PWA or logs.
+5. **The owner is the live gate** — "verified locally" ≠ done; surface real errors on screen.
+
+Canonical frontend is `apps/pwa`. Legacy prototypes (`indigold-app/`, `Indigold_App/`) are
+reference only — don't edit them.
