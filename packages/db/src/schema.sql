@@ -258,3 +258,11 @@ CREATE INDEX IF NOT EXISTS events_correlation_idx ON events(correlation_id, ts);
 CREATE INDEX IF NOT EXISTS events_subject_idx ON events(subject_type, subject_id);
 CREATE INDEX IF NOT EXISTS events_user_ts_idx ON events(user_id, ts DESC);
 
+-- Cognition Wave B — Constraint Engine. Owner-maintained profile (time/money/energy/
+-- focus/risk/commitments) injected into every planning-class prompt. One row per user.
+CREATE TABLE IF NOT EXISTS constraints (
+  user_id    TEXT PRIMARY KEY,
+  profile    JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+

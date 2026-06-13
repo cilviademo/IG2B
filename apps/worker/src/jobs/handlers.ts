@@ -12,6 +12,7 @@ import {
   deterministicAgentArtifact, parseAgentArtifact,
   deterministicSimulation, parseSimulation,
   deterministicMetaMemo, parseMetaMemo,
+  constraintPromptBlock, reconcileAgainstConstraints, DEFAULT_CONSTRAINTS, type ConstraintProfile,
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
 } from "@indigold/shared";
 import { model } from "../lib/model";
@@ -54,7 +55,11 @@ const ingestCapture: Handler = async (job) => {
     title: cap.title, summary: ingest.summary,
     truth_layer: "B", truth_label: "Normalized", mvs: ingest.mvs.score,
     tags: ingest.entities, source_capture_id: captureId,
-    meta: { kind: ingest.type, actionability: ingest.actionability, mvs_why: ingest.mvs.why, prompt_version: prompt.version },
+    meta: {
+      kind: ingest.type, actionability: ingest.actionability, mvs_why: ingest.mvs.why, prompt_version: prompt.version,
+      // B1 epistemic type: a user capture is an observation; a reference/asset is a source.
+      epistemic_type: ingest.type === "Reference" || ingest.type === "Asset" ? "source" : "observation",
+    },
   });
   // Event Store: node + classification, tied to the capture lifecycle.
   await repo.emitEvent({ user_id: job.user_id, actor: "agent:Atlas", event_type: "node_created", subject_type: "node", subject_id: nodeId, correlation_id: captureId, payload: { from: "ingest" } });
@@ -155,14 +160,17 @@ const assist: Handler = async (job) => {
     if (readme.ok) gathered += "\n" + JSON.stringify(readme.data).slice(0, 1500);
   }
 
+  // B4: inject the owner's constraint profile so the plan is reconciled, not aspirational.
+  const profile = { ...DEFAULT_CONSTRAINTS, ...((await repo.constraints.get(job.user_id)) || {}) } as ConstraintProfile;
   const prompt = getPrompt("assistance");
   const fallback = () => deterministicAssist({ title: node.title, summary: node.summary, tags: node.tags || [], url }, projects, repoRef);
   let res: AssistResult;
   try {
+    const built = prompt.build({ capture: `${node.title}\n${node.summary}\n${gathered}`, objectives: projects.map((p) => `${p.name}: ${p.objectives}`).join("\n") });
     const r = await repo.governedComplete({
       userId: job.user_id, tier: "strong", task: "planning", purpose: "assistance",
       json: true, sourceId: nodeId, promptVersion: prompt.version,
-      ...prompt.build({ capture: `${node.title}\n${node.summary}\n${gathered}`, objectives: projects.map((p) => `${p.name}: ${p.objectives}`).join("\n") }),
+      system: built.system, prompt: `${built.prompt}\n\nCONSTRAINTS:\n${constraintPromptBlock(profile)}`,
     });
     res = parseAssist(r.text) ?? fallback();
   } catch (e) {
@@ -170,19 +178,22 @@ const assist: Handler = async (job) => {
     res = fallback();
   }
 
+  // B4: flag any constraint violations explicitly (kept honest, not aspirational).
+  const constraintCheck = reconcileAgainstConstraints(res.next_actions.map((a) => ({ action: a.action, effort: a.effort, project: a.project })), profile);
+
   const childId = id("node");
   await repo.nodes.create({
     id: childId, user_id: job.user_id, type: "concept",
     title: `Playbook — ${node.title}`,
     summary: (res.playbook[0] || res.suggestions[0]?.text || "Suggested actions").slice(0, 400),
     truth_layer: "C", truth_label: "Assistance", mvs: node.mvs, tags: node.tags || [],
-    source_capture_id: srcCapId, meta: { assist: res, parent_node: nodeId, prompt_version: prompt.version, traced: !!gathered },
+    source_capture_id: srcCapId, meta: { assist: res, constraint_check: constraintCheck, parent_node: nodeId, prompt_version: prompt.version, traced: !!gathered, epistemic_type: "inference" },
   });
   await repo.edges.create({
     id: id("edge"), user_id: job.user_id, source_id: nodeId, target_id: childId,
     relationship: "extends", weight: 0.9, valid_from: new Date().toISOString(), label: "assistance",
   });
-  await repo.jobs.finish(job.id, "done", { actions: res.next_actions.length, playbook: res.playbook.length });
+  await repo.jobs.finish(job.id, "done", { actions: res.next_actions.length, playbook: res.playbook.length, constraint_violations: constraintCheck.violations.length });
 };
 
 const summarize: Handler = async (job) => {

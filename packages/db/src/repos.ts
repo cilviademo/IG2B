@@ -246,6 +246,21 @@ export async function emitEvent(e: EventInput): Promise<void> {
   }
 }
 
+// ---- Cognition Wave B: Constraint Engine (one profile row per user) ----
+export const constraints = {
+  async get(userId: string): Promise<Record<string, unknown> | null> {
+    const r = await query<{ profile: Record<string, unknown> }>(`SELECT profile FROM constraints WHERE user_id=$1`, [userId]);
+    return r.rows[0]?.profile ?? null;
+  },
+  async set(userId: string, profile: object) {
+    await query(
+      `INSERT INTO constraints (user_id, profile) VALUES ($1,$2)
+       ON CONFLICT (user_id) DO UPDATE SET profile=$2, updated_at=now()`,
+      [userId, JSON.stringify(profile)],
+    );
+  },
+};
+
 export interface Asset {
   id: string;
   user_id: string;
