@@ -63,3 +63,8 @@ commit(s) · what/why · live-test status).
 
 ### 2026-06-13 · claude (Claude Code) · `claude/integration`
 - **Integration trunk:** merged living-handoff + radian-2.0 (Waves 0–4 + provider framework) + cognition Wave A into one verified line. Resolved schema/index/handlers conflicts; re-instrumented the Event Store onto RADIAN's pipeline (node_created/classified/edge_created/brief_generated). All 7 stub suites green (120 checks); API+worker typecheck + bundle build green. This is the base for Cognition Waves B–D. Not yet owner-live-verified. PR #6.
+
+### 2026-06-13 · claude (Claude Code) · Cognition Waves B/C/D (stacked on the trunk)
+- **Wave B** (PR #7): constraint engine (injected into planning + reconciled), attention layer (`/radian/attention`), epistemic/causal/lifecycle vocabularies. 22/22.
+- **Wave C** (PR #8): memory tiers (working/long_term/core, owner-confirmed), monthly/quarterly/annual compounding reviews, Shadow Memory resurrection (VectorStore seam), simulation grounding. 16/16.
+- **Wave D** (PR #9): agent society (ADR-013, namespaced `actor`s), human-override constitution (ADR-014, injected into planning), wisdom "what matters" drift check (quarterly), export bundle (`GET /radian/export-bundle` + weekly job) + `docs/state/10_RESILIENCE.md` runbook. 14/14. Cognition A–D complete; 170 stub checks green.

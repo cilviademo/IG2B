@@ -18,3 +18,4 @@ export * from "./events";
 export * from "./vectorstore";
 export * from "./cognition-b";
 export * from "./cognition-c";
+export * from "./cognition-d";

@@ -115,4 +115,30 @@ export async function seedProjectsIfEmpty(userId: string): Promise<number> {
   return SEED_PROJECTS.length;
 }
 
+/** Wave D4: assemble the full export bundle. The vault must be reconstructable from
+ *  this JSON + the R2 objects (assets are metadata only here). No lock-in. */
+export async function buildExportBundle(userId: string) {
+  const { EXPORT_BUNDLE_VERSION } = await import("@indigold/shared");
+  const repo = await import("./repos");
+  const [projectsR, capturesR, nodesR, edgesR, eventsR, briefsR, decisionsR, oppsR, constraintsR, assetsR] = await Promise.all([
+    repo.projects.list(userId), repo.captures.list(userId), repo.nodes.list(userId), repo.edges.list(userId),
+    repo.events.listForUser(userId), repo.briefs.list(userId), repo.decisions.list(userId),
+    repo.opportunities.list(userId), repo.constraints.get(userId), repo.assets.listForUser(userId),
+  ]);
+  return {
+    app: "Indigold" as const,
+    bundle_version: EXPORT_BUNDLE_VERSION,
+    exported_at: new Date().toISOString(),
+    user_id: userId,
+    counts: {
+      projects: projectsR.length, captures: capturesR.length, nodes: nodesR.length, edges: edgesR.length,
+      events: eventsR.length, briefs: briefsR.length, decisions: decisionsR.length, opportunities: oppsR.length, assets: assetsR.length,
+    },
+    data: {
+      projects: projectsR, captures: capturesR, nodes: nodesR, edges: edgesR, events: eventsR,
+      briefs: briefsR, decisions: decisionsR, opportunities: oppsR, constraints: constraintsR, assets: assetsR,
+    },
+  };
+}
+
 export type { ProjectRow };

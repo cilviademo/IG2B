@@ -88,3 +88,15 @@ Format: **Context → Decision → Consequence → Status.** Mined from git hist
 - **Consequence:** Offline-ready fonts; coherent theme; AI-ism design bans enforced.
 - **Status:** Proposed (PR #2, unmerged). Note: light theme was added first (`1822d42`)
   then dark made default in the redesign — a deliberate sequence to avoid shipping broken.
+
+## ADR-013 — Agent Society (namespaced roles, one owner per responsibility)
+- **Context:** RADIAN does many jobs; clarity (and a future service-separation seam) needs explicit ownership.
+- **Decision:** Formalize roles as namespaced job classes + prompt sections, all in the in-process worker: **Radian** (synthesis/strategy) · **Encompass** (context) · **Hermes** (research) · **Atlas** (graph) · **Chronos** (timescale reviews) · **Oracle** (simulation) · **Forge** (proposal drafts) · **Sentinel** (budget/privacy/constraints/anomaly) · **Archivist** (consolidation/memory/shadow) · **Auditor** (meta/calibration/event analytics). Every model call + event carries its agent `actor` (`agent:<Name>`). Map in `packages/shared/src/cognition-d.ts` (`AGENT_ROLES`).
+- **Consequence:** Organizational clarity now; a clean seam for real `render.full.yaml` service separation later.
+- **Status:** Active (Cognition Wave D).
+
+## ADR-014 — Human Override is constitutional; never-delegated domains
+- **Context:** AI advises; the human decides — some domains must never be delegated.
+- **Decision:** Hard-code the boundary in prompts (`constitutionBlock`) and code: never auto-apply decisions, lifecycle promotions past research, core-memory writes, or opportunity adoption; in `purpose/ethics/faith/values/relationships/meaning` agents surface options and defer; the values/principles content of core memory is **owner-authored only** (AI may quote, never write).
+- **Consequence:** Safe autonomy; the owner stays sovereign over meaning.
+- **Status:** Active (Cognition Wave D).
