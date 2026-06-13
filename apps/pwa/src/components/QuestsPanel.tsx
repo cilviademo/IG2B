@@ -5,6 +5,7 @@ import { getQuests, suggestQuests, apiEnabled, type Quest } from "@/lib/api";
 import { questBucket, type QuestBucket as Bucket } from "@/lib/quests";
 import QuestCard from "./QuestCard";
 import CollapsibleSection from "./CollapsibleSection";
+import { useTaskAction } from "@/contexts/TaskCenter";
 
 // Mission Control's quest surface. Every quest lands in exactly ONE clearly-labelled
 // section (via the shared `questBucket`), so after any button press the card visibly
@@ -30,7 +31,8 @@ export default function QuestsPanel({ variant = "home" }: { variant?: "home" | "
     try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "[]"); } catch { return []; }
   });
   const [loading, setLoading] = useState(true);
-  const [suggesting, setSuggesting] = useState(false);
+  // Suggest runs in the background via the Task Center (notifies on the Quests tab).
+  const { start, busy: suggesting, result: suggestRes } = useTaskAction<unknown>("quests", "/quests");
 
   const refresh = useCallback(async () => {
     const r = await getQuests();
@@ -42,12 +44,12 @@ export default function QuestsPanel({ variant = "home" }: { variant?: "home" | "
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
+  // When a background Suggest completes, pull the new quests in.
+  useEffect(() => { if (suggestRes) void refresh(); }, [suggestRes, refresh]);
 
-  async function onSuggest() {
-    setSuggesting(true);
-    await suggestQuests();
-    await refresh();
-    setSuggesting(false);
+  function onSuggest() {
+    if (suggesting) return;
+    start("Suggest quests", () => suggestQuests());
   }
 
   if (!apiEnabled()) {

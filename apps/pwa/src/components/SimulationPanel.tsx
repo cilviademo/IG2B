@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FlaskConical, Loader2 } from "lucide-react";
 import { runWhatIf, getProgression, apiEnabled, type SimulationResult, type SimOutcome } from "@/lib/api";
 import CollapsibleSection from "./CollapsibleSection";
+import { useTaskAction } from "@/contexts/TaskCenter";
 
 // Mission Control — Simulation Engine (G7). "What happens if…?" → best / likely / worst
 // with probability ESTIMATES (deterministic, computed from your graph signals; never a
@@ -29,9 +30,11 @@ function OutcomeRow({ o }: { o: SimOutcome }) {
 
 export default function SimulationPanel() {
   const [q, setQ] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<SimulationResult | null>(null);
+  const [hide, setHide] = useState(false);
   const [chips, setChips] = useState<string[]>([]);
+  // Runs in the background via the Task Center (notifies on Home when ready).
+  const { start, busy, result: taskResult } = useTaskAction<{ result: SimulationResult; node: string } | null>("simulate", "/");
+  const result = hide ? null : (taskResult?.result ?? null);
 
   useEffect(() => {
     getProgression().then((d) => {
@@ -45,12 +48,10 @@ export default function SimulationPanel() {
     });
   }, []);
 
-  async function run(question: string) {
+  function run(question: string) {
     if (!question.trim() || busy) return;
-    setBusy(true); setResult(null);
-    const r = await runWhatIf(question.trim());
-    setResult(r?.result ?? null);
-    setBusy(false);
+    setHide(false);
+    start(`What-if: ${question.trim()}`, () => runWhatIf(question.trim()));
   }
 
   if (!apiEnabled()) return null;
@@ -110,7 +111,7 @@ export default function SimulationPanel() {
               ))}
             </div>
           )}
-          <button onClick={() => { setResult(null); setQ(""); }} className="press cap-data mt-2" style={{ color: "var(--gold)" }}>← new simulation</button>
+          <button onClick={() => { setHide(true); setQ(""); }} className="press cap-data mt-2" style={{ color: "var(--gold)" }}>← new simulation</button>
         </div>
       )}
     </CollapsibleSection>

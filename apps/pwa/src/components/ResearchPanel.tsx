@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Telescope, Loader2, ChevronRight } from "lucide-react";
 import { getHorizon, runHorizonScan, apiEnabled, type HorizonDirection } from "@/lib/api";
 import CollapsibleSection from "./CollapsibleSection";
+import { useTaskAction } from "@/contexts/TaskCenter";
 
 // Mission Control — Research Horizon (G6). Deterministic research directions across your
 // active domains (what to scan next, computed from graph gaps — never fabricated
@@ -10,24 +11,21 @@ import CollapsibleSection from "./CollapsibleSection";
 const PRIO_COLOR: Record<string, string> = { high: "var(--gold)", med: "var(--info)", low: "var(--text-dim)" };
 
 export default function ResearchPanel() {
-  const [dirs, setDirs] = useState<HorizonDirection[] | null>(null);
-  const [chain, setChain] = useState<string[]>([]);
-  const [scannedAt, setScannedAt] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<{ dirs: HorizonDirection[]; chain: string[]; scannedAt: string | null } | null>(null);
+  // The scan runs in the background via the Task Center (notifies on Home when ready).
+  const { start, busy, result: scan } = useTaskAction<{ directions: HorizonDirection[]; quests_created: number; chain: string[] } | null>("horizon", "/");
 
-  async function load() {
-    const r = await getHorizon();
-    if (r) { setChain(r.chain || []); setDirs(r.horizon?.payload.directions ?? []); setScannedAt(r.horizon?.payload.scanned_at ?? null); }
-  }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    getHorizon().then((r) => { if (r) setLoaded({ dirs: r.horizon?.payload.directions ?? [], chain: r.chain || [], scannedAt: r.horizon?.payload.scanned_at ?? null }); });
+  }, []);
 
-  async function scan() {
-    setBusy(true); setNote(null);
-    const r = await runHorizonScan();
-    if (r) { setDirs(r.directions); setChain(r.chain || chain); setScannedAt(new Date().toISOString()); setNote(`${r.directions.length} directions · ${r.quests_created} research quest${r.quests_created === 1 ? "" : "s"} added → see Quests`); }
-    setBusy(false);
-  }
+  // Prefer a fresh scan result; else the loaded horizon brief.
+  const dirs = scan?.directions ?? loaded?.dirs ?? null;
+  const chain = scan?.chain ?? loaded?.chain ?? [];
+  const scannedAt = scan ? new Date().toISOString() : (loaded?.scannedAt ?? null);
+  const note = scan ? `${scan.directions.length} directions · ${scan.quests_created} research quest${scan.quests_created === 1 ? "" : "s"} added → see Quests` : null;
+
+  function runScan() { if (busy) return; start("Research horizon scan", () => runHorizonScan()); }
 
   if (!apiEnabled()) return null;
 
@@ -38,7 +36,7 @@ export default function ResearchPanel() {
     </span>
   );
   const action = (
-    <button onClick={scan} disabled={busy} className="press flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold" style={{ borderRadius: 999, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
+    <button onClick={runScan} disabled={busy} className="press flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold" style={{ borderRadius: 999, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
       {busy ? <Loader2 size={12} strokeWidth={1.5} className="animate-spin" /> : <Telescope size={12} strokeWidth={1.5} />} Scan now
     </button>
   );

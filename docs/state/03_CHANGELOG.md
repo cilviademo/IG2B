@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: task-center · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: task-center-all · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -162,6 +162,12 @@ commit(s) · what/why · live-test status).
   - **API**: `POST /radian/whatif` (synchronous) computes deterministic signals per option by matching projects/nodes (momentum via `momentumFor`, MVS, recency, degree), runs the engine, persists an **"Analysis"** node (`meta.simulation`, shows in `GET /radian/simulations`) + a `review_generated` event.
   - **PWA**: Mission Control **Simulate** panel (collapsible) — a "What happens if…?" input + project-derived scenario/comparison chips; renders **animated best/likely/worst probability bars**, a Recommendation card, and the assumptions (incl. the "ESTIMATES, not predictions" disclaimer).
   - **Verification**: typecheck clean (pwa/api/worker); pwa+api build green; `simulation-engine-verify` **21/21**; regressions green (quests 40/40, progression 32/32, boardroom 15/15, research 15/15). **Live end-to-end** (ephemeral PG+Redis, stub mode): scenario "focus BTZ TRACE" → best 39 / likely 40 / worst 21 (sum 100), conf 0.71, "Proceed"; comparison "BTZ TRACE vs Business vs Genesis" → ranked by real feasibility (81/65/29), "Lead with BTZ TRACE; hold Genesis"; the panel **renders in-app** (verified via instrumented run — `WHATIF:comparison:2`, Recommendation on screen); screenshot `g7-simulate.png`. Capture/upload/SW/Shortcut + G1–G6 untouched. Live status: pending owner phone-gate.
+
+### 2026-06-13 · claude (Claude Code) · `claude/task-center-all` → main
+- **Task Center rolled out to ALL actions** (owner request: "same action for all tabs and actions"). Added a `kind` to each task + a reusable **`useTaskAction(kind, tab)`** hook (background run + result read-back + busy), and a `latest(tab, kind)` so multiple actions sharing a tab don't conflate. Wired:
+  - **Simulate** (what-if) → tab `/`, **Research Horizon scan** → `/`, **Mentor** (all intents) → `/time-machine`, **Quests Suggest** → `/quests` (auto-refreshes on completion), and the **Companion verb jobs** (explain/teach/research/challenge/ask) → `/atlas` (the sheet hands the job poll to the Task Center, so closing the sheet still notifies when the child node lands). Context "Pack" already wired.
+  - Each surface now: runs in the background (survives navigating away), reads its result back from the Task Center (survives navigation), shows the "Ready" toast off-tab, and leaves a tab badge if snoozed.
+  - **Verified live** (ephemeral PG+Redis): a Simulate scenario started on Home renders inline when complete and the what-if "Ready" toast fires off-tab; confirmed the result is read back via the hook. (Observed Home is API-bound ~12s under the concurrent on-mount panel load of one process — which is exactly why background tasks help; pre-existing, not introduced here.) pwa typecheck + build green; no backend changes.
 
 ### 2026-06-13 · claude (Claude Code) · `claude/task-center` → main
 - **Task Center — in-app background tasks + notifications** (owner request): trigger an action, leave the tab, and the work keeps running with an in-app pop-up + tab badge when it's ready (social-style).

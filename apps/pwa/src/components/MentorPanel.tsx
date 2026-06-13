@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { MessageCircle, Loader2, Sparkles } from "lucide-react";
 import { askMentor, apiEnabled, type MentorReply } from "@/lib/api";
 import CollapsibleSection from "./CollapsibleSection";
+import { useTaskAction } from "@/contexts/TaskCenter";
 
 // Mentor Mode (G9) — "talk with past you". Pick a question; the reply is voiced from your
 // real history (Time Machine window + decisions/calibration + active focus). Deterministic
@@ -15,15 +15,14 @@ const QUESTIONS: { intent: string; label: string }[] = [
 ];
 
 export default function MentorPanel({ rangeDays = 90 }: { rangeDays?: number }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const [reply, setReply] = useState<MentorReply | null>(null);
+  // Runs in the background via the Task Center (notifies on the Time Machine tab).
+  const { start, busy, result } = useTaskAction<{ reply: MentorReply } | null>("mentor", "/time-machine");
+  const reply = result?.reply ?? null;
 
-  async function ask(intent: string) {
+  function ask(intent: string) {
     if (busy) return;
-    setBusy(intent); setReply(null);
-    const r = await askMentor(intent, rangeDays);
-    setReply(r?.reply ?? null);
-    setBusy(null);
+    const label = QUESTIONS.find((q) => q.intent === intent)?.label || "Mentor";
+    start(`Mentor: ${label}`, () => askMentor(intent, rangeDays));
   }
 
   if (!apiEnabled()) return null;
@@ -37,18 +36,19 @@ export default function MentorPanel({ rangeDays = 90 }: { rangeDays?: number }) 
 
   return (
     <CollapsibleSection persistKey="tm_mentor" tint="var(--gold)" title={title} defaultOpen={false}>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {QUESTIONS.map((q) => (
           <button
             key={q.intent}
-            onClick={() => void ask(q.intent)}
-            disabled={!!busy}
+            onClick={() => ask(q.intent)}
+            disabled={busy}
             className="press cap-data px-2.5 py-1.5"
-            style={{ borderRadius: 999, border: "1px solid var(--line)", color: busy === q.intent ? "var(--gold)" : "var(--text-dim)" }}
+            style={{ borderRadius: 999, border: "1px solid var(--line)", color: "var(--text-dim)", opacity: busy ? 0.5 : 1 }}
           >
-            {busy === q.intent ? <Loader2 size={11} strokeWidth={1.5} className="animate-spin inline" /> : null} {q.label}
+            {q.label}
           </button>
         ))}
+        {busy && <Loader2 size={13} strokeWidth={1.5} className="animate-spin" style={{ color: "var(--gold)" }} />}
       </div>
 
       {reply && (

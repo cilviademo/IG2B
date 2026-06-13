@@ -4,6 +4,7 @@ import Sheet from "./Sheet";
 import { Button, Dot } from "./primitives";
 import { askRadian, getJob, conveneBoardroom, type BoardroomSynthesis } from "@/lib/api";
 import BoardroomView from "./BoardroomView";
+import { useTasks } from "@/contexts/TaskCenter";
 
 // "Ask Radian" — the Companion Panel. Orchestration only: every verb maps to an
 // existing governed backend job; the frontend makes NO direct model calls and shows
@@ -31,6 +32,7 @@ export default function CompanionPanel({
   const [question, setQuestion] = useState("");
   const [board, setBoard] = useState<{ synthesis: BoardroomSynthesis; node: string } | null>(null);
   const [boardBusy, setBoardBusy] = useState(false);
+  const { runTask } = useTasks();
 
   async function convene() {
     if (boardBusy) return;
@@ -46,18 +48,24 @@ export default function CompanionPanel({
     const r = await askRadian(subjectType, subjectId, verb, q);
     if (!r) { setStatus("couldn't reach Radian (offline or API asleep)"); setDone("err"); setRunning(null); return; }
     if (r.mode === "done") { setStatus("✓ task created in your vault"); setDone("ok"); setRunning(null); return; }
-    // Poll the job honestly (no fake success).
+    // Hand the job to the Task Center — it polls to completion in the background, so you
+    // can close this sheet / switch tabs and still be notified when the child node lands.
     const jobId = r.job!;
-    for (let i = 0; i < 24; i++) {
-      await sleep(1500);
-      const j = await getJob(jobId);
-      if (!j) { setStatus("running… (job state unavailable)"); continue; }
-      if (j.status === "done") { setStatus(`✓ ${verb.replace("_", " ")} done — a child node was added with provenance`); setDone("ok"); setRunning(null); return; }
-      if (j.status === "failed") { setStatus(`✗ ${verb}: ${j.error || "failed"}`); setDone("err"); setRunning(null); return; }
-      if (j.status === "queued" && j.error === "budget_governor") { setStatus("queued — over budget; will run when the budget allows"); setDone("ok"); setRunning(null); return; }
-      setStatus(`${verb.replace("_", " ")}: ${j.status}…`);
-    }
-    setStatus(`${verb.replace("_", " ")}: still running — check the vault shortly`); setRunning(null);
+    const label = `${verb.replace("_", " ")} — ${title}`;
+    runTask({
+      kind: "companion", tab: "/atlas", label,
+      run: async () => {
+        for (let i = 0; i < 40; i++) {
+          await sleep(1500);
+          const j = await getJob(jobId);
+          if (!j) continue;
+          if (j.status === "done" || j.status === "failed" || (j.status === "queued" && j.error === "budget_governor")) return j;
+        }
+        return { status: "timeout" };
+      },
+    });
+    setRunning(null); setDone("ok");
+    setStatus(`${verb.replace("_", " ")} running in the background — you can leave; you'll be notified when it's ready.`);
   }
 
   const verbs = VERBS.filter((v) => v.on.includes(subjectType));
