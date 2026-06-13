@@ -57,3 +57,9 @@ commit(s) · what/why · live-test status).
 
 ### 2026-06-12 · claude (Claude Code) · `claude/living-handoff-system`
 - Created the Living Handoff System (`docs/state/` + `CLAUDE.md`/`AGENTS.md`/`.cursor` pointers + README section + changelog drift-guard CI). Reconstructed history from `git log --all`; opened PRs #1/#2/#3 for the three completed feature branches. Live-test status: docs only, no code paths changed.
+
+### 2026-06-13 · claude (Claude Code) · `claude/cognition-expansion`
+- **Cognition Wave A:** Event Store (append-only `events` + `emitEvent`, instrumented on capture/upload/worker), `GET /events` correlation replay, VectorStore seam (entity/tag; pgvector deferred), Phase-0 dedup map. Stub-tested 12/12. PR #5. Deltas in `directives/COGNITION_WAVEA_LOG.md`.
+
+### 2026-06-13 · claude (Claude Code) · `claude/integration`
+- **Integration trunk:** merged living-handoff + radian-2.0 (Waves 0–4 + provider framework) + cognition Wave A into one verified line. Resolved schema/index/handlers conflicts; re-instrumented the Event Store onto RADIAN's pipeline (node_created/classified/edge_created/brief_generated). All 7 stub suites green (120 checks); API+worker typecheck + bundle build green. This is the base for Cognition Waves B–D. Not yet owner-live-verified. PR #6.
