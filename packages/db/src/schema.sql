@@ -155,3 +155,88 @@ CREATE TABLE IF NOT EXISTS assets (
 CREATE INDEX IF NOT EXISTS assets_user_idx ON assets(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS assets_capture_idx ON assets(capture_id);
 
+-- ===========================================================================
+-- RADIAN 2.0 (Wave 0) — additive. Project Registry, per-call cost ledger,
+-- prompt-registry runtime overrides.
+-- ===========================================================================
+
+-- Project Registry: the owner's active domains. Stage 2 interprets every capture
+-- relative to this; captures/actions/opportunities/sims reference these ids.
+CREATE TABLE IF NOT EXISTS projects (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  status      TEXT NOT NULL DEFAULT 'active',
+  tags        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  objectives  TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS projects_user_idx ON projects(user_id);
+
+-- Per-call AI cost ledger: every model call logs purpose/model/tokens/cost/source
+-- + prompt version. Budget governor sums month-to-date from here.
+CREATE TABLE IF NOT EXISTS ai_calls (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL,
+  purpose        TEXT NOT NULL,
+  provider       TEXT NOT NULL DEFAULT 'deterministic',
+  model          TEXT NOT NULL,
+  tier           TEXT NOT NULL,
+  input_tokens   BIGINT NOT NULL DEFAULT 0,
+  output_tokens  BIGINT NOT NULL DEFAULT 0,
+  cost_cents     REAL NOT NULL DEFAULT 0,
+  source_id      TEXT,
+  prompt_version TEXT,
+  status         TEXT NOT NULL DEFAULT 'ok',
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ai_calls_user_month_idx ON ai_calls(user_id, created_at DESC);
+
+-- Prompt registry runtime overrides (Meta-Radian version bumps without redeploy).
+CREATE TABLE IF NOT EXISTS prompt_overrides (
+  key        TEXT NOT NULL,
+  user_id    TEXT NOT NULL,
+  version    TEXT NOT NULL,
+  body       JSONB,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, key)
+);
+
+-- Wave 1: enrichment provenance on nodes (Stage-1 actionability/entities, Stage-2
+-- project_relevance, prompt version, model). Additive.
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- Wave 3 Stage 7: Opportunity proposals (review queue; never auto-promoted).
+CREATE TABLE IF NOT EXISTS opportunities (
+  id                TEXT PRIMARY KEY,
+  user_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  thesis            TEXT NOT NULL,
+  contributing_nodes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  confidence        REAL NOT NULL DEFAULT 0.5,
+  leverage          TEXT NOT NULL DEFAULT 'MED',
+  first_move        TEXT NOT NULL DEFAULT '',
+  status            TEXT NOT NULL DEFAULT 'review',
+  decay_date        DATE,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS opportunities_user_idx ON opportunities(user_id, created_at DESC);
+
+-- Wave 3 Stage 8: Decision journal (calibration feeds the Meta memo).
+CREATE TABLE IF NOT EXISTS decisions (
+  id               TEXT PRIMARY KEY,
+  user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  decision         TEXT NOT NULL,
+  reasoning        TEXT NOT NULL DEFAULT '',
+  confidence       REAL NOT NULL DEFAULT 0.5,
+  expected_outcome TEXT NOT NULL DEFAULT '',
+  review_by        DATE,
+  outcome          TEXT,
+  outcome_success  BOOLEAN,
+  outcome_at       TIMESTAMPTZ,
+  status           TEXT NOT NULL DEFAULT 'open',
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS decisions_user_idx ON decisions(user_id, review_by);
+

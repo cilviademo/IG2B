@@ -60,13 +60,28 @@ export const captures = {
 
 // ---- nodes ----
 export const nodes = {
-  async create(n: GraphNode & { source_capture_id?: string | null }) {
+  async create(n: GraphNode & { source_capture_id?: string | null; meta?: object }) {
     await query(
-      `INSERT INTO nodes (id,user_id,type,title,summary,truth_layer,truth_label,mvs,tags,source_capture_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      `INSERT INTO nodes (id,user_id,type,title,summary,truth_layer,truth_label,mvs,tags,source_capture_id,meta)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [n.id, n.user_id, n.type, n.title, n.summary, n.truth_layer, n.truth_label, n.mvs,
-       JSON.stringify(n.tags ?? []), n.source_capture_id ?? null],
+       JSON.stringify(n.tags ?? []), n.source_capture_id ?? null, JSON.stringify(n.meta ?? {})],
     );
+  },
+  async setMeta(userId: string, id: string, meta: object) {
+    await query(`UPDATE nodes SET meta=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, JSON.stringify(meta)]);
+  },
+  // Idempotent theme node (Stage 9): one per (user, tag), refreshed each consolidation.
+  async upsertTheme(userId: string, tag: string, nodeIds: string[]) {
+    const tid = `theme_${userId.slice(-8)}_${tag.replace(/[^a-z0-9]/gi, "").slice(0, 24)}`;
+    await query(
+      `INSERT INTO nodes (id,user_id,type,title,summary,truth_layer,truth_label,mvs,tags,meta)
+       VALUES ($1,$2,'concept',$3,$4,'C','Theme',$5,$6,$7)
+       ON CONFLICT (id) DO UPDATE SET summary=$4, mvs=$5, tags=$6, meta=$7, updated_at=now()`,
+      [tid, userId, `Theme: ${tag}`, `${nodeIds.length} related nodes`, Math.min(90, 50 + nodeIds.length * 4),
+       JSON.stringify([tag]), JSON.stringify({ theme: true, node_ids: nodeIds })],
+    );
+    return tid;
   },
   async list(userId: string) {
     const r = await query<GraphNode>(`SELECT * FROM nodes WHERE user_id=$1 ORDER BY mvs DESC`, [userId]);
@@ -220,6 +235,150 @@ export const usage = {
        ON CONFLICT (user_id,day) DO UPDATE SET
          tokens=api_usage.tokens+$3, api_calls=api_usage.api_calls+$4, cost_cents=api_usage.cost_cents+$5`,
       [userId, day, d.tokens ?? 0, d.apiCalls ?? 0, d.costCents ?? 0],
+    );
+  },
+};
+
+// ---- RADIAN 2.0 (Wave 0) ----
+
+export interface ProjectRow {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  status: string;
+  tags: string[];
+  objectives: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const projects = {
+  async list(userId: string) {
+    const r = await query<ProjectRow>(`SELECT * FROM projects WHERE user_id=$1 ORDER BY name ASC`, [userId]);
+    return r.rows;
+  },
+  async get(userId: string, id: string) {
+    const r = await query<ProjectRow>(`SELECT * FROM projects WHERE user_id=$1 AND id=$2`, [userId, id]);
+    return r.rows[0] || null;
+  },
+  async count(userId: string) {
+    const r = await query<{ n: string }>(`SELECT COUNT(*)::text AS n FROM projects WHERE user_id=$1`, [userId]);
+    return Number(r.rows[0]?.n || 0);
+  },
+  async upsert(p: { id: string; user_id: string; name: string; description?: string; status?: string; tags?: string[]; objectives?: string }) {
+    await query(
+      `INSERT INTO projects (id,user_id,name,description,status,tags,objectives)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (id) DO UPDATE SET name=$3, description=$4, status=$5, tags=$6, objectives=$7, updated_at=now()`,
+      [p.id, p.user_id, p.name, p.description ?? "", p.status ?? "active", JSON.stringify(p.tags ?? []), p.objectives ?? ""],
+    );
+  },
+  async patch(userId: string, id: string, patch: Partial<Pick<ProjectRow, "name" | "description" | "status" | "tags" | "objectives">>) {
+    const fields: string[] = [];
+    const vals: unknown[] = [userId, id];
+    for (const [k, val] of Object.entries(patch)) {
+      if (["name", "description", "status", "tags", "objectives"].includes(k)) {
+        vals.push(k === "tags" ? JSON.stringify(val) : val);
+        fields.push(`${k}=$${vals.length}`);
+      }
+    }
+    if (!fields.length) return;
+    await query(`UPDATE projects SET ${fields.join(",")}, updated_at=now() WHERE user_id=$1 AND id=$2`, vals);
+  },
+};
+
+export const aiCalls = {
+  async log(c: {
+    id: string; user_id: string; purpose: string; provider: string; model: string; tier: string;
+    input_tokens: number; output_tokens: number; cost_cents: number; source_id?: string | null; prompt_version?: string | null; status?: string;
+  }) {
+    await query(
+      `INSERT INTO ai_calls (id,user_id,purpose,provider,model,tier,input_tokens,output_tokens,cost_cents,source_id,prompt_version,status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [c.id, c.user_id, c.purpose, c.provider, c.model, c.tier, c.input_tokens, c.output_tokens, c.cost_cents, c.source_id ?? null, c.prompt_version ?? null, c.status ?? "ok"],
+    );
+  },
+  /** Month-to-date spend in cents (the budget governor's input). */
+  async monthCostCents(userId: string) {
+    const r = await query<{ c: string }>(
+      `SELECT COALESCE(SUM(cost_cents),0)::text AS c FROM ai_calls
+       WHERE user_id=$1 AND created_at >= date_trunc('month', now())`,
+      [userId],
+    );
+    return Number(r.rows[0]?.c || 0);
+  },
+  /** Spend grouped by purpose this month (Meta-Radian input). */
+  async monthByPurpose(userId: string) {
+    const r = await query<{ purpose: string; cost: string; calls: string }>(
+      `SELECT purpose, COALESCE(SUM(cost_cents),0)::text AS cost, COUNT(*)::text AS calls FROM ai_calls
+       WHERE user_id=$1 AND created_at >= date_trunc('month', now()) GROUP BY purpose ORDER BY 2 DESC`,
+      [userId],
+    );
+    return r.rows.map((x) => ({ purpose: x.purpose, cost_cents: Number(x.cost), calls: Number(x.calls) }));
+  },
+};
+
+export const opportunities = {
+  async create(o: { id: string; user_id: string; thesis: string; contributing_nodes: string[]; confidence: number; leverage: string; first_move: string; decay_date?: string | null }) {
+    await query(
+      `INSERT INTO opportunities (id,user_id,thesis,contributing_nodes,confidence,leverage,first_move,decay_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [o.id, o.user_id, o.thesis, JSON.stringify(o.contributing_nodes), o.confidence, o.leverage, o.first_move, o.decay_date ?? null],
+    );
+  },
+  async list(userId: string) {
+    const r = await query(`SELECT * FROM opportunities WHERE user_id=$1 ORDER BY created_at DESC`, [userId]);
+    return r.rows;
+  },
+  async setStatus(userId: string, id: string, status: string) {
+    await query(`UPDATE opportunities SET status=$3 WHERE user_id=$1 AND id=$2`, [userId, id, status]);
+  },
+  // Expire opportunities past their decay date (re-evaluation; never auto-promoted).
+  async expireStale(userId: string) {
+    await query(`UPDATE opportunities SET status='expired' WHERE user_id=$1 AND status='review' AND decay_date IS NOT NULL AND decay_date < now()::date`, [userId]);
+  },
+  async recentTheses(userId: string, days = 30) {
+    const r = await query<{ thesis: string }>(`SELECT thesis FROM opportunities WHERE user_id=$1 AND created_at > now() - ($2 || ' days')::interval`, [userId, String(days)]);
+    return r.rows.map((x) => x.thesis);
+  },
+};
+
+export const decisions = {
+  async create(d: { id: string; user_id: string; decision: string; reasoning?: string; confidence?: number; expected_outcome?: string; review_by?: string | null }) {
+    await query(
+      `INSERT INTO decisions (id,user_id,decision,reasoning,confidence,expected_outcome,review_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [d.id, d.user_id, d.decision, d.reasoning ?? "", d.confidence ?? 0.5, d.expected_outcome ?? "", d.review_by ?? null],
+    );
+  },
+  async list(userId: string) {
+    const r = await query(`SELECT * FROM decisions WHERE user_id=$1 ORDER BY created_at DESC`, [userId]);
+    return r.rows;
+  },
+  async due(userId: string) {
+    const r = await query(`SELECT * FROM decisions WHERE user_id=$1 AND status='open' AND review_by IS NOT NULL AND review_by <= now()::date ORDER BY review_by ASC`, [userId]);
+    return r.rows;
+  },
+  async recordOutcome(userId: string, id: string, outcome: string, success: boolean) {
+    await query(`UPDATE decisions SET outcome=$3, outcome_success=$4, outcome_at=now(), status='reviewed' WHERE user_id=$1 AND id=$2`, [userId, id, outcome, success]);
+  },
+  async forCalibration(userId: string) {
+    const r = await query<{ confidence: number; outcome_success: boolean | null }>(`SELECT confidence, outcome_success FROM decisions WHERE user_id=$1`, [userId]);
+    return r.rows;
+  },
+};
+
+export const promptOverrides = {
+  async get(userId: string, key: string) {
+    const r = await query<{ version: string }>(`SELECT version FROM prompt_overrides WHERE user_id=$1 AND key=$2`, [userId, key]);
+    return r.rows[0] || null;
+  },
+  async set(userId: string, key: string, version: string, body?: object) {
+    await query(
+      `INSERT INTO prompt_overrides (user_id,key,version,body) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (user_id,key) DO UPDATE SET version=$3, body=$4, updated_at=now()`,
+      [userId, key, version, body ? JSON.stringify(body) : null],
     );
   },
 };

@@ -7,6 +7,7 @@ import { capturesRouter, nodesRouter, edgesRouter, timelineRouter } from "./rout
 import { contextRouter, briefsRouter, usageRouter } from "./routes/intelligence";
 import { ioRouter } from "./routes/io";
 import { uploadRouter } from "./routes/upload";
+import { projectsRouter, radianRouter, llmRouter } from "./routes/radian";
 import { requireAuth } from "./middleware/auth";
 import { limit } from "./middleware/ratelimit";
 
@@ -58,6 +59,9 @@ app.use("/timeline", requireAuth, timelineRouter);
 app.use("/context-packs", requireAuth, contextRouter);
 app.use("/briefs", requireAuth, briefsRouter);
 app.use("/usage", requireAuth, usageRouter);
+app.use("/projects", requireAuth, projectsRouter);
+app.use("/radian", requireAuth, radianRouter);
+app.use("/llm", requireAuth, llmRouter);
 // File upload (multipart) + signed asset URLs. requireAuth rejects anonymous
 // requests; busboy reads the raw stream (express.json ignores multipart bodies).
 app.use("/", requireAuth, uploadRouter);

@@ -13,14 +13,21 @@ async function runOncePerDay() {
   if (last === today) return; // already fanned out today
   await redis().set("scheduler:lastrun", today);
 
-  const isMonday = new Date().getUTCDay() === 1;
+  const now = new Date();
+  const isMonday = now.getUTCDay() === 1;
+  const isMonthFirst = now.getUTCDate() === 1;
   const res = await query<{ id: string }>("SELECT id FROM users");
   for (const u of res.rows) {
     await enqueue("daily_brief", u.id, {});
     await enqueue("monitor_scan", u.id, {});
-    if (isMonday) await enqueue("weekly_review", u.id, {});
+    await enqueue("consolidate", u.id, {}); // Stage 9 nightly
+    if (isMonday) {
+      await enqueue("weekly_review", u.id, {});
+      await enqueue("opportunity_scan", u.id, {}); // Stage 7 weekly
+    }
+    if (isMonthFirst) await enqueue("calibration", u.id, {}); // Stage 8 monthly
   }
-  console.log(`[api/scheduler] fan-out for ${res.rows.length} users (weekly=${isMonday})`);
+  console.log(`[api/scheduler] fan-out for ${res.rows.length} users (weekly=${isMonday}, monthly=${isMonthFirst})`);
 }
 
 export function startScheduler() {

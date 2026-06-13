@@ -93,11 +93,19 @@ export interface Brief {
 
 export type JobType =
   | "ingest_capture"
+  | "contextualize"
+  | "assist"
   | "summarize"
   | "tag"
   | "graph_update"
   | "context_pack"
   | "research"
+  | "opportunity_scan"
+  | "consolidate"
+  | "calibration"
+  | "agent_task"
+  | "simulation"
+  | "meta_review"
   | "daily_brief"
   | "weekly_review"
   | "monitor_scan";

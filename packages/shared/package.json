@@ -7,7 +7,16 @@
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/types.ts",
-    "./contracts": "./src/contracts.ts"
+    "./contracts": "./src/contracts.ts",
+    "./intelligence": "./src/intelligence.ts",
+    "./model": "./src/model.ts",
+    "./providers": "./src/providers.ts",
+    "./prompts": "./src/prompts.ts",
+    "./registry": "./src/registry.ts",
+    "./radian-stages": "./src/radian-stages.ts",
+    "./radian-stages2": "./src/radian-stages2.ts",
+    "./radian-stages3": "./src/radian-stages3.ts",
+    "./radian-stages4": "./src/radian-stages4.ts"
   },
   "dependencies": {
     "ioredis": "^5.4.1",
