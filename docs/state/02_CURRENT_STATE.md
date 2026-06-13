@@ -1,8 +1,10 @@
 # Current State
 
-`Last updated: 2026-06-13 · Commit: task-center (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: phase-0-hygiene (off main) · By: claude (Claude Code)`
 
-> **Perf fix (latest):** the embedded worker's blocking `BRPOPLPUSH` shared the main Redis client and stalled every API request (~15s) — the real cause of slow loads. `consume()` now uses a dedicated Redis connection; endpoints dropped to <20ms (5 concurrent Home requests = 37ms). One-line fix in `queue.ts`; worker still processes jobs.
+> **Hardening Phase 0 done (latest):** green-matrix baseline = **386/386** across 21 `*-verify` suites + api/worker/pwa typecheck & build green; schema.ts **byte-current** with schema.sql (no drift). New `scripts/dedupe-derived-nodes.ts` (dry-run by default, `--apply` to write) collapses duplicate AI-derived nodes (Boardroom/What-if/etc.) keeping the earliest + re-pointing edges/quest anchors — self-tested + idempotent; **dev-vault dry-run is the owner's to run** (sandbox can't reach Render). Mode = VERIFICATION + HARDENING; no new G12+ waves until gates are green. Next: **Phase 1** = author `09_PHONE_GATES.md` (markdown checklist, not a PWA page).
+
+> **Perf fix:** the embedded worker's blocking `BRPOPLPUSH` shared the main Redis client and stalled every API request (~15s) — the real cause of slow loads. `consume()` now uses a dedicated Redis connection; endpoints dropped to <20ms (5 concurrent Home requests = 37ms). One-line fix in `queue.ts`; worker still processes jobs.
 
 > **Task Center:** in-app background tasks across ALL actions — trigger, leave the tab, it keeps running; a "Ready" pop-up (View/Snooze) surfaces it; snoozed → a tab bubble (clears on visit). `TaskProvider` + `TaskToast` + TabBar badges + `useTaskAction(kind,tab)` hook. Wired: Context Pack, Simulate, Research scan, Mentor, Quests Suggest, Companion verb jobs. Live-verified. (Home is API-bound ~12s under concurrent panel load on one process — background tasks make that painless; pre-existing.)
 
