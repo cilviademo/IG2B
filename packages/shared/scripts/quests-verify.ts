@@ -43,14 +43,30 @@ ok("time-machine quest carries reason + node", tq.source_type === "time_machine"
 const cq = questFromCompanion({ node_id: "n2", verb: "research", title: "Modulation" });
 ok("companion research → research quest", cq.kind === "research" && cq.source_type === "companion");
 
-// bulk suggest + de-dupe
+// bulk suggest from MANY real signals + de-dupe
 const seeds = suggestQuests({
-  briefActions: [{ text: "Ship Quartz", priority: "high" }, { text: "Ship Quartz", priority: "high" }],
+  inboxCount: 4,
+  reviewCount: 2,
+  recommendedFocus: [{ text: "Ship Quartz", priority: "high" }, { text: "Ship Quartz", priority: "high" }],
+  topNodes: [{ id: "n1", title: "Quartz", mvs: 92 }, { id: "n2", title: "Mid node", mvs: 40 }],
   forgottenGems: [{ id: "g1", title: "Forgotten gem" }],
+  resurfacedThemes: ["audio"],
+  activeProjects: [{ id: "p1", name: "Audio Tools" }],
   blockedNodes: [{ id: "b1", title: "Blocked thing" }],
+  hasDecisions: true, hasContextPacks: true,
 });
 ok("suggest de-dupes by title", seeds.filter((s) => s.title === questFromBriefAction({ text: "Ship Quartz", priority: "high" }, "x").title).length === 1);
-ok("suggest pulls from brief + gems + blocked", seeds.length === 3, JSON.stringify(seeds.map((s) => s.source_type)));
+ok("suggest emits an inbox-triage quest", seeds.some((s) => s.source_type === "inbox"));
+ok("suggest emits a review-queue quest", seeds.some((s) => s.source_type === "review"));
+ok("suggest advances high-MVS node, skips low one", seeds.some((s) => s.source_type === "node" && s.node_id === "n1") && !seeds.some((s) => s.node_id === "n2"));
+ok("suggest pushes active projects", seeds.some((s) => s.source_type === "project" && s.source_id === "p1"));
+ok("suggest uses resurfaced themes", seeds.some((s) => s.source_type === "time_machine" && /audio/.test(s.title)));
+
+// sparse vault → safe onboarding fallback (never empty)
+const onboarding = suggestQuests({ inboxCount: 0, topNodes: [], activeProjects: [] });
+ok("empty vault yields onboarding quests", onboarding.length >= 5, JSON.stringify(onboarding.map((s) => s.title)));
+ok("onboarding includes Triage + decision + context pack + time machine", ["Triage", "decision", "context pack", "Time Machine"].every((kw) => onboarding.some((s) => new RegExp(kw, "i").test(s.title))));
+ok("unused journal/packs → first-decision + first-context-pack nudges", (() => { const s = suggestQuests({ inboxCount: 1, hasDecisions: false, hasContextPacks: false }); return s.some((x) => /first decision/i.test(x.title)) && s.some((x) => /first context pack/i.test(x.title)); })());
 
 // styles cover every kind/state
 ok("every kind has a style", QUEST_KINDS.every((k) => !!QUEST_KIND_STYLE[k].label));

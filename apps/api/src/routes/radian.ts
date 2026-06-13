@@ -161,19 +161,36 @@ radianRouter.post("/quests", async (req: Authed, res) => {
   res.status(201).json(await repo.quests.get(req.userId!, qid));
 });
 
-// Deterministically suggest quests from the latest brief + Time Machine forgotten gems
-// + blocked nodes. No LLM. Idempotent-ish: skips titles that already exist.
+// Deterministically suggest quests from the REAL (often sparse) live vault: inbox
+// backlog, brief / recommended focus, review queue, high-MVS nodes, Time Machine
+// resurfaced + forgotten gems, and active projects — with an onboarding fallback so a
+// fresh vault is never empty. No LLM. Idempotent-ish: skips titles that already exist.
 radianRouter.post("/quests/suggest", async (req: Authed, res) => {
   const uid = req.userId!;
-  const [briefs, nodes, edges] = await Promise.all([repo.briefs.list(uid), repo.nodes.list(uid), repo.edges.list(uid)]);
+  await seedProjectsIfEmpty(uid); // ensures a fresh vault has active domains to act on
+  const [briefs, nodes, edges, captures, opps, projects, decisionsR, packsR] = await Promise.all([
+    repo.briefs.list(uid), repo.nodes.list(uid), repo.edges.list(uid), repo.captures.list(uid),
+    repo.opportunities.list(uid), repo.projects.list(uid), repo.decisions.list(uid), repo.contextPacks.list(uid),
+  ]);
   const latest = briefs.find((b) => b.kind === "daily") || briefs[0];
   const payload = (latest?.payload || {}) as { recommended_actions?: { text: string; priority?: string }[]; urgent_actions?: { text: string; priority?: string }[] };
-  const briefActions = payload.recommended_actions || payload.urgent_actions || [];
+  const recommendedFocus = payload.recommended_actions || payload.urgent_actions || [];
+
+  const inboxCount = (captures as { status?: string }[]).filter((c) => c.status === "inbox").length;
+  const reviewCount = (opps as { status?: string }[]).filter((o) => o.status === "review").length;
+  const topNodes = [...nodes].sort((a, b) => b.mvs - a.mvs).slice(0, 5).map((n) => ({ id: n.id, title: n.title, summary: n.summary, mvs: n.mvs }));
   const tm = timeMachine({ nodes: nodes as TimeMachineInput["nodes"], edges: edges as TimeMachineInput["edges"] }, "30d");
   const forgottenGems = tm.resurfaced.forgottenGems.map((g) => ({ id: g.id, title: g.title }));
+  const resurfacedThemes = tm.resurfaced.resurfacedThemes;
   const blockedIds = new Set(edges.filter((e) => /block/i.test(e.relationship)).map((e) => e.target_id));
   const blockedNodes = nodes.filter((n) => blockedIds.has(n.id)).map((n) => ({ id: n.id, title: n.title }));
-  const seeds = suggestQuests({ briefActions, briefId: latest?.id, forgottenGems, blockedNodes });
+  const activeProjects = (projects as { id: string; name: string; status?: string }[]).filter((p) => p.status === "active").map((p) => ({ id: p.id, name: p.name }));
+
+  const seeds = suggestQuests({
+    inboxCount, reviewCount, recommendedFocus, briefId: latest?.id, topNodes,
+    forgottenGems, resurfacedThemes, activeProjects, blockedNodes,
+    hasDecisions: decisionsR.length > 0, hasContextPacks: packsR.length > 0,
+  });
   const existing = new Set((await repo.quests.list(uid)).map((q) => q.title));
   let created = 0;
   for (const s of seeds) {

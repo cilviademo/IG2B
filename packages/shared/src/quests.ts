@@ -5,7 +5,9 @@
 
 export type QuestKind = "main" | "side" | "research" | "maintenance";
 export type QuestState = "suggested" | "accepted" | "active" | "blocked" | "completed" | "archived";
-export type QuestSource = "brief" | "node" | "capture" | "time_machine" | "companion" | "system";
+export type QuestSource =
+  | "brief" | "node" | "capture" | "time_machine" | "companion"
+  | "project" | "inbox" | "review" | "onboarding" | "system";
 
 export const QUEST_KINDS: QuestKind[] = ["main", "side", "research", "maintenance"];
 export const QUEST_STATES: QuestState[] = ["suggested", "accepted", "active", "blocked", "completed", "archived"];
@@ -99,19 +101,78 @@ export function questFromCompanion(c: { node_id: string; verb: string; title: st
   };
 }
 
-// ---- deterministic bulk suggestion from existing data (no LLM) ----
+// ---- deterministic bulk suggestion from REAL (often sparse) vault data (no LLM) ----
+// Pulls from every signal a vault can have early on: inbox backlog, brief / recommended
+// focus, review queue, high-value nodes, Time Machine resurfaced + forgotten gems, and
+// active projects. If NOTHING is generatable, falls back to safe onboarding quests so
+// the surface is never empty. Never reads sample/demo data — the API passes live rows.
 export interface SuggestInput {
-  briefActions?: { text: string; priority?: string }[];
+  inboxCount?: number;
+  reviewCount?: number;
+  recommendedFocus?: { text: string; priority?: string }[];
   briefId?: string;
+  topNodes?: { id: string; title: string; summary?: string; mvs: number }[];
   forgottenGems?: { id: string; title: string; summary?: string }[];
+  resurfacedThemes?: string[];
+  activeProjects?: { id: string; name: string }[];
   blockedNodes?: { id: string; title: string; summary?: string }[];
+  hasDecisions?: boolean;
+  hasContextPacks?: boolean;
 }
+
+function onboardingSeeds(input: SuggestInput): QuestSeed[] {
+  const top = input.topNodes?.[0];
+  const seeds: QuestSeed[] = [
+    { title: "Triage your inbox", summary: "Clear and classify your captured items.", kind: "maintenance", source_type: "onboarding", meta: { onboarding: "triage_inbox" } },
+    top
+      ? { title: `Review your top node: ${clip(top.title, 50)}`, summary: "Revisit your highest-value memory and decide its next step.", kind: "main", source_type: "onboarding", source_id: top.id, node_id: top.id, meta: { onboarding: "review_top_node" } }
+      : { title: "Add your first knowledge node", summary: "Capture or promote something worth remembering.", kind: "main", source_type: "onboarding", meta: { onboarding: "first_node" } },
+    { title: "Log your first decision", summary: "Record a decision with confidence + expected outcome so Radian can calibrate you.", kind: "side", source_type: "onboarding", meta: { onboarding: "first_decision" } },
+    { title: "Build your first context pack", summary: "Assemble a reusable briefing from your vault.", kind: "research", source_type: "onboarding", meta: { onboarding: "first_context_pack" } },
+    { title: "Run a Time Machine replay", summary: "See what you were thinking and what changed.", kind: "maintenance", source_type: "onboarding", meta: { onboarding: "time_machine" } },
+  ];
+  return seeds;
+}
+
 export function suggestQuests(input: SuggestInput): QuestSeed[] {
   const out: QuestSeed[] = [];
-  for (const a of input.briefActions || []) out.push(questFromBriefAction(a, input.briefId || "brief"));
+
+  // 1) Inbox backlog → a triage upkeep quest.
+  if ((input.inboxCount || 0) > 0) {
+    const n = input.inboxCount!;
+    out.push({ title: `Triage ${n} ${n === 1 ? "capture" : "captures"} in the inbox`, summary: "Classify and file new captures.", kind: "maintenance", source_type: "inbox", meta: { count: n } });
+  }
+  // 2) Mission Control recommended focus / brief actions.
+  for (const a of input.recommendedFocus || []) out.push(questFromBriefAction(a, input.briefId || "brief"));
+  // 3) Review queue → a clear-the-queue upkeep quest.
+  if ((input.reviewCount || 0) > 0) {
+    const n = input.reviewCount!;
+    out.push({ title: `Clear ${n} ${n === 1 ? "item" : "items"} from the review queue`, summary: "Accept, reject or defer items awaiting your call.", kind: "maintenance", source_type: "review", meta: { count: n } });
+  }
+  // 4) High-value nodes → advance the best ones (top 3, mvs >= 55).
+  for (const node of (input.topNodes || []).filter((n) => n.mvs >= 55).slice(0, 3)) {
+    out.push({ title: clip(`Advance: ${node.title}`), summary: node.summary || `Push your high-value node "${node.title}" forward.`, kind: node.mvs >= 80 ? "main" : "side", source_type: "node", source_id: node.id, node_id: node.id, meta: { mvs: node.mvs } });
+  }
+  // 5) Time Machine — forgotten gems + resurfaced themes.
   for (const g of input.forgottenGems || []) out.push(questFromNode(g, "Revisit"));
+  for (const theme of (input.resurfacedThemes || []).slice(0, 2)) {
+    out.push({ title: clip(`Reconnect with "${theme}"`), summary: `This theme resurfaced after a quiet spell.`, kind: "side", source_type: "time_machine", meta: { theme } });
+  }
+  // 6) Active projects → push forward (top 3) — works with zero AI.
+  for (const p of (input.activeProjects || []).slice(0, 3)) {
+    out.push({ title: clip(`Push "${p.name}" forward`), summary: `Make progress on an active project.`, kind: "main", source_type: "project", source_id: p.id, meta: { project_id: p.id } });
+  }
+  // 7) Blocked nodes → unblock.
   for (const b of input.blockedNodes || []) out.push(questFromNode(b, "Unblock"));
+
+  // 8) Gentle, always-useful nudges when the journal/context-pack features are unused.
+  if (input.hasDecisions === false) out.push({ title: "Log your first decision", summary: "Record a decision so Radian can calibrate your judgment over time.", kind: "side", source_type: "onboarding", meta: { onboarding: "first_decision" } });
+  if (input.hasContextPacks === false) out.push({ title: "Build your first context pack", summary: "Assemble a reusable briefing from your vault.", kind: "research", source_type: "onboarding", meta: { onboarding: "first_context_pack" } });
+
   // de-dupe by title
   const seen = new Set<string>();
-  return out.filter((q) => (seen.has(q.title) ? false : (seen.add(q.title), true)));
+  const deduped = out.filter((q) => (seen.has(q.title) ? false : (seen.add(q.title), true)));
+
+  // 9) If we still have nothing, seed safe onboarding quests so it's never empty.
+  return deduped.length ? deduped.slice(0, 12) : onboardingSeeds(input);
 }
