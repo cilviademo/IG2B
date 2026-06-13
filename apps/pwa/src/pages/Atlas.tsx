@@ -5,7 +5,7 @@ import { Loading, ErrorState } from "@/components/State";
 import { Share2, X, Plus, Minus, Locate, Sparkles } from "lucide-react";
 import CompanionPanel from "@/components/CompanionPanel";
 import { deriveNodeState, NODE_STATE_STYLE, LEGEND, type NodeState } from "@/lib/nodeState";
-import { getQuestNodeIds } from "@/lib/api";
+import { getQuestNodeIds, getLiveNodes, getLiveEdges } from "@/lib/api";
 
 // Atlas — the constellation. Flat luminous points on a deep indigo-black field,
 // hairline edges, organic force layout. Color encodes node type (a desaturated
@@ -61,18 +61,37 @@ function syntheticGraph(n: number): { nodes: GraphNode[]; edges: GraphEdge[] } {
 }
 
 export default function Atlas() {
-  const synthetic = Number(new URLSearchParams(window.location.search).get("synthetic") || 0);
+  const params = new URLSearchParams(window.location.search);
+  const synthetic = Number(params.get("synthetic") || 0);
+  const focusId = params.get("focus");
   const nodesRes = useJson<{ nodes: GraphNode[] }>(synthetic ? "" : "/data/sample_nodes.json");
   const edgesRes = useJson<{ edges: GraphEdge[] }>(synthetic ? "" : "/data/sample_edges.json");
+  // Live graph: when the API is reachable, the Atlas shows YOUR real vault (so quest
+  // badges land on real nodes and "View on Atlas" resolves). Falls back to the bundled
+  // sample when offline/standalone.
+  const [live, setLive] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [selected, setSelected] = useState<GraphNode | null>(null);
   const [companion, setCompanion] = useState<GraphNode | null>(null);
   const selectedRef = useRef<string | null>(null);
-  const apiRef = useRef<{ zoom: (f: number) => void; reset: () => void; redraw: () => void } | null>(null);
+  const focusRef = useRef<string | null>(focusId);
+  const apiRef = useRef<{ zoom: (f: number) => void; reset: () => void; redraw: () => void; focus: (id: string) => void } | null>(null);
   // Node ids carrying an in-play quest — overlaid as a small gold badge (live API only).
   const questNodesRef = useRef<Set<string>>(new Set());
   const [hintOff, setHintOff] = useState(() => localStorage.getItem("indigold_atlas_hint") === "off");
+
+  useEffect(() => {
+    if (synthetic) return;
+    let cancelled = false;
+    (async () => {
+      const [nr, er] = await Promise.all([getLiveNodes(), getLiveEdges()]);
+      const n = nr?.nodes as GraphNode[] | undefined;
+      const e = er?.edges as GraphEdge[] | undefined;
+      if (!cancelled && n && e && n.length) setLive({ nodes: n, edges: e });
+    })();
+    return () => { cancelled = true; };
+  }, [synthetic]);
 
   useEffect(() => {
     selectedRef.current = selected?.id ?? null;
@@ -90,8 +109,9 @@ export default function Atlas() {
   }, []);
 
   const g = synthetic ? syntheticGraph(synthetic) : null;
-  const nodes = g ? g.nodes : nodesRes.data?.nodes;
-  const edges = g ? g.edges : edgesRes.data?.edges;
+  // Live vault wins when present; else the bundled sample (or synthetic for perf tests).
+  const nodes = g ? g.nodes : (live?.nodes ?? nodesRes.data?.nodes);
+  const edges = g ? g.edges : (live?.edges ?? edgesRes.data?.edges);
 
   useEffect(() => {
     if (!nodes || !edges) return;
@@ -175,6 +195,18 @@ export default function Atlas() {
         kick();
       },
       redraw: () => kick(),
+      // Center + select a node by id (used by "View on Atlas" deep links). Clears the
+      // pending focus only on success, so a focus survives the sample→live graph swap.
+      focus: (fid: string) => {
+        const s = byId.get(fid);
+        if (!s) return;
+        view.scale = 1.8;
+        view.tx = W / 2 - s.x * view.scale;
+        view.ty = H / 2 - s.y * view.scale;
+        setSelected(s.node);
+        focusRef.current = null;
+        kick();
+      },
     };
 
     const pointers = new Map<number, { x: number; y: number }>();
@@ -554,9 +586,17 @@ export default function Atlas() {
 
     kick();
     if (reduceMotion) raf = requestAnimationFrame(tick);
+    // Deep-link focus: center + select the requested node once the layout has settled.
+    let focusTimer = 0;
+    if (focusRef.current) {
+      const fid = focusRef.current;
+      if (reduceMotion) apiRef.current?.focus(fid);
+      else focusTimer = window.setTimeout(() => apiRef.current?.focus(fid), 650);
+    }
     return () => {
       cancelAnimationFrame(raf);
       raf = 0;
+      clearTimeout(focusTimer);
       clearLongPress();
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);

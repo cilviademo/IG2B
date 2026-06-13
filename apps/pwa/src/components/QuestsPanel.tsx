@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "wouter";
 import { Swords, Sparkles, Loader2 } from "lucide-react";
 import { getQuests, suggestQuests, apiEnabled, type Quest } from "@/lib/api";
 import { questBucket, type QuestBucket as Bucket } from "@/lib/quests";
@@ -8,9 +9,10 @@ import QuestCard from "./QuestCard";
 // section (via the shared `questBucket`), so after any button press the card visibly
 // moves. Backend is the source of truth (persists across reload); a localStorage cache
 // hydrates instantly on reload and covers offline. Deterministic + stub-safe.
+//   variant "home" — compact: in-play first, capped, links to the full Quests tab.
+//   variant "full" — the dedicated Quests tab: every section, no caps, + Archived.
 const CACHE_KEY = "indigold_quests_cache";
 
-// Ordered sections + their empty-state copy (every section always shows its copy).
 const SECTIONS: { bucket: Bucket; label: string; color: string; empty: string }[] = [
   { bucket: "active", label: "Active Today", color: "var(--good)", empty: "No active quests. Accept a suggestion to start one." },
   { bucket: "blocked", label: "Blocked", color: "var(--risk)", empty: "Nothing blocked." },
@@ -19,8 +21,10 @@ const SECTIONS: { bucket: Bucket; label: string; color: string; empty: string }[
   { bucket: "converted", label: "Converted to Project", color: "var(--info)", empty: "No quests converted to projects yet." },
   { bucket: "completed", label: "Completed", color: "var(--good)", empty: "Nothing completed yet." },
 ];
+const HOME_CAP = 3;
 
-export default function QuestsPanel() {
+export default function QuestsPanel({ variant = "home" }: { variant?: "home" | "full" }) {
+  const full = variant === "full";
   const [quests, setQuests] = useState<Quest[]>(() => {
     try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "[]"); } catch { return []; }
   });
@@ -28,7 +32,7 @@ export default function QuestsPanel() {
   const [suggesting, setSuggesting] = useState(false);
 
   const refresh = useCallback(async () => {
-    const r = await getQuests(); // all states; we bucket client-side
+    const r = await getQuests();
     if (r) {
       setQuests(r.items);
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(r.items)); } catch { /* quota */ }
@@ -47,8 +51,8 @@ export default function QuestsPanel() {
 
   if (!apiEnabled()) {
     return (
-      <div className="mt-7">
-        <Head />
+      <div className={full ? "" : "mt-7"}>
+        <Head full={full} />
         <p className="py-2" style={{ fontSize: 13, color: "var(--text-dim)" }}>
           Quests come from your live vault — connect the API to turn briefs, insights and Companion answers into playable actions.
         </p>
@@ -58,14 +62,18 @@ export default function QuestsPanel() {
 
   const now = Date.now();
   const byBucket: Record<Bucket, Quest[]> = { active: [], blocked: [], snoozed: [], suggested: [], converted: [], completed: [] };
+  const archived: Quest[] = [];
   for (const q of quests) {
+    if (q.state === "archived") { archived.push(q); continue; }
     const b = questBucket(q, now);
     if (b) byBucket[b].push(q);
   }
+  const total = Object.values(byBucket).reduce((a, b) => a + b.length, 0);
 
   return (
-    <div className="mt-7">
+    <div className={full ? "" : "mt-7"}>
       <Head
+        full={full}
         action={
           <button onClick={onSuggest} disabled={suggesting} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold" style={{ borderRadius: 999, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
             {suggesting ? <Loader2 size={12} strokeWidth={1.5} className="animate-spin" /> : <Sparkles size={12} strokeWidth={1.5} />} Suggest
@@ -75,31 +83,55 @@ export default function QuestsPanel() {
       {loading && quests.length === 0 ? (
         <p className="py-2" style={{ fontSize: 13, color: "var(--text-dim)" }}>Loading quests…</p>
       ) : (
-        SECTIONS.map(({ bucket, label, color, empty }) => {
-          const items = byBucket[bucket];
-          // Blocked is only shown when it has items (it's not one of the five core sections).
-          if (bucket === "blocked" && items.length === 0) return null;
-          return (
-            <div key={bucket} className="mt-3">
-              <div className="cap-data mb-1.5" style={{ color }}>{label}{items.length ? ` · ${items.length}` : ""}</div>
-              {items.length === 0 ? (
-                <p className="pb-1" style={{ fontSize: 12.5, color: "var(--text-dim)", opacity: 0.7 }}>{empty}</p>
-              ) : (
-                items.map((q) => <QuestCard key={q.id} quest={q} bucket={bucket} onChange={refresh} />)
-              )}
+        <>
+          {SECTIONS.map(({ bucket, label, color, empty }) => {
+            const items = byBucket[bucket];
+            // In the compact Home view, hide empty non-core sections and cap the rest.
+            if (!full && items.length === 0 && (bucket === "blocked" || bucket === "completed" || bucket === "converted")) return null;
+            if (bucket === "blocked" && items.length === 0 && full) { /* show with empty copy in full */ }
+            const shown = full ? items : items.slice(0, HOME_CAP);
+            return (
+              <div key={bucket} className="mt-3">
+                <div className="cap-data mb-1.5" style={{ color }}>{label}{items.length ? ` · ${items.length}` : ""}</div>
+                {items.length === 0 ? (
+                  <p className="pb-1" style={{ fontSize: 12.5, color: "var(--text-dim)", opacity: 0.7 }}>{empty}</p>
+                ) : (
+                  <>
+                    {shown.map((q) => <QuestCard key={q.id} quest={q} bucket={bucket} onChange={refresh} />)}
+                    {!full && items.length > shown.length && (
+                      <Link href="/quests" className="cap-data" style={{ color: "var(--gold)" }}>+{items.length - shown.length} more →</Link>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+
+          {full && archived.length > 0 && (
+            <div className="mt-3">
+              <div className="cap-data mb-1.5" style={{ color: "var(--text-dim)" }}>Archived · {archived.length}</div>
+              {archived.map((q) => (
+                <div key={q.id} className="py-1.5" style={{ fontSize: 13, color: "var(--text-dim)", opacity: 0.6 }}>{q.title}</div>
+              ))}
             </div>
-          );
-        })
+          )}
+
+          {!full && total === 0 && byBucket.suggested.length === 0 && (
+            <p className="py-2" style={{ fontSize: 13, color: "var(--text-dim)" }}>No quests yet. Tap <b style={{ color: "var(--gold)" }}>Suggest</b> to turn today's brief + forgotten gems into actions.</p>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function Head({ action }: { action?: React.ReactNode }) {
+function Head({ full, action }: { full?: boolean; action?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <Swords size={14} strokeWidth={1.5} style={{ color: "var(--gold)" }} />
-      <h2 className="text-sm font-display" style={{ color: "var(--text)" }}>Quests</h2>
+      <Swords size={full ? 16 : 14} strokeWidth={1.5} style={{ color: "var(--gold)" }} />
+      {full
+        ? <h1 className="text-xl font-display" style={{ color: "var(--text)" }}>Quests</h1>
+        : <Link href="/quests"><h2 className="text-sm font-display" style={{ color: "var(--text)" }}>Quests</h2></Link>}
       {action && <span className="ml-auto">{action}</span>}
     </div>
   );

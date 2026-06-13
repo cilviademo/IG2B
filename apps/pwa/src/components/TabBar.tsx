@@ -7,10 +7,12 @@ import {
   FileText,
   Compass,
   ArrowUpDown,
+  Swords,
 } from "lucide-react";
 
 const tabs = [
   { path: "/", icon: LayoutDashboard, label: "Home" },
+  { path: "/quests", icon: Swords, label: "Quests" },
   { path: "/inbox", icon: Inbox, label: "Inbox" },
   { path: "/timeline", icon: Clock, label: "Timeline" },
   { path: "/atlas", icon: Globe2, label: "Atlas" },

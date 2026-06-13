@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: living-os-g3 · By: claude (Claude Code)`
+`Last updated: 2026-06-13 · Commit: living-os-g3-polish · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -114,3 +114,9 @@ commit(s) · what/why · live-test status).
   - **G3 fix #2 (state-transition UX visibility):** phone gate found buttons worked but quests didn't visibly move (no Active/Snoozed/Completed/Converted sections; *Accept* landed in an ambiguous `accepted` state; completed quests vanished). Rebuilt `QuestsPanel` around a shared `questBucket()` (every quest → exactly one section, priority completed > converted > snoozed > blocked > active > suggested) with **six clearly-labelled sections + empty-state copy**, a **localStorage cache** for instant reload + persistence, and re-fetch after every action so cards move immediately. *Accept* now goes straight to **Active Today** (accept→start); added **Resume** (clears snooze) + a `/quests/:id/resume` route; **Completed** shows a checkmark + date; **Converted** shows the linked project. Atlas badge now fires only for **active/completed** node quests (not suggested), per spec #8.
   - **Resilience fix (found in live test):** a `POST /radian/quests` with an unknown `node_id` hit the FK and **crashed the API** (unhandled rejection). The create route now validates `node_id` against `nodes` and degrades to an unanchored quest instead of 500-ing.
   - **Live end-to-end verified** (ephemeral Postgres+Redis, `LLM_MODE=stub`, no provider key): suggest on a fresh vault → 5 quests; Accept→**Active**, Snooze→**Snoozed**, Complete→**Completed**, Convert→**Converted** (+project); illegal transition → 409; **fresh GET (reload) persists all states**; Atlas `node-ids` empty when suggested, returns the node once active. Screenshot `quests-live.png` shows the populated sections. `quests-verify` **40/40**.
+  - **G3 polish (load time + dedicated Quests tab + Atlas linkage):** owner feedback after the gate.
+    - **Faster load:** route-based code-splitting (`React.lazy` + `Suspense`) — initial bundle **126 KB → 98 KB gzip** (~22% smaller); heavy pages (Atlas canvas, Time Machine, I/O, Inbox) now download only when visited.
+    - **Dedicated Quests tab** (`/quests` + nav entry): `QuestsPanel` gained a `variant="full"` board showing every section (Active / Blocked / Snoozed / Suggested / Converted / Completed / Archived) with no caps; the Home panel stays compact (in-play first, capped, "+N more →" links to the tab).
+    - **Atlas shows your live vault** when the API is reachable (was sample-only) — falls back to the bundled sample offline; quest gold-diamond badges now land on **real** nodes.
+    - **"View on Atlas"** on node-anchored quest cards → `/atlas?focus=<nodeId>`; the Atlas centers + selects (and opens the node sheet) once the layout settles (immediate under reduced-motion); focus survives the sample→live graph swap.
+    - **Live-verified** (rebuilt PWA against the local API): Quests tab renders all sections with "View on Atlas"; `/atlas?focus=n_q1` loads the live 6-node graph, centers BTZ TRACE with its gold quest badge + node sheet. pwa typecheck + build green; capture/upload/SW/Shortcut + G1/G2 untouched.

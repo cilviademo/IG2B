@@ -357,6 +357,8 @@ async function questReq<T>(path: string, init?: RequestInit): Promise<T | null> 
     return (await res.json()) as T;
   } catch { return null; }
 }
+export const getLiveNodes = () => questReq<{ nodes: unknown[] }>(`/nodes`);
+export const getLiveEdges = () => questReq<{ edges: unknown[] }>(`/edges`);
 export const getQuests = (states?: string) => questReq<{ items: Quest[] }>(`/radian/quests${states ? `?state=${encodeURIComponent(states)}` : ""}`);
 export const getQuestNodeIds = () => questReq<{ node_ids: string[] }>(`/radian/quests/node-ids`);
 export const suggestQuests = () => questReq<{ created: number; items: Quest[] }>(`/radian/quests/suggest`, { method: "POST", body: "{}" });

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, Clock, FolderPlus, Play, Swords, RotateCcw, FolderCheck } from "lucide-react";
+import { Link } from "wouter";
+import { Check, Clock, FolderPlus, Play, Swords, RotateCcw, FolderCheck, Share2 } from "lucide-react";
 import type { Quest } from "@/lib/api";
 import { questAction, snoozeQuest, resumeQuest, acceptQuest, convertQuestToProject } from "@/lib/api";
 import { QUEST_KIND_STYLE, QUEST_STATE_STYLE, type QuestKind, type QuestState, type QuestBucket as Bucket } from "@/lib/quests";
@@ -50,6 +51,11 @@ export default function QuestCard({ quest, bucket, onChange }: { quest: Quest; b
       <div style={{ fontSize: 15, lineHeight: 1.4, color: "var(--text)", textDecoration: bucket === "completed" ? "line-through" : "none" }}>{quest.title}</div>
       {quest.summary && quest.summary !== quest.title && bucket !== "completed" && (
         <p className="mt-1" style={{ fontSize: 13, lineHeight: 1.45, color: "var(--text-dim)" }}>{quest.summary}</p>
+      )}
+      {quest.node_id && (
+        <Link href={`/atlas?focus=${quest.node_id}`} className="inline-flex items-center gap-1 mt-2 cap-data" style={{ color: "var(--info)" }}>
+          <Share2 size={11} strokeWidth={1.5} /> View on Atlas
+        </Link>
       )}
 
       <div className="flex flex-wrap gap-2 mt-3">
