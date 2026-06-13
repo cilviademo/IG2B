@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch, Router as WouterRouter } from "wouter";
+import { Route, Switch, Router as WouterRouter, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { lazy, Suspense } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -60,20 +60,31 @@ function App() {
         <TooltipProvider delayDuration={200}>
           <Toaster />
           <WouterRouter {...routerProps}>
-            <div
-              className="app-zoom min-h-[100dvh] flex flex-col"
-              style={{ background: "var(--bg)" }}
-            >
-              <TopBar />
-              <main className="flex-1 overflow-y-auto pb-20">
-                <Routes />
-              </main>
-              <TabBar />
-            </div>
+            <Shell />
           </WouterRouter>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
+  );
+}
+
+// The app shell. The global type-zoom is applied everywhere EXCEPT the Atlas: CSS `zoom`
+// desyncs canvas hit-testing (clientX vs getBoundingClientRect), and it does nothing for
+// the canvas-drawn Atlas labels anyway — so we skip it there to keep node-tapping exact.
+function Shell() {
+  const [location] = useLocation();
+  const zoom = location !== "/atlas";
+  return (
+    <div
+      className={`${zoom ? "app-zoom " : ""}min-h-[100dvh] flex flex-col`}
+      style={{ background: "var(--bg)" }}
+    >
+      <TopBar />
+      <main className="flex-1 overflow-y-auto pb-20">
+        <Routes />
+      </main>
+      <TabBar />
+    </div>
   );
 }
 
