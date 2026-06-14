@@ -55,6 +55,14 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · cleanup/consolidation Stage 2 (partial — main push HELD)
+- **Branch cleanup:** deleted **35 fully-merged local branches** (cognition-*, living-os-g1..g11 + g3/g4 variants, radian-2.0, semantic-memory, task-center(-all), ux-polish, integration, pwa-integration, file-upload, vault-redesign, living-handoff-system, fix-*, g1-completion-gate, release). Keep-set intact: `architecture-rnd`, `aurora-ia`, `wave6-media`, `vault-reset`, `design-polish`, `atlas-canvas`, `main`.
+- **Blocked by env:** remote branch deletes + the `pre-cleanup-2026-06-14` tag push both return **403 from the git proxy** (delete/tag pushes disallowed here; ordinary commit pushes work). 11 merged branches remain on origin — owner prunes via GitHub UI or retries. `main` is **untouched at `f711706`**, so the rollback point is simply current `main` (no tag needed).
+- **Audit correction (material):** `wave6-media` is a **strict superset of `aurora-ia`** (lineage `main→architecture-rnd→aurora-ia→atlas-canvas(folded)→wave6-media`), so consolidation is a **clean conflict-free fast-forward**, not the risky merge my Stage-1 audit implied. BUT that line already bakes in AURORA's persistent Task Center + the BoardroomView deletion — which touches the owner's *defer/retain* answer (given under the incorrect "diverged" framing). **Held the `main` fast-forward for owner re-decision.** Both deferred artifacts are preserved on `architecture-rnd` (Task Center old version + BoardroomView).
+- Matrix unchanged at **454/454**; working tree clean; no code touched (ref-only ops). No PR.
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/wave6-media` — Wave 6 Stage 1: Universal Intake Router + media spine (deterministic-first)
 - **Universal Intake Router** (`intake-router.ts`, mirrored to `apps/pwa/src/lib/intakeRouter.ts`): pure `detectIntake` (text/note/url/article/pdf/image/screenshot/audio/voice/video/youtube/podcast/reel/tiktok/facebook/x/reddit/vimeo from url-host + mime + filename + CaptureType) + `planIntake` → safest pipeline (text/url/captions/transcribe/document/vision/metadata_only) with honest `degradeTo`. "The Shortcut delivers; Indigold decides." `intake-router-verify` 24/24.
 - **SSRF guard** (`url-safety.ts`): `isSafeFetchUrl` blocks loopback/private/link-local/cloud-metadata/non-http/embedded-creds/internal-TLD; **advanced yt-dlp is opt-in + domain-limited** (`isAdvancedMediaAllowed`); `FETCH_LIMITS`. `url-safety-verify` 21/21. (Module note: the server fetch wrapper must add DNS-resolution re-check + byte/timeout caps.)
