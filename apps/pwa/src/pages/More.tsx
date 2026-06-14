@@ -1,9 +1,10 @@
 import { Link } from "wouter";
-import { Swords, Activity, FileText, Compass, BarChart3, Clock, Settings, ShieldCheck, FolderOpen, ChevronRight } from "lucide-react";
+import { Swords, Activity, FileText, Compass, BarChart3, Clock, Settings, ShieldCheck, FolderOpen, Globe2, ChevronRight } from "lucide-react";
 
 // AURORA A1 — the "More" hub. The tab bar drops to five (Home · Inbox · Atlas · Timeline ·
 // More); everything else is one calm tap away here. No capability removed — just relocated.
 const ITEMS: { href: string; icon: typeof Swords; label: string; sub: string }[] = [
+  { href: "/atlas", icon: Globe2, label: "Atlas", sub: "Memory graph — the constellation behind Radian" },
   { href: "/library", icon: FolderOpen, label: "Library", sub: "Your vault, stored · files · completed · archived" },
   { href: "/quests", icon: Swords, label: "Quests", sub: "Today · Later · Archive" },
   { href: "/activity", icon: Activity, label: "AI Activity", sub: "Every AI run — view, retry, archive" },

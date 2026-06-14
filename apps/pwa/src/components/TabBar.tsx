@@ -2,7 +2,7 @@ import { useLocation, Link } from "wouter";
 import {
   LayoutDashboard,
   Inbox,
-  Globe2,
+  Sparkles,
   Clock,
   Menu,
 } from "lucide-react";
@@ -15,13 +15,14 @@ import { haptic } from "@/lib/haptics";
 const tabs = [
   { path: "/", icon: LayoutDashboard, label: "Home" },
   { path: "/inbox", icon: Inbox, label: "Inbox" },
-  { path: "/atlas", icon: Globe2, label: "Atlas" },
+  { path: "/companion", icon: Sparkles, label: "Radian" },
   { path: "/timeline", icon: Clock, label: "Timeline" },
   { path: "/more", icon: Menu, label: "More" },
 ] as const;
 
 // Routes that now live under More — their badges roll up into the More tab.
-const MORE_ROUTES = ["/library", "/quests", "/insights", "/context", "/brief", "/time-machine", "/settings", "/io", "/diagnostics"];
+// Atlas is now background memory (reachable from Radian + More), not a primary tab.
+const MORE_ROUTES = ["/atlas", "/library", "/quests", "/insights", "/context", "/brief", "/time-machine", "/settings", "/io", "/diagnostics"];
 
 export default function TabBar() {
   const [location] = useLocation();

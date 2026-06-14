@@ -28,6 +28,7 @@ const WeeklyBrief = lazy(() => import("./pages/WeeklyBrief"));
 const ImportExport = lazy(() => import("./pages/ImportExport"));
 const More = lazy(() => import("./pages/More"));
 const Library = lazy(() => import("./pages/Library"));
+const Companion = lazy(() => import("./pages/Companion"));
 const Insights = lazy(() => import("./pages/Insights"));
 const SituationRoom = lazy(() => import("./pages/SituationRoom"));
 const Activity = lazy(() => import("./pages/Activity"));
@@ -55,6 +56,7 @@ function Routes() {
         <Route path="/io" component={ImportExport} />
         <Route path="/settings" component={ImportExport} />
         <Route path="/more" component={More} />
+        <Route path="/companion" component={Companion} />
         <Route path="/library" component={Library} />
         <Route path="/insights" component={Insights} />
         <Route path="/situation-room" component={SituationRoom} />

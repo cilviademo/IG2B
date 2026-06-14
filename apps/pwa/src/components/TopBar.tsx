@@ -17,6 +17,7 @@ const TITLES: Record<string, string> = {
   "/io": "Settings",
   "/settings": "Settings",
   "/more": "More",
+  "/companion": "Radian",
   "/library": "Library",
   "/insights": "Insights",
   "/situation-room": "Situation Room",
