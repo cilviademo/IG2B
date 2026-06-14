@@ -57,6 +57,13 @@ export const captures = {
   async triage(userId: string, id: string) {
     await query(`UPDATE captures SET status='triaged' WHERE user_id=$1 AND id=$2`, [userId, id]);
   },
+  // Item management: soft-archive (reversible; hidden from inbox) vs. permanent delete.
+  async archive(userId: string, id: string) {
+    await query(`UPDATE captures SET status='archived' WHERE user_id=$1 AND id=$2`, [userId, id]);
+  },
+  async remove(userId: string, id: string) {
+    await query(`DELETE FROM captures WHERE user_id=$1 AND id=$2`, [userId, id]);
+  },
 };
 
 // ---- nodes ----

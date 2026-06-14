@@ -55,6 +55,14 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — item management (reusable ItemActions)
+- New reusable **`ItemActions`** menu (kebab → action sheet; destructive actions confirm; ≥44px targets). Wired into **CaptureDetail** (Create quest · Copy · **Archive** soft/reversible · **Delete permanently** confirm) for backend captures; nodes + AI results already have actions.
+- Backend: `POST /captures/:id/archive` (soft, status=archived) + `DELETE /captures/:id` (permanent), both emit provenance events; node delete now emits a `deleted` event. New event types `archived`/`deleted`; new `captures.archive`/`captures.remove` repo methods. No schema change (uses existing `status` + `events`).
+- Inbox refreshes after archive/delete via a new `onChanged` prop.
+- pwa/api/worker typecheck+build green; verify matrix **409/409**; capture/upload/Shortcut path untouched. Recommended-next: extend ItemActions to quests/briefs/timeline/context/projects + move/link/secret/duplicate + undo; plus the dedicated Atlas-canvas pass (force-centering + label collision) on its own regression-gated branch.
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — Live-AI stabilization (global toasts, AI Activity, Atlas nav, item actions)
 - **Global notifications:** `toastTask` no longer excludes the active tab — a completing job toasts on ANY route; bell + tab badges update globally; history persists across routes + reload. (Provider already shell-level.)
 - **Canonical View routing:** `accept()` → child node (`/atlas?focus`) → source node → **`/activity?task=…`**; never generic Home.

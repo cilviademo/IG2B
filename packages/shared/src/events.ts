@@ -28,7 +28,9 @@ export type EventType =
   | "opportunity_created"
   | "system_improvement_generated"
   | "constraint_updated"
-  | "state_transition";
+  | "state_transition"
+  | "archived"
+  | "deleted";
 
 export const EVENT_TYPES: EventType[] = [
   "capture_created", "upload_completed", "classified", "node_created", "edge_created",
@@ -36,6 +38,7 @@ export const EVENT_TYPES: EventType[] = [
   "suggestion_rejected", "decision_recorded", "outcome_recorded", "hypothesis_updated",
   "simulation_completed", "review_generated", "consolidation_run", "opportunity_created",
   "system_improvement_generated", "constraint_updated", "state_transition",
+  "archived", "deleted",
 ];
 
 export interface IndigoldEvent {

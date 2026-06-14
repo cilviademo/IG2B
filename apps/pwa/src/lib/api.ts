@@ -264,6 +264,16 @@ export async function fetchCaptures(): Promise<BackendCapture[] | null> {
   }
 }
 
+/** Item management — soft-archive (reversible) and permanent delete for a backend capture. */
+export async function archiveCapture(id: string): Promise<boolean> {
+  if (!apiEnabled() || !getToken()) return false;
+  try { return (await fetch(`${BASE}/captures/${id}/archive`, { method: "POST", headers: { authorization: `Bearer ${getToken()}` } })).ok; } catch { return false; }
+}
+export async function deleteCapture(id: string): Promise<boolean> {
+  if (!apiEnabled() || !getToken()) return false;
+  try { return (await fetch(`${BASE}/captures/${id}`, { method: "DELETE", headers: { authorization: `Bearer ${getToken()}` } })).ok; } catch { return false; }
+}
+
 /** Fetch a fresh signed URL for an owned asset (links expire). */
 export async function assetSignedUrl(assetId: string): Promise<string | null> {
   if (!apiEnabled() || !getToken()) return null;

@@ -41,6 +41,17 @@ capturesRouter.post("/:id/triage", async (req: Authed, res) => {
   await repo.captures.triage(req.userId!, req.params.id);
   res.json({ ok: true });
 });
+// Item management — soft-archive (reversible) + permanent delete, both event-backed.
+capturesRouter.post("/:id/archive", async (req: Authed, res) => {
+  await repo.captures.archive(req.userId!, req.params.id);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "archived", subject_type: "capture", subject_id: req.params.id, correlation_id: req.params.id, payload: {} });
+  res.json({ ok: true });
+});
+capturesRouter.delete("/:id", async (req: Authed, res) => {
+  await repo.captures.remove(req.userId!, req.params.id);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "deleted", subject_type: "capture", subject_id: req.params.id, correlation_id: req.params.id, payload: {} });
+  res.json({ ok: true });
+});
 
 // ---- nodes ----
 export const nodesRouter = Router();
@@ -61,6 +72,7 @@ nodesRouter.patch("/:id", async (req: Authed, res) => {
 });
 nodesRouter.delete("/:id", async (req: Authed, res) => {
   await repo.nodes.remove(req.userId!, req.params.id);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "deleted", subject_type: "node", subject_id: req.params.id, correlation_id: req.params.id, payload: {} });
   res.json({ ok: true });
 });
 

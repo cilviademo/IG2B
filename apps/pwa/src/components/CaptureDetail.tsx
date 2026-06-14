@@ -12,7 +12,10 @@ import {
   SENSITIVITY_COLOR,
   PROCESSING_META,
 } from "@/lib/types";
-import { assetSignedUrl } from "@/lib/api";
+import { assetSignedUrl, createQuest, archiveCapture, deleteCapture } from "@/lib/api";
+import ItemActions, { type ItemAction } from "./ItemActions";
+import { Swords, Copy, Archive } from "lucide-react";
+import { toast } from "sonner";
 
 export interface DetailItem {
   id: string;
@@ -37,7 +40,7 @@ export interface DetailItem {
   provenance?: { capture_method?: string; device?: string; app_context?: string };
 }
 
-export default function CaptureDetail({ item, onClose, onDelete }: { item: DetailItem; onClose: () => void; onDelete?: () => void }) {
+export default function CaptureDetail({ item, onClose, onDelete, onChanged }: { item: DetailItem; onClose: () => void; onDelete?: () => void; onChanged?: () => void }) {
   const sens = SENSITIVITY_COLOR[item.sensitivity];
   const proc = PROCESSING_META[item.processing_status];
   const body = item.body || item.note || "";
@@ -89,6 +92,17 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
   };
   const isImage = /(png|jpe?g|gif|webp|heic)/i.test(item.type) || item.type === "screenshot";
 
+  // Item actions (Issue 6) — consistent menu. Backend captures support archive/delete via
+  // the API (soft-first); copy + create-quest work everywhere. Destructive actions confirm.
+  const actions: ItemAction[] = [
+    { label: "Create quest", icon: Swords, onClick: async () => { await createQuest({ title: `Triage: ${item.title}`.slice(0, 80), summary: body, kind: "side", source_type: "capture", source_id: item.id, state: "suggested" }); toast.success("Quest created", { description: "Under Quests → Later." }); } },
+    { label: "Copy details", icon: Copy, onClick: async () => { try { await navigator.clipboard.writeText(`${item.title}\n${body}${item.url ? `\n${item.url}` : ""}`); toast.success("Copied"); } catch { toast("Copy blocked"); } } },
+    ...(!item.local ? [
+      { label: "Archive", icon: Archive, onClick: async () => { const ok = await archiveCapture(item.id); toast[ok ? "success" : "error"](ok ? "Archived" : "Archive failed"); if (ok) { onChanged?.(); onClose(); } } } as ItemAction,
+      { label: "Delete permanently", icon: Trash2, tone: "danger" as const, confirm: "Delete this capture permanently? This cannot be undone.", onClick: async () => { const ok = await deleteCapture(item.id); toast[ok ? "success" : "error"](ok ? "Deleted" : "Delete failed"); if (ok) { onChanged?.(); onClose(); } } } as ItemAction,
+    ] : []),
+  ];
+
   return (
     <Sheet title="Capture" onClose={onClose}>
       <div className="space-y-3">
@@ -96,6 +110,7 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
           <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
             {CAPTURE_TYPE_LABEL[item.type]}
           </span>
+          <span className="ml-auto"><ItemActions actions={actions} /></span>
           <span style={{ fontSize: 12, color: "var(--text-dim)" }}>{item.source}</span>
           {item.domain && (
             <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{item.domain}{item.media ? ` · ${item.media}` : ""}</span>

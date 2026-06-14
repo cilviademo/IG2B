@@ -361,6 +361,7 @@ export default function Inbox() {
         <CaptureDetail
           item={detail}
           onClose={() => setDetail(null)}
+          onChanged={() => { void refresh(); }}
           onDelete={
             detail.local
               ? () => {
