@@ -313,6 +313,32 @@ export interface Observability {
   generated_at: string;
 }
 
+export interface AiUsage {
+  mode: string;
+  provider: string;
+  key_detected: boolean;
+  active_model: string;
+  today: { calls: number; input_tokens: number; output_tokens: number; cost_cents: number };
+  month: { calls: number; input_tokens: number; output_tokens: number; cost_cents: number };
+  budget: { monthly_budget_cents: number; month_to_date_cents: number; remaining_cents: number; pct: number; state: string };
+  by_feature: { feature: string; cost_cents: number; calls: number }[];
+  recent: { feature: string; purpose: string; provider: string; model: string; input_tokens: number; output_tokens: number; cost_cents: number; status: string; latency_ms: number; source_id: string | null; created_at: string }[];
+  generated_at: string;
+}
+
+/** AI Usage / Token Observatory — cost ledger aggregate. Metadata only, never a secret. */
+export async function fetchAiUsage(): Promise<AiUsage | null> {
+  if (!apiEnabled()) return null;
+  if (!getToken() && !(await ensureSession())) return null;
+  try {
+    const res = await fetch(`${BASE}/radian/usage`, { headers: { authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) return null;
+    return (await res.json()) as AiUsage;
+  } catch {
+    return null;
+  }
+}
+
 /** Phase 5 Debug Console — operational status only, never a secret. */
 export async function fetchObservability(): Promise<Observability | null> {
   if (!apiEnabled()) return null;

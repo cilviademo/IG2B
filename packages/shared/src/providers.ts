@@ -204,7 +204,8 @@ const TASK_ENV: Record<TaskType, string> = {
 };
 
 export function defaultProvider(env: Env = process.env): Provider {
-  const p = (env.LLM_DEFAULT_PROVIDER || "anthropic") as Provider;
+  // Accept LLM_PROVIDER (the documented Render var) as an alias of LLM_DEFAULT_PROVIDER.
+  const p = (env.LLM_DEFAULT_PROVIDER || env.LLM_PROVIDER || "anthropic") as Provider;
   return ([...ALL_PROVIDERS, "deterministic"] as Provider[]).includes(p) ? p : "anthropic";
 }
 

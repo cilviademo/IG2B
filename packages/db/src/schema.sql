@@ -190,9 +190,12 @@ CREATE TABLE IF NOT EXISTS ai_calls (
   source_id      TEXT,
   prompt_version TEXT,
   status         TEXT NOT NULL DEFAULT 'ok',
+  latency_ms     INTEGER NOT NULL DEFAULT 0,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ai_calls_user_month_idx ON ai_calls(user_id, created_at DESC);
+-- Additive: latency on existing deployments (the column above only applies to fresh tables).
+ALTER TABLE ai_calls ADD COLUMN IF NOT EXISTS latency_ms INTEGER NOT NULL DEFAULT 0;
 
 -- Prompt registry runtime overrides (Meta-Radian version bumps without redeploy).
 CREATE TABLE IF NOT EXISTS prompt_overrides (

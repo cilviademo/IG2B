@@ -4,7 +4,7 @@ import { Router } from "express";
 import * as repo from "@indigold/db";
 import { seedProjectsIfEmpty, budgetStatus } from "@indigold/db";
 import { id, enqueue, queueDepth, redisHealthy } from "@indigold/shared";
-import { providersStatus, providerConfigured, PROVIDER_ENV, ALL_PROVIDERS, type Provider } from "@indigold/shared/providers";
+import { providersStatus, providerConfigured, resolveTask, PROVIDER_ENV, ALL_PROVIDERS, type Provider } from "@indigold/shared/providers";
 import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
 import { getEmbedder } from "@indigold/shared";
@@ -862,6 +862,62 @@ radianRouter.get("/observability", async (req: Authed, res) => {
   });
 });
 
+// /radian/llm/status — alias of /llm/status so the AI status lives under the radian
+// namespace too (safe metadata only; never the key).
+radianRouter.get("/llm/status", async (req: Authed, res) => res.json(await llmStatusPayload(req.userId!)));
+
+// /radian/usage — AI Usage / Token Observatory. Aggregates the cost ledger for the
+// PWA: mode/provider/model, today + month-to-date calls/tokens/cost, budget + remaining,
+// cost-by-feature, and the last 10 calls (metadata only — never prompt content or keys).
+const PURPOSE_FEATURE: Record<string, string> = {
+  ingest_classify: "Ingestion", contextualize: "Ingestion",
+  ask_explain: "Companion", ask_challenge: "Companion", ask_teach: "Companion", ask_ask: "Companion", assistance: "Companion",
+  research: "Research", research_synthesis: "Research", horizon_scan: "Horizon Scan",
+  simulation: "Simulation", boardroom: "Boardroom", mentor: "Mentor",
+  daily_brief: "Briefs", weekly_review: "Briefs", monthly_review: "Briefs",
+  context_pack: "Context Packs", encompass: "Context Packs", embed: "Other", meta_review: "Other",
+};
+const featureFor = (purpose: string) => PURPOSE_FEATURE[purpose] || (purpose.startsWith("ask") ? "Companion" : purpose.startsWith("research") ? "Research" : "Other");
+
+radianRouter.get("/usage", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const ps = providersStatus();
+  const active = resolveTask("synthesis");
+  const [budget, today, month, byPurpose, recent] = await Promise.all([
+    budgetStatus(uid),
+    repo.aiCalls.windowStats(uid, "day"),
+    repo.aiCalls.windowStats(uid, "month"),
+    repo.aiCalls.monthByPurpose(uid),
+    repo.aiCalls.recent(uid, 10),
+  ]);
+  // Roll month-by-purpose up into the requested feature buckets.
+  const featureMap = new Map<string, { cost_cents: number; calls: number }>();
+  for (const p of byPurpose) {
+    const f = featureFor(p.purpose);
+    const e = featureMap.get(f) || { cost_cents: 0, calls: 0 };
+    e.cost_cents += p.cost_cents; e.calls += p.calls; featureMap.set(f, e);
+  }
+  const by_feature = [...featureMap.entries()].map(([feature, v]) => ({ feature, ...v })).sort((a, b) => b.cost_cents - a.cost_cents);
+  res.json({
+    mode: ps.mode,
+    provider: ps.default_provider,
+    key_detected: providerConfigured(ps.default_provider as Provider).configured,
+    active_model: active.model,
+    today,                 // { calls, input_tokens, output_tokens, cost_cents }
+    month,                 // same shape, month-to-date
+    budget: {
+      monthly_budget_cents: budget.budget_cents,
+      month_to_date_cents: budget.month_cost_cents,
+      remaining_cents: Math.max(0, budget.budget_cents - budget.month_cost_cents),
+      pct: budget.budget_cents > 0 ? Math.min(1, budget.month_cost_cents / budget.budget_cents) : 0,
+      state: budget.state,
+    },
+    by_feature,
+    recent: recent.map((r) => ({ ...r, feature: featureFor(r.purpose) })),
+    generated_at: new Date().toISOString(),
+  });
+});
+
 // pgvector verdict (owner-gated). Attempts the extension + reports honestly so the
 // owner can confirm semantic memory with one curl — the sandbox can't reach the DB.
 radianRouter.get("/pgvector-check", async (_req: Authed, res) => {
@@ -904,12 +960,17 @@ radianRouter.get("/actions", async (req: Authed, res) => {
 // ---- LLM Provider Framework (safe status; NO secrets ever) ----
 export const llmRouter = Router();
 
-// GET /llm/status — configured providers + default + mode + budget. Token values
-// are NEVER read or returned here; only presence (configured true/false) + reason.
-llmRouter.get("/status", async (req: Authed, res) => {
-  const budget = await budgetStatus(req.userId!);
-  res.json({
-    ...providersStatus(),
+// Shared safe-status payload (used by /llm/status AND /radian/llm/status). The provider
+// KEY is NEVER read or returned — only `key_detected` (presence) + the active model.
+async function llmStatusPayload(userId: string) {
+  const budget = await budgetStatus(userId);
+  const ps = providersStatus();
+  const active = resolveTask("synthesis"); // the model behind Companion/ask synthesis
+  return {
+    ...ps,
+    key_detected: providerConfigured(ps.default_provider as Provider).configured, // boolean only
+    active_provider: ps.default_provider,
+    active_model: active.model,
     budget: {
       monthly_budget_cents: budget.budget_cents,
       month_to_date_cents: budget.month_cost_cents,
@@ -918,8 +979,12 @@ llmRouter.get("/status", async (req: Authed, res) => {
       // cents + call count only — never any prompt content or secret. Highest-first.
       by_purpose: (budget.by_purpose || []).map((p) => ({ purpose: p.purpose, cents: p.cost_cents, calls: p.calls })),
     },
-  });
-});
+  };
+}
+
+// GET /llm/status — configured providers + default + mode + budget. Token values
+// are NEVER read or returned here; only presence (configured true/false) + reason.
+llmRouter.get("/status", async (req: Authed, res) => res.json(await llmStatusPayload(req.userId!)));
 
 // POST /llm/provider-config — placeholder, secret-safe. Does NOT accept or persist
 // raw keys (no encrypted secret manager yet); it tells the operator which Render

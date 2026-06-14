@@ -79,18 +79,34 @@ export async function governedComplete(ctx: GovernedCompleteCtx): Promise<Govern
   }
 
   const adapter = local ? deterministicAdapter(cfg.tiers[tier].model) : sel ? sel.adapter : getModel(tier, cfg);
-  const res = await adapter.complete({
-    system: ctx.system,
-    prompt: ctx.prompt,
-    json: ctx.json,
-    maxTokens: maxTok,
-  });
+  const started = Date.now();
+  let res;
+  try {
+    res = await adapter.complete({
+      system: ctx.system,
+      prompt: ctx.prompt,
+      json: ctx.json,
+      maxTokens: maxTok,
+    });
+  } catch (e) {
+    // Live call failed mid-flight. Record it in the ledger (visible "failed" in the
+    // Usage Observatory) then rethrow — the caller falls back to the deterministic
+    // floor (never a fabricated response). The error message is NOT a secret here.
+    await aiCalls.log({
+      id: id("aicall"), user_id: ctx.userId, purpose: ctx.purpose, provider: adapter.provider,
+      model: cfg.tiers[tier].model, tier, input_tokens: 0, output_tokens: 0, cost_cents: 0,
+      source_id: ctx.sourceId, prompt_version: ctx.promptVersion, status: "failed", latency_ms: Date.now() - started,
+    }).catch(() => {});
+    throw e;
+  }
+  const latency = Date.now() - started;
   const cost = estimateCostCents(cfg.tiers[tier], res.usage);
 
   await aiCalls.log({
     id: id("aicall"), user_id: ctx.userId, purpose: ctx.purpose, provider: adapter.provider,
     model: res.model, tier, input_tokens: res.usage.input, output_tokens: res.usage.output,
-    cost_cents: cost, source_id: ctx.sourceId, prompt_version: ctx.promptVersion, status: "ok",
+    cost_cents: cost, source_id: ctx.sourceId, prompt_version: ctx.promptVersion,
+    status: local ? "fallback" : "ok", latency_ms: latency,
   });
   await usage.add(ctx.userId, { tokens: res.usage.input + res.usage.output, apiCalls: 1, costCents: Math.round(cost) });
 

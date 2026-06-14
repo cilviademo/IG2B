@@ -384,12 +384,12 @@ export const projects = {
 export const aiCalls = {
   async log(c: {
     id: string; user_id: string; purpose: string; provider: string; model: string; tier: string;
-    input_tokens: number; output_tokens: number; cost_cents: number; source_id?: string | null; prompt_version?: string | null; status?: string;
+    input_tokens: number; output_tokens: number; cost_cents: number; source_id?: string | null; prompt_version?: string | null; status?: string; latency_ms?: number;
   }) {
     await query(
-      `INSERT INTO ai_calls (id,user_id,purpose,provider,model,tier,input_tokens,output_tokens,cost_cents,source_id,prompt_version,status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-      [c.id, c.user_id, c.purpose, c.provider, c.model, c.tier, c.input_tokens, c.output_tokens, c.cost_cents, c.source_id ?? null, c.prompt_version ?? null, c.status ?? "ok"],
+      `INSERT INTO ai_calls (id,user_id,purpose,provider,model,tier,input_tokens,output_tokens,cost_cents,source_id,prompt_version,status,latency_ms)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [c.id, c.user_id, c.purpose, c.provider, c.model, c.tier, c.input_tokens, c.output_tokens, c.cost_cents, c.source_id ?? null, c.prompt_version ?? null, c.status ?? "ok", Math.round(c.latency_ms ?? 0)],
     );
   },
   /** Month-to-date spend in cents (the budget governor's input). */
@@ -409,6 +409,35 @@ export const aiCalls = {
       [userId],
     );
     return r.rows.map((x) => ({ purpose: x.purpose, cost_cents: Number(x.cost), calls: Number(x.calls) }));
+  },
+  /** Usage Observatory: aggregate calls/tokens/cost over a window (day or month). */
+  async windowStats(userId: string, since: "day" | "month") {
+    const trunc = since === "day" ? "day" : "month";
+    const r = await query<{ calls: string; input: string; output: string; cost: string }>(
+      `SELECT COUNT(*)::text AS calls,
+              COALESCE(SUM(input_tokens),0)::text AS input,
+              COALESCE(SUM(output_tokens),0)::text AS output,
+              COALESCE(SUM(cost_cents),0)::text AS cost
+         FROM ai_calls
+        WHERE user_id=$1 AND created_at >= date_trunc('${trunc}', now())`,
+      [userId],
+    );
+    const x = r.rows[0];
+    return { calls: Number(x?.calls || 0), input_tokens: Number(x?.input || 0), output_tokens: Number(x?.output || 0), cost_cents: Number(x?.cost || 0) };
+  },
+  /** Last N AI calls for the Observatory feed (no secrets; metadata only). */
+  async recent(userId: string, limit = 10) {
+    const r = await query<{ purpose: string; provider: string; model: string; input_tokens: string; output_tokens: string; cost_cents: string; status: string; latency_ms: string; source_id: string | null; created_at: string }>(
+      `SELECT purpose, provider, model, input_tokens, output_tokens, cost_cents, status, latency_ms, source_id, created_at
+         FROM ai_calls WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2`,
+      [userId, limit],
+    );
+    return r.rows.map((x) => ({
+      purpose: x.purpose, provider: x.provider, model: x.model,
+      input_tokens: Number(x.input_tokens), output_tokens: Number(x.output_tokens),
+      cost_cents: Number(x.cost_cents), status: x.status, latency_ms: Number(x.latency_ms),
+      source_id: x.source_id, created_at: x.created_at,
+    }));
   },
 };
 

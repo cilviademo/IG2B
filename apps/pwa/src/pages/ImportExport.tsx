@@ -4,6 +4,7 @@ import { Download, Upload, Info, KeyRound, Copy, Eye, EyeOff, Activity, Cpu, Shi
 import { toast } from "sonner";
 import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError, syncCaptureToApi, lastSyncError, fetchLlmStatus, type LlmStatus } from "@/lib/api";
 import { Button, SectionRule, Dot } from "@/components/primitives";
+import AiUsagePanel from "@/components/AiUsagePanel";
 
 const DATA_FILES = [
   "sample_nodes",
@@ -207,6 +208,9 @@ export default function ImportExport() {
           )}
         </>
       )}
+
+      {/* AI Usage / Token Observatory */}
+      <AiUsagePanel />
 
       {/* Device token */}
       <div className="mt-6"><SectionRule label="Device token" /></div>

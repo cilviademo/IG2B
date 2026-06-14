@@ -47,6 +47,11 @@ async function main() {
   const env = { LLM_DEFAULT_PROVIDER: "openrouter", LLM_CLASSIFICATION_PROVIDER: "anthropic", LLM_RESEARCH_PROVIDER: "openrouter" };
   ok("default provider from env", defaultProvider(env) === "openrouter");
   ok("classification overrides to anthropic", resolveTask("classification", env).provider === "anthropic");
+  // Live activation: LLM_PROVIDER alias + ANTHROPIC_API_KEY => live anthropic.
+  ok("LLM_PROVIDER alias honored", defaultProvider({ LLM_PROVIDER: "anthropic" }) === "anthropic");
+  ok("ANTHROPIC_API_KEY -> live mode", llmMode({ ANTHROPIC_API_KEY: "sk-test" }) === "live");
+  ok("ANTHROPIC_API_KEY -> anthropic configured", providerConfigured("anthropic", { ANTHROPIC_API_KEY: "sk-test" }).configured === true);
+  ok("default provider is anthropic with no env", defaultProvider({}) === "anthropic");
   ok("research uses openrouter + a research model", resolveTask("research", env).provider === "openrouter" && resolveTask("research", env).model.length > 0);
   ok("synthesis falls back to default (openrouter)", resolveTask("synthesis", env).provider === "openrouter");
 
