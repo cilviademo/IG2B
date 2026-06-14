@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: durable-account · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase3-media · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -94,6 +94,13 @@ commit(s) · what/why · live-test status).
 - **Library / Repository (`/library`, in More):** storage view of the vault — uploaded **Files**, **Completed** (processed), **Archived** captures with counts; opens files via signed URL, restores archived items; reads the same server vault as Atlas. Badge rolls into the More tab.
 - **Instagram (point 4):** confirmed *expected* — no fetcher/transcriber is wired yet; reel/audio/video enrichment is Wave-6 Stage 2-7 = **Phase 3 (media Docker spike)**, still gated.
 - **Verified:** matrix 454/454; pwa/api/worker typecheck + builds green ×3; headless renders of `/io` (Account hides without API), `/library` (chips + empty state), `/more` (Library entry). No regressions. **Pending owner on-device:** Secure this vault (set email+password), confirm it survives a quit-reopen / reinstall via Log in, and that Library shows stored items. No PR.
+
+### 2026-06-14 · claude (Claude Code) · `claude/phase3-media` → main — Phase 3: media intelligence pipeline (captions + Whisper, owner-gated)
+- **Greenlit "on to Phase 3."** Built the Wave-6 media extraction end-to-end so shared YouTube/audio/video/podcast (and opt-in Reel/TikTok) become real transcribed+synthesized nodes — replacing the thin URL-only node. **Inert until the owner deploys the Docker worker + sets `MEDIA_WORKER=on`** (today's honest behavior is unchanged otherwise). Full design + owner steps in `17_WAVE6_MEDIA_SPIKE.md`.
+- **Two-worker routing:** new `media_extract` job on a **dedicated Redis queue** (`indigold:jobs:media`) so the in-process API worker never starves a job it has no binaries for. `queue.ts` `enqueue`/`consume` take an optional queue (+ `MEDIA_QUEUE`); `data.ts` routes to it only when `MEDIA_WORKER=on`, else keeps `media_ingest`'s honest "stored as a link" node.
+- **Media worker** (`apps/worker/src/media.ts`, `apps/worker/src/lib/extract.ts`, `apps/media-worker/transcribe.py`, Dockerfile): captions-first (yt-dlp subs → `subtitleToText`, no Whisper) → else yt-dlp bestaudio → ffmpeg 16kHz mono → faster-whisper (baked model), with a `MEDIA_MAX_MINUTES` guard (remote + local probe). Writes transcript via new `captures.setTranscript` (→ `raw` JSONB) then enqueues `media_ingest` for synthesis through the EXISTING `governedComplete` (budget + privacy gated). `apps/worker` build now emits `dist/media.js`.
+- **Honesty + privacy preserved:** no captions / blocked / too-long / empty → honest "transcript unavailable" node, never fabricated; secret/internal + remote fetch refused (`secret_kept_local`). No schema migration (transcript rides `raw`/`meta` JSONB). render.yaml media-worker block added **commented** (paid plan — no surprise provisioning).
+- **Verified (sandbox):** new `media-verify.ts` (5 tests; matrix **459/459**); typecheck:all + `apps/worker` build green ×3 (emits `media.js`). The binaries (yt-dlp/ffmpeg/whisper) can't run in this sandbox — **owner runs the timing spike (RTF) on the deployed image** and shares a YouTube link first (captions path) to prove the wiring. No PR.
 
 
 ### 2026-06-14 · claude (Claude Code) · carry-forward — ALL remaining work consolidated onto main

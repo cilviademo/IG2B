@@ -1,10 +1,49 @@
-# Wave 6 — Media Intelligence Engine: Step 1 binary spike (feasibility)
+# Wave 6 — Media Intelligence Engine (Phase 3)
 
-`Last updated: 2026-06-14 · Commit: wave6-media · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase3-media · By: claude (Claude Code)`
 
-> Branch `claude/wave6-media`. **Spike only — no pipeline built.** Goal of this step: prove
-> yt-dlp + FFmpeg + faster-whisper install and run in a real deploy-like env, get real CPU
-> timings, and define the `render.yaml`/Dockerfile impact. **Stop after this for owner review.**
+> **Step 1 (feasibility spike) + Step 2 (pipeline built, owner-gated) are below.** The code
+> is shipped but INERT until the owner deploys the Docker media-worker + sets `MEDIA_WORKER=on`.
+
+## Step 2 — pipeline built (greenlit "on to Phase 3")
+
+End-to-end media extraction is implemented and gated:
+
+- **Dedicated media queue.** `media_extract` jobs go to `indigold:jobs:media` (separate Redis
+  list) so the in-process API worker never pops a job it has no binaries for. `queue.ts`
+  `enqueue`/`consume` take an optional queue; the API routes to the media queue only when
+  `MEDIA_WORKER=on` (else today's honest "stored as a link" behavior via `media_ingest`).
+- **Media worker** (`apps/worker/src/media.ts` → `apps/media-worker/Dockerfile`): consumes
+  the media queue and runs the honest pipeline in `apps/worker/src/lib/extract.ts`:
+  1. **Captions-first** (YouTube/Vimeo) via yt-dlp subs → `subtitleToText` (no Whisper).
+  2. else **transcribe**: yt-dlp bestaudio → ffmpeg 16kHz mono WAV → `transcribe.py`
+     (faster-whisper, baked model) — with a `MEDIA_MAX_MINUTES` duration guard (remote
+     pre-check + local ffprobe).
+  3. Writes the transcript onto the capture (`captures.setTranscript` → `raw` JSONB) and
+     enqueues `media_ingest` so the EXISTING synthesis turns it into a node via
+     `governedComplete` (budget + privacy gated).
+- **Honest degradation everywhere:** no captions / blocked fetch / too long / secret →
+  hand to `media_ingest` which makes the "transcript unavailable — stored as a link" node.
+  Never fabricates. Privacy: secret/internal + remote fetch is refused (`secret_kept_local`).
+- **Verified (sandbox):** `subtitleToText` parser covered by `media-verify.ts` (5 tests,
+  matrix 459/459); worker builds `dist/media.js`; typecheck + build green ×3. The binaries
+  (yt-dlp/ffmpeg/whisper) can't run here — owner verifies on the deployed image.
+
+### Owner steps to turn it on
+1. Uncomment the `indigold-media-worker` block in `render.yaml` (pick a `plan`; transcription
+   needs a paid plan, captions-first is light) and deploy it; set `ANTHROPIC_API_KEY` on it.
+2. Set `MEDIA_WORKER=on` on `indigold-api` (and `MEDIA_ADVANCED=on` to opt into yt-dlp for
+   Reels/TikTok — fragile).
+3. **Run the timing spike below on the media-worker shell** and record the real-time factor
+   before relying on Whisper for long media. Start by sharing a **YouTube** link (captions
+   path — cheap, no Whisper) to prove the wiring, then test an audio/podcast URL.
+
+---
+
+## Step 1 — binary spike (feasibility, done)
+
+> Goal: prove yt-dlp + FFmpeg + faster-whisper install and run in a real deploy-like env, get
+> real CPU timings, and define the `render.yaml`/Dockerfile impact.
 
 ## What ran in the sandbox (a 4-core/16GB Linux x64 container — NOT Render)
 

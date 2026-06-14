@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as repo from "@indigold/db";
-import { contracts, enqueue, id, planIntake } from "@indigold/shared";
+import { contracts, enqueue, id, planIntake, MEDIA_QUEUE } from "@indigold/shared";
 import type { Authed } from "../middleware/auth";
 import { validate } from "../lib/validate";
 
@@ -37,10 +37,20 @@ capturesRouter.post("/", validate(contracts.captureCreate), async (req: Authed, 
   // Wave 6 — Universal Intake Router: if what was shared is MEDIA (video/audio/podcast/
   // YouTube/reel/etc.), also enqueue the media pipeline. Capture stays instant; media work is
   // async + best-effort and surfaces via the Task Center. Indigold decides — the Shortcut just delivers.
-  const plan = planIntake({ url: capture.url, captureType: capture.type, text: capture.note, source: capture.source });
+  const advanced = process.env.MEDIA_ADVANCED === "on";
+  const plan = planIntake({ url: capture.url, captureType: capture.type, text: capture.note, source: capture.source }, advanced);
   if (["captions", "transcribe"].includes(plan.pipeline) || (plan.pipeline === "metadata_only" && plan.advancedOnly)) {
-    const mj = await enqueue("media_ingest", req.userId!, { captureId: capture.id });
-    await repo.jobs.record({ id: mj.id, user_id: req.userId!, type: mj.type, status: "queued", payload: mj.payload });
+    // If the dedicated Docker media-worker is deployed (MEDIA_WORKER=on), route to the
+    // EXTRACT step on the media queue (yt-dlp/captions/Whisper → transcript → it then
+    // enqueues media_ingest for synthesis). Otherwise keep today's behavior: media_ingest
+    // makes an honest "stored as a link / extraction pending" node. Capture stays instant.
+    if (process.env.MEDIA_WORKER === "on" && (plan.pipeline === "captions" || plan.pipeline === "transcribe")) {
+      const mj = await enqueue("media_extract", req.userId!, { captureId: capture.id }, MEDIA_QUEUE);
+      await repo.jobs.record({ id: mj.id, user_id: req.userId!, type: mj.type, status: "queued", payload: mj.payload });
+    } else {
+      const mj = await enqueue("media_ingest", req.userId!, { captureId: capture.id });
+      await repo.jobs.record({ id: mj.id, user_id: req.userId!, type: mj.type, status: "queued", payload: mj.payload });
+    }
   }
   await repo.audit.log({ user_id: req.userId!, actor: "api", action: "capture.create", target: capture.id });
   res.status(201).json({ capture, job: job.id });

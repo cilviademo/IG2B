@@ -111,3 +111,21 @@ export function planIntake(i: IntakeInput, advancedEnabled = false): IntakePlan 
 
 // Honest preference order (UI + handler follow this top-down).
 export const DEGRADATION_ORDER: IntakePipeline[] = ["transcribe", "captions", "url", "document", "vision", "metadata_only"];
+
+/** Strip a WebVTT/SRT subtitle file to plain spoken text. Pure (testable); used by the
+ *  media-worker's captions-first path. Drops headers/timing cues/indices, inline tags and
+ *  entities, and collapses the adjacent-duplicate lines auto-captions emit. */
+export function subtitleToText(sub: string): string {
+  const out: string[] = [];
+  for (const raw of sub.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line === "WEBVTT" || line.startsWith("NOTE") || line.startsWith("Kind:") || line.startsWith("Language:")) continue;
+    if (/^\d+$/.test(line)) continue; // SRT cue index
+    if (/-->/.test(line)) continue; // timing cue
+    const clean = line.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+    if (!clean) continue;
+    if (out[out.length - 1] !== clean) out.push(clean);
+  }
+  return out.join(" ").replace(/\s+/g, " ").trim();
+}

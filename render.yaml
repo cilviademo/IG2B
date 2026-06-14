@@ -103,4 +103,35 @@ services:
         value: "900"
       - key: UPLOAD_MAX_BYTES
         value: "52428800"
+      # Wave 6 media pipeline: leave unset for honest "stored as a link" behavior.
+      # Set MEDIA_WORKER=on (and deploy the indigold-media-worker below) to route
+      # media captures to real captions/transcription. MEDIA_ADVANCED=on additionally
+      # opts into yt-dlp extraction for Reels/TikTok (fragile; off by default).
+      # - { key: MEDIA_WORKER, value: "on" }
+      # - { key: MEDIA_ADVANCED, value: "on" }
       # RADIAN_URL / ENCOMPASS_URL intentionally unset -> intelligence runs in-process.
+
+  # ---- Wave 6 media worker (Docker; yt-dlp + ffmpeg + faster-whisper) ----
+  # GATED + COST: a CPU-transcription worker is NOT free-tier. Uncomment this block to
+  # provision it, set MEDIA_WORKER=on above, and FIRST run the timing spike in
+  # docs/state/17_WAVE6_MEDIA_SPIKE.md on this image (record the real-time factor).
+  # Captions-first (YouTube/Vimeo) needs no Whisper compute and proves the wiring cheaply.
+  # - type: worker
+  #   name: indigold-media-worker
+  #   runtime: image
+  #   plan: standard            # real CPU/RAM for transcription; adjust to your budget
+  #   region: oregon
+  #   dockerfilePath: ./apps/media-worker/Dockerfile
+  #   dockerContext: .
+  #   envVars:
+  #     - key: DATABASE_URL
+  #       fromDatabase: { name: indigold-db, property: connectionString }
+  #     - key: REDIS_URL
+  #       fromService: { type: redis, name: indigold-cache, property: connectionString }
+  #     - key: MEDIA_WHISPER_MODEL
+  #       value: base
+  #     - key: MEDIA_MAX_MINUTES
+  #       value: "30"
+  #     # - { key: MEDIA_ADVANCED, value: "on" }   # opt-in yt-dlp for Reels/TikTok
+  #     - key: ANTHROPIC_API_KEY                    # synthesis via the SAME governedComplete path
+  #       sync: false

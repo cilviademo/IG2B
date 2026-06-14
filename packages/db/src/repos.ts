@@ -60,6 +60,15 @@ export const captures = {
   async setProcessing(id: string, status: string) {
     await query(`UPDATE captures SET processing_status=$2 WHERE id=$1`, [id, status]);
   },
+  // Wave 6: the media-worker writes the extracted transcript (+ media meta) back into
+  // the immutable capture's `raw` JSONB; the media_ingest synthesis handler reads it.
+  // Merges (||) so we never clobber other raw fields.
+  async setTranscript(userId: string, id: string, transcript: string, media?: object) {
+    await query(
+      `UPDATE captures SET raw = raw || $3::jsonb WHERE user_id=$1 AND id=$2`,
+      [userId, id, JSON.stringify({ transcript, ...(media ? { media } : {}) })],
+    );
+  },
   async triage(userId: string, id: string) {
     await query(`UPDATE captures SET status='triaged' WHERE user_id=$1 AND id=$2`, [userId, id]);
   },

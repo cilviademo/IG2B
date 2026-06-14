@@ -1,6 +1,6 @@
 # Roadmap
 
-`Last updated: 2026-06-12 · Commit: 603527b · By: claude (Claude Code)`
+`Last updated: 2026-06-12 · Commit: phase3-media · By: claude (Claude Code)`
 
 Status keys: **planned · in-progress · blocked · done→changelog.** Each item lists its
 source directive and the gate that unblocks/closes it.
@@ -18,6 +18,14 @@ source directive and the gate that unblocks/closes it.
   multi-provider LLM framework. **Gate (per wave, needs a provider key):** repo-share →
   classify+link+relevance+playbook+NEXT ACTIONS; research → finding captures; budget force-test
   ($0.01→queue); secret-exclusion test green. Source: "RADIAN 2.0 Build Directive".
+
+## In-progress (owner-gated)
+- **Phase 3 — Wave 6 media pipeline (`claude/phase3-media` → main)** — *built, inert until deployed.*
+  `media_extract` on a dedicated Redis queue → Docker media-worker (yt-dlp captions/audio +
+  ffmpeg + faster-whisper, baked model) → transcript → existing `media_ingest` synthesis.
+  **Gate:** owner uncomments the `indigold-media-worker` block in `render.yaml` (paid plan),
+  sets `MEDIA_WORKER=on`, runs the RTF timing spike (`17_WAVE6_MEDIA_SPIKE.md`), and shares a
+  YouTube link (captions path) → a transcribed+synthesized node; then an audio/podcast URL.
 
 ## Planned (not started)
 - **iOS Shortcut file branch (live wiring)** — *planned, docs done.* The recipe is in

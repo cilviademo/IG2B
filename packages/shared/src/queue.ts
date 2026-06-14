@@ -7,20 +7,29 @@ import type { Job, JobType } from "./types";
 import { id } from "./ids";
 
 const QUEUE = "indigold:jobs";
-const PROCESSING = "indigold:jobs:processing";
+
+// Wave 6 — the media pipeline runs on a SEPARATE Redis list consumed only by the
+// dedicated Docker media-worker. This keeps heavy transcription off the in-process
+// API worker and (critically) stops the in-process worker from popping a job it has
+// no binaries for and dead-lettering it before the media-worker can take it.
+export const MEDIA_QUEUE = "indigold:jobs:media";
 
 export async function enqueue<T extends Record<string, unknown>>(
   type: JobType,
   userId: string,
   payload: T,
+  queue: string = QUEUE,
 ): Promise<Job<T>> {
   const job: Job<T> = { id: id("job"), type, user_id: userId, payload, enqueued_at: new Date().toISOString() };
-  await redis().lpush(QUEUE, JSON.stringify(job));
+  await redis().lpush(queue, JSON.stringify(job));
   return job;
 }
 
 export interface ConsumeOpts {
   onError?: (e: unknown, job: Job) => void;
+  /** Which Redis list to consume (default: the main job queue). The media-worker
+   *  passes `MEDIA_QUEUE`; processing/dead lists are derived from it. */
+  queue?: string;
   /** Test seam ONLY. Production always uses `redis().duplicate()`. Receives the shared
    *  client so a test can return a fake (or deliberately return it to assert the guard). */
   connect?: (shared: ReturnType<typeof redis>) => ReturnType<typeof redis>;
@@ -41,13 +50,16 @@ export async function consume(handler: (job: Job) => Promise<void>, opts: Consum
   // The assertion fails loudly if a future refactor swaps the duplicate() back out.
   const r = opts.connect ? opts.connect(shared) : shared.duplicate();
   if (r === shared) throw new Error("queue.consume: blocking BRPOPLPUSH must use a DEDICATED Redis connection, not the shared redis() client");
+  const queue = opts.queue ?? QUEUE;
+  const processing = `${queue}:processing`;
+  const dead = `${queue}:dead`;
   const max = opts.maxIterations ?? Infinity;
   let iterations = 0;
   while (iterations < max) {
     iterations++;
     let raw: string | null;
     try {
-      raw = await r.brpoplpush(QUEUE, PROCESSING, 5);
+      raw = await r.brpoplpush(queue, processing, 5);
     } catch {
       // Redis briefly unavailable — back off and retry rather than crash.
       await new Promise((res) => setTimeout(res, 1000));
@@ -58,12 +70,12 @@ export async function consume(handler: (job: Job) => Promise<void>, opts: Consum
     try {
       job = JSON.parse(raw) as Job;
       await handler(job);
-      await r.lrem(PROCESSING, 1, raw);
+      await r.lrem(processing, 1, raw);
     } catch (e) {
       opts.onError?.(e, job as Job);
-      // move back to the main queue for one retry, then drop to a dead list
-      await r.lrem(PROCESSING, 1, raw);
-      await r.lpush("indigold:jobs:dead", raw);
+      // move back off the processing list for one retry, then drop to the dead list
+      await r.lrem(processing, 1, raw);
+      await r.lpush(dead, raw);
     }
   }
 }
