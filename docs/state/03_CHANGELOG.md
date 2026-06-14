@@ -55,6 +55,13 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/atlas-canvas` — Atlas canvas pass (B)
+- **Fit-and-center:** `reset()` now fits the node bounding box to the viewport (centred, padded) instead of a fixed transform — small/generated clusters no longer sit smushed low. Powers the Center control + "Back to full Atlas" pill, and **auto-fits once** after the layout settles (immediate under reduced motion). Uses the same view transform the pointer math reads, so hit-testing stays exact.
+- **Label collision avoidance:** labels track drawn bounding boxes and skip overlaps (selected/active labels always win) — overlapping labels gone.
+- Pointer math, edges, node draw untouched; reduced-motion path intact; verify matrix **409/409**; pwa typecheck+build green; iPhone-viewport screenshot regression artifact (`scripts/shots/atlas-dark.png`). Branch `claude/atlas-canvas` off `claude/aurora-ia` — owner eyeball before merge.
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — ItemActions rollout (A)
 - Reusable **`ItemActions`** now wired across the daily-driver entities: **captures** (create quest · copy · Archive [soft, **with Undo toast**] · Delete), **quests** (`QuestCard`: copy · convert-to-project · Archive · Delete), **nodes** (`NodeSheet`: Delete → removes from the live Atlas in place), **AI results** (Activity). Destructive actions confirm; archive is soft/reversible.
 - Backend: `DELETE /radian/quests/:id` + `POST /captures/:id/unarchive` (undo) + `quests.remove`/`captures.unarchive` repos; quest/node/capture deletes emit `deleted` events.

@@ -214,9 +214,17 @@ export default function Atlas() {
     apiRef.current = {
       zoom: (f) => zoomAround(W / 2, H / 2, f),
       reset: () => {
-        view.scale = 1;
-        view.tx = 0;
-        view.ty = 0;
+        // Fit-and-center to the node bounding box — "show all nodes", vertically centred.
+        // Fixes small/generated clusters sitting smushed low. Same view transform the
+        // pointer math uses, so hit-testing stays exact.
+        if (sim.length === 0) { view.scale = 1; view.tx = 0; view.ty = 0; kick(); return; }
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const s of sim) { minX = Math.min(minX, s.x); minY = Math.min(minY, s.y); maxX = Math.max(maxX, s.x); maxY = Math.max(maxY, s.y); }
+        const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+        const pad = 96;
+        view.scale = Math.min(2, Math.max(0.4, Math.min((W - pad) / bw, (H - pad) / bh)));
+        view.tx = W / 2 - ((minX + maxX) / 2) * view.scale;
+        view.ty = H / 2 - ((minY + maxY) / 2) * view.scale;
         kick();
       },
       redraw: () => kick(),
@@ -531,7 +539,9 @@ export default function Atlas() {
       const motion = hasPulse || (!reduceMotion && questActiveRef.current.size > 0);
       const pulseT = motion ? (Math.sin(performance.now() * 0.0028) + 1) / 2 : 0;
 
-      // nodes — flat luminous points
+      // nodes — flat luminous points. `labelRects` accumulates drawn label boxes so we can
+      // skip overlapping labels (collision avoidance) — selected/active labels always win.
+      const labelRects: { x1: number; y1: number; x2: number; y2: number }[] = [];
       for (const s of sim) {
         const sx = s.x * scale + tx;
         const sy = s.y * scale + ty;
@@ -666,8 +676,16 @@ export default function Atlas() {
           ctx!.textAlign = "center";
           let label = s.node.title;
           if (label.length > 22) label = label.slice(0, 21) + "…";
-          ctx!.fillStyle = rgba([142, 146, 156], isSel ? 1 : 0.85);
-          ctx!.fillText(label, sx, sy + sr + 13);
+          const ly = sy + sr + 13;
+          const hw = ctx!.measureText(label).width / 2 + 3;
+          const rect = { x1: sx - hw, y1: ly - 8, x2: sx + hw, y2: ly + 4 };
+          // Skip labels that would collide with one already drawn (selected always shows).
+          const collides = !isSel && labelRects.some((r) => rect.x1 < r.x2 && rect.x2 > r.x1 && rect.y1 < r.y2 && rect.y2 > r.y1);
+          if (!collides) {
+            labelRects.push(rect);
+            ctx!.fillStyle = rgba([142, 146, 156], isSel ? 1 : 0.85);
+            ctx!.fillText(label, sx, ly);
+          }
         }
       }
     }
@@ -680,6 +698,11 @@ export default function Atlas() {
       const fid = focusRef.current;
       if (reduceMotion) apiRef.current?.focus(fid);
       else focusTimer = window.setTimeout(() => apiRef.current?.focus(fid), 650);
+    } else {
+      // No deep-link: auto fit-and-center once the layout has settled (small clusters
+      // then sit centred, not smushed low). Immediate under reduced motion.
+      if (reduceMotion) apiRef.current?.reset();
+      else focusTimer = window.setTimeout(() => apiRef.current?.reset(), 700);
     }
     return () => {
       cancelAnimationFrame(raf);
