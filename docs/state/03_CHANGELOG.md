@@ -55,6 +55,14 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — AURORA A6–A15 + a11y (full UI pass)
+- **A6** Time Machine one-panel-at-a-time (Replay/Lessons/Resurfaced/Past Self, segmented + swipe); **A7** editorial Weekly Brief; **A10** loading skeletons (resolve to real states); **A11** `.page-enter` + gated haptics; **A12** intentional empty states; **A13** premium spacing/type across pages; **A14** Home cold-load 4→1 request, worker-Redis guard confirmed; **A15** UI honestly reflects deterministic-vs-live (no wiring).
+- **A8 deferred (intentional):** Atlas already ships the cosmos (G8, 60fps); heavy changes risk the canvas pointer math (hard constraint) — recommend a dedicated Atlas branch. No regressions.
+- **a11y:** colour-blind status shapes, `.tap-target` 44px, aria-labels, reduced-motion strips new motion + haptics, overflow guards.
+- Full summary + per-phase status in `docs/state/14_AURORA.md`. Behaviour-preserving; verify matrix **409/409**; pwa/api/worker typecheck+build green. Branch only — `main` untouched, pending owner eyeball.
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — AURORA A1 (IA declutter) + A9 (scroll restoration)
 - **A1 — Home → four sections:** Companion (paragraph + Brief Me) · Today's Focus (≤3) · Active Quest (one live card, honest empty state) · Risk (only when present, colour-blind-safe triangles). Progression / Simulate / Research / Detections / Metrics / Recommended-focus **relocated to a new `/insights` page** (nothing removed). Whitespace + hierarchy over borders; Home gzip bundle 107→103 KB.
 - **A1 — tab bar 8 → 5:** Home · Inbox · Atlas · Timeline · **More**. New `/more` hub links Quests · Insights · Context · Brief · Time Machine · Settings · Diagnostics; the More tab badge rolls up unseen tasks from the relocated routes. Tap targets ≥56px wide / 44px tall.
