@@ -55,6 +55,13 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/vault-reset` — Job 2: vault reset + first-share pre-flight
+- **`scripts/reset-vault.ts`** (Job 2a) — DESTRUCTIVE vault wipe, **dry-run by default, `--apply` to execute**, optional `--user`. Wipes all user/test content (captures, nodes, edges, timeline, context_packs, briefs, jobs(via events? no)/events, decisions, opportunities, constraints, embeddings, quests, xp_ledger, assets, projects, agents, ai_calls, api_usage, audit_logs) WITHOUT dropping tables; **preserves `users` (auth) + `prompt_overrides` (config)**; sessions(Redis) + provider keys(env) untouched. Prints row-counts (dry-run) and waits for `--apply`. Self-tested on ephemeral PG: dry-run counts → apply → users+prompt_overrides kept, everything else 0 → idempotent. **Owner runs the real wipe (sandbox can't reach Render); export the vault first.**
+- **`docs/state/15_FIRST_SHARE.md`** (Job 2b) — honest wired-vs-aspirational: Instagram Reel = URL + metadata classification only (NO reel content fetched — no IG fetcher; web-search is a stub), Apple Note = real text the synthesizer processes, two-item linking is sparse by design (no invented edges), live provider IS invoked for non-secret captures (secret/internal stay local), capture stays instant. Plus a 6-step pre-flight checklist (queue → notification → node → Atlas link → companion → budget) with break-vs-expected-sparseness signals.
+- No app behaviour changed (script + docs only). api/worker untouched; verify matrix unaffected. **Owner runs the wipe + the two shares; we debug from what you actually see.**
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/indigold-architecture-rnd-iYwF6` — Job 1: notification spine fix
 - **Diagnosed** the capture Ask-Radian lifecycle end-to-end (chain sound; gaps were panel-scoped state + unlinked capture child + sticky toast — see `05_DEBUGGING_LOG.md`).
 - **CaptureDetail** now shows a **persistent AI lifecycle** (working… → done/fallback/failed) with Open-result + Retry, read from the Task Center by capture id — survives closing the Companion panel. Ask Radian button shows "working…" while in flight.
