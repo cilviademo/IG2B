@@ -187,6 +187,23 @@ export default function ImportExport() {
               {dollars(llm.budget.month_to_date_cents)} / {dollars(llm.budget.monthly_budget_cents)}
             </span>
           </div>
+          {llm.budget.state !== "ok" && (
+            <p className="cap-data mt-1" style={{ color: "var(--gold)" }}>
+              Governor {llm.budget.state} — AI work is degraded/queued, not silently spending.
+            </p>
+          )}
+          {/* Spend-by-purpose: where this month's tokens went (no silent drain). */}
+          {llm.budget.by_purpose && llm.budget.by_purpose.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <span className="cap-data" style={{ color: "var(--text-dim)" }}>this month, by purpose</span>
+              {llm.budget.by_purpose.slice(0, 6).map((p) => (
+                <div key={p.purpose} className="flex items-center justify-between" style={{ fontSize: 11 }}>
+                  <span className="font-mono" style={{ color: "var(--text-dim)" }}>{p.purpose}<span style={{ opacity: 0.6 }}> ·{p.calls}</span></span>
+                  <span className="font-data" style={{ color: "var(--text-dim)" }}>{dollars(p.cents)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
 

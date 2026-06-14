@@ -280,7 +280,12 @@ export interface LlmStatus {
   default_provider: string;
   mode: string;
   providers: Record<string, { configured: boolean; reason?: string }>;
-  budget: { monthly_budget_cents: number; month_to_date_cents: number; state: string };
+  budget: {
+    monthly_budget_cents: number;
+    month_to_date_cents: number;
+    state: string;
+    by_purpose?: { purpose: string; cents: number; calls: number }[];
+  };
 }
 
 /** Safe LLM provider + budget status for the I/O panel. Never contains secrets. */

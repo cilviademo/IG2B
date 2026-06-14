@@ -882,6 +882,9 @@ llmRouter.get("/status", async (req: Authed, res) => {
       monthly_budget_cents: budget.budget_cents,
       month_to_date_cents: budget.month_cost_cents,
       state: budget.state,
+      // Spend-by-purpose so a live key can't silently drain budget unseen. Purpose +
+      // cents + call count only — never any prompt content or secret. Highest-first.
+      by_purpose: (budget.by_purpose || []).map((p) => ({ purpose: p.purpose, cents: p.cost_cents, calls: p.calls })),
     },
   });
 });
