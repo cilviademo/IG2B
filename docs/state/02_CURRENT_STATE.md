@@ -1,6 +1,6 @@
 # Current State
 
-`Last updated: 2026-06-14 · Commit: phase-7-architecture (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: notify-spine (off main) · By: claude (Claude Code)`
 
 > **VERIFICATION + HARDENING arc — Phases 0–7 done (latest); G12+ gated on owner greenlight.** On branch `claude/indigold-architecture-rnd-iYwF6` (design on `claude/design-polish`).
 > - **P0 hygiene:** `scripts/dedupe-derived-nodes.ts` (dry-run default; **owner runs the dev-vault dry-run**); schema.ts byte-current; green baseline.

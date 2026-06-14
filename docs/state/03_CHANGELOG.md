@@ -55,6 +55,14 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/indigold-architecture-rnd-iYwF6` — Job 1: notification spine fix
+- **Diagnosed** the capture Ask-Radian lifecycle end-to-end (chain sound; gaps were panel-scoped state + unlinked capture child + sticky toast — see `05_DEBUGGING_LOG.md`).
+- **CaptureDetail** now shows a **persistent AI lifecycle** (working… → done/fallback/failed) with Open-result + Retry, read from the Task Center by capture id — survives closing the Companion panel. Ask Radian button shows "working…" while in flight.
+- **Toast** auto-tucks into the bell after 8s (badge + Notification Center keep it recoverable); honest per terminal state.
+- Headless-proven: toast + bell badge (unread count) + per-tab badges from persisted task state on an off-origin tab (`scripts/shots/notify-toast.png`). 409/409 verify; pwa/api/worker typecheck+build green. **STOPPED for owner device confirmation before Job 2 (vault wipe + first-share test).**
+
+
+
 ### 2026-06-12 · claude (Claude Code) · `claude/living-handoff-system`
 - Created the Living Handoff System (`docs/state/` + `CLAUDE.md`/`AGENTS.md`/`.cursor` pointers + README section + changelog drift-guard CI). Reconstructed history from `git log --all`; opened PRs #1/#2/#3 for the three completed feature branches. Live-test status: docs only, no code paths changed.
 

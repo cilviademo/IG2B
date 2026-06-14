@@ -1,11 +1,18 @@
+import { useEffect } from "react";
 import { CheckCircle2, AlertTriangle, Clock, X, ExternalLink } from "lucide-react";
 import { useTasks } from "@/contexts/TaskCenter";
 
 // Push-style in-app toast for a task that reached a terminal state on a tab you're NOT on.
 // Honest per status: completed/fallback → Open result; failed → reason; budget/skip → note.
+// Auto-tucks into the bell after 8s (the badge + Notification Center keep it recoverable).
 export default function TaskToast() {
   const { toastTask, accept, snooze, dismiss } = useTasks();
   const t = toastTask();
+  useEffect(() => {
+    if (!t) return;
+    const id = setTimeout(() => snooze(t.id), 8000);
+    return () => clearTimeout(id);
+  }, [t, snooze]);
   if (!t) return null;
 
   const ok = t.status === "completed" || t.status === "fallback";

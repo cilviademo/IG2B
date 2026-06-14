@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Trash2, Link2, Camera, FileDown, Loader2, Sparkles } from "lucide-react";
+import { Link } from "wouter";
+import { Trash2, Link2, Camera, FileDown, Loader2, Sparkles, Check, AlertTriangle, ExternalLink, RotateCcw } from "lucide-react";
 import Sheet from "./Sheet";
 import CompanionPanel from "./CompanionPanel";
+import { useTasks } from "@/contexts/TaskCenter";
 import {
   type CaptureType,
   type Sensitivity,
@@ -40,6 +42,15 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
   const proc = PROCESSING_META[item.processing_status];
   const body = item.body || item.note || "";
   const [companion, setCompanion] = useState(false);
+  // The capture sheet reflects its OWN Ask-Radian lifecycle (running → done/failed),
+  // persistently and independent of the Companion panel being open — read from the
+  // Task Center by this capture's id so the state survives closing the panel.
+  const { tasks, retry } = useTasks();
+  const aiTask = tasks
+    .filter((t) => t.subjectId === item.id && (t.kind === "companion" || t.kind === "boardroom"))
+    .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  const aiBusy = aiTask && (aiTask.status === "queued" || aiTask.status === "running");
+  const aiOk = aiTask && (aiTask.status === "completed" || aiTask.status === "fallback");
 
   // Uploaded-file assets are private; fetch a fresh, time-limited signed URL when
   // the detail opens. The URL is never stored/cached — re-minted each view, and
@@ -106,8 +117,35 @@ export default function CaptureDetail({ item, onClose, onDelete }: { item: Detai
             className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold"
             style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}
           >
-            <Sparkles size={13} strokeWidth={1.5} /> Ask Radian
+            {aiBusy ? <Loader2 size={13} strokeWidth={1.5} className="animate-spin" /> : <Sparkles size={13} strokeWidth={1.5} />} Ask Radian{aiBusy ? " — working…" : ""}
           </button>
+        )}
+
+        {/* Persistent AI lifecycle for this capture (survives closing the panel). */}
+        {aiTask && !item.local && (
+          <div className="p-2.5" style={{ borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface-2)" }}>
+            <div className="flex items-center gap-2">
+              {aiOk ? <Check size={13} strokeWidth={1.5} style={{ color: "var(--good)" }} />
+                : aiTask.status === "failed" ? <AlertTriangle size={13} strokeWidth={1.5} style={{ color: "var(--risk)" }} />
+                : <Loader2 size={13} strokeWidth={1.5} className="animate-spin" style={{ color: "var(--gold)" }} />}
+              <span style={{ fontSize: 12.5, color: "var(--text)" }}>{aiTask.label}</span>
+              <span className="cap-data ml-auto" style={{ color: aiTask.status === "failed" ? "var(--risk)" : aiOk ? "var(--good)" : "var(--text-dim)" }}>{aiTask.status}</span>
+            </div>
+            {aiTask.error && <p className="cap-data mt-1" style={{ color: "var(--risk)" }}>{aiTask.error}</p>}
+            {aiTask.status === "fallback" && <p className="cap-data mt-1" style={{ color: "var(--gold)" }}>Live model unavailable — answered from your vault.</p>}
+            <div className="flex gap-2 mt-2">
+              {aiOk && aiTask.childNodeId && (
+                <Link href={`/atlas?focus=${aiTask.childNodeId}`} onClick={onClose} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
+                  <ExternalLink size={12} strokeWidth={1.5} /> Open result
+                </Link>
+              )}
+              {aiTask.status === "failed" && (
+                <button onClick={() => retry(aiTask.id)} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
+                  <RotateCcw size={12} strokeWidth={1.5} /> Retry
+                </button>
+              )}
+            </div>
+          </div>
         )}
 
         {item.url && (
