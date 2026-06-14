@@ -69,3 +69,11 @@ Every significant bug: **symptom → root cause → fix → LESSON.** Append-onl
 - **Root cause:** …
 - **Fix:** `<commit>` — …
 - **LESSON:** …
+
+
+### 2026-06-14 · Unfinished job rows hang the poll (Phase 3.3)
+- **Symptom:** a Companion/Task-Center action could poll `GET /radian/job/:id` forever — job stuck at `queued`, never `done`/`failed`.
+- **Root cause:** 8 worker handlers had `if (!subject) return;` guards that exited WITHOUT calling `repo.jobs.finish(...)`, so the job row was never made terminal (only thrown errors hit `onError → failed`; a clean early-return slipped through).
+- **Fix:** every such guard now `await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found")` (the existing pattern). Locked the related perf fix with a runtime guard in `queue.ts` + `queue-verify.ts` so the dedicated-Redis-connection invariant can't silently revert.
+- **Lesson:** "job finished" must be an invariant of EVERY exit path, not just the happy path and the throw path. Grep `return;` in handlers when auditing.
+

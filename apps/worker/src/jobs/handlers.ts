@@ -31,7 +31,7 @@ type Handler = (job: Job) => Promise<void>;
 const ingestCapture: Handler = async (job) => {
   const captureId = String((job.payload as { captureId: string }).captureId);
   const cap = await repo.captures.get(job.user_id, captureId);
-  if (!cap) return;
+  if (!cap) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
   await repo.captures.setProcessing(captureId, "processing");
 
   const prompt = getPrompt("ingest_classify");
@@ -83,7 +83,7 @@ const ingestCapture: Handler = async (job) => {
 const contextualize: Handler = async (job) => {
   const nodeId = String((job.payload as { nodeId: string }).nodeId);
   const node = await repo.nodes.get(job.user_id, nodeId);
-  if (!node) return;
+  if (!node) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
   await repo.seedProjectsIfEmpty(job.user_id);
   const projects = await repo.projects.list(job.user_id);
   const neighbors = await repo.nodes.list(job.user_id); // small single-user graph
@@ -239,7 +239,7 @@ const contextPackJob: Handler = async (job) => {
 const embedJob: Handler = async (job) => {
   const nodeId = String((job.payload as { nodeId: string }).nodeId);
   const node = await repo.nodes.get(job.user_id, nodeId);
-  if (!node) return;
+  if (!node) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
   const text = `${node.title}\n${node.summary}\n${(node.tags || []).join(" ")}`.trim();
   const hash = contentHash(text);
   if ((await repo.embeddings.hash("node", nodeId)) === hash) { await repo.jobs.finish(job.id, "done", { skipped: "unchanged" }); return; }
@@ -263,7 +263,7 @@ const embedJob: Handler = async (job) => {
 const assist: Handler = async (job) => {
   const nodeId = String((job.payload as { nodeId: string }).nodeId);
   const node = await repo.nodes.get(job.user_id, nodeId);
-  if (!node) return;
+  if (!node) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
   await repo.seedProjectsIfEmpty(job.user_id);
   const projects = (await repo.projects.list(job.user_id)).map((p) => ({ id: p.id, name: p.name, tags: p.tags || [], objectives: p.objectives }));
   const srcCapId = (node as { source_capture_id?: string }).source_capture_id || null;
@@ -320,7 +320,7 @@ const assist: Handler = async (job) => {
 const summarize: Handler = async (job) => {
   const nodeId = String((job.payload as { nodeId: string }).nodeId);
   const n = await repo.nodes.get(job.user_id, nodeId);
-  if (!n) return;
+  if (!n) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
   const summary = await model.summarize(n.summary || n.title);
   // verified synthesis -> promote toward Knowledge (Truth Layer C)
   await repo.nodes.update(job.user_id, nodeId, { summary, truth_layer: "C", truth_label: "Knowledge" });
@@ -330,7 +330,7 @@ const summarize: Handler = async (job) => {
 const tag: Handler = async (job) => {
   const nodeId = String((job.payload as { nodeId: string }).nodeId);
   const n = await repo.nodes.get(job.user_id, nodeId);
-  if (!n) return;
+  if (!n) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
   const tags = await model.tags(`${n.title} ${n.summary}`);
   const mvs = Math.min(100, 50 + tags.length * 6);
   await repo.nodes.update(job.user_id, nodeId, { tags, mvs });
@@ -341,7 +341,7 @@ const tag: Handler = async (job) => {
 const graphUpdate: Handler = async (job) => {
   const nodeId = String((job.payload as { nodeId: string }).nodeId);
   const target = await repo.nodes.get(job.user_id, nodeId);
-  if (!target) return;
+  if (!target) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
   const all = await repo.nodes.list(job.user_id);
   const tset = new Set(target.tags || []);
   let made = 0;
@@ -557,7 +557,7 @@ const calibrationJob: Handler = async (job) => {
 const agentTask: Handler = async (job) => {
   const p = job.payload as { nodeId: string; kind: AgentKind };
   const node = await repo.nodes.get(job.user_id, p.nodeId);
-  if (!node) return;
+  if (!node) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
   const prompt = getPrompt("assistance");
   const fallback = () => deterministicAgentArtifact(p.kind, { title: node.title, summary: node.summary });
   let artifact;

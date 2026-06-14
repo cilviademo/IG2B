@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Telescope, Loader2, ChevronRight } from "lucide-react";
 import { getHorizon, runHorizonScan, apiEnabled, type HorizonDirection } from "@/lib/api";
-import CollapsibleSection from "./CollapsibleSection";
+import CollapsibleSection, { useCollapsed } from "./CollapsibleSection";
 import { useTaskAction } from "@/contexts/TaskCenter";
 
 // Mission Control — Research Horizon (G6). Deterministic research directions across your
@@ -12,12 +12,15 @@ const PRIO_COLOR: Record<string, string> = { high: "var(--gold)", med: "var(--in
 
 export default function ResearchPanel() {
   const [loaded, setLoaded] = useState<{ dirs: HorizonDirection[]; chain: string[]; scannedAt: string | null } | null>(null);
+  const { open, toggle } = useCollapsed("home_research", false);
   // The scan runs in the background via the Task Center (notifies on Home when ready).
   const { start, busy, result: scan } = useTaskAction<{ directions: HorizonDirection[]; quests_created: number; chain: string[] } | null>("horizon", "/");
 
+  // Lazy: only hit /radian/horizon once the section is open.
   useEffect(() => {
+    if (!open || loaded) return;
     getHorizon().then((r) => { if (r) setLoaded({ dirs: r.horizon?.payload.directions ?? [], chain: r.chain || [], scannedAt: r.horizon?.payload.scanned_at ?? null }); });
-  }, []);
+  }, [open, loaded]);
 
   // Prefer a fresh scan result; else the loaded horizon brief.
   const dirs = scan?.directions ?? loaded?.dirs ?? null;
@@ -42,7 +45,7 @@ export default function ResearchPanel() {
   );
 
   return (
-    <CollapsibleSection persistKey="home_research" tint="var(--gold)" title={title} action={action}>
+    <CollapsibleSection persistKey="home_research" open={open} onToggle={toggle} tint="var(--gold)" title={title} action={action}>
       {/* the deterministic chain a direction travels */}
       {chain.length > 0 && (
         <div className="flex flex-wrap items-center gap-1 mb-2">

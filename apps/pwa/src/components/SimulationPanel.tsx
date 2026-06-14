@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { FlaskConical, Loader2 } from "lucide-react";
 import { runWhatIf, getProgression, apiEnabled, type SimulationResult, type SimOutcome } from "@/lib/api";
-import CollapsibleSection from "./CollapsibleSection";
+import CollapsibleSection, { useCollapsed } from "./CollapsibleSection";
 import { useTaskAction } from "@/contexts/TaskCenter";
 
 // Mission Control — Simulation Engine (G7). "What happens if…?" → best / likely / worst
@@ -35,8 +35,11 @@ export default function SimulationPanel() {
   // Runs in the background via the Task Center (notifies on Home when ready).
   const { start, busy, result: taskResult } = useTaskAction<{ result: SimulationResult; node: string } | null>("simulate", "/");
   const result = hide ? null : (taskResult?.result ?? null);
+  const { open, toggle } = useCollapsed("home_simulate", false);
 
+  // Lazy: the scenario chips need /radian/progression — fetch only when expanded.
   useEffect(() => {
+    if (!open || chips.length) return;
     getProgression().then((d) => {
       const projects = (d as { projects?: { name: string }[] } | null)?.projects ?? [];
       const names = projects.slice(0, 3).map((p) => p.name);
@@ -46,7 +49,7 @@ export default function SimulationPanel() {
       if (names[0] && names[1]) c.push(`If I stop ${names[1]} and focus ${names[0]}?`);
       setChips(c);
     });
-  }, []);
+  }, [open, chips.length]);
 
   function run(question: string) {
     if (!question.trim() || busy) return;
@@ -64,7 +67,7 @@ export default function SimulationPanel() {
   );
 
   return (
-    <CollapsibleSection persistKey="home_simulate" tint="var(--gold)" title={title} defaultOpen={false}>
+    <CollapsibleSection persistKey="home_simulate" open={open} onToggle={toggle} tint="var(--gold)" title={title} defaultOpen={false}>
       <div className="flex gap-2">
         <input
           value={q}

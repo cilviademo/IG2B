@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { TrendingUp, Flame, Zap } from "lucide-react";
 import { getProgression, apiEnabled } from "@/lib/api";
-import CollapsibleSection from "./CollapsibleSection";
+import CollapsibleSection, { useCollapsed } from "./CollapsibleSection";
 
 // Mission Control progression (G4): today's XP, the track gaining momentum, a stalled
 // track, a recommended action, and a streak — all deterministic from the backend. Quiet
@@ -45,13 +45,17 @@ export function TrackBar({ t }: { t: TrackT }) {
 
 export default function ProgressionPanel() {
   const [data, setData] = useState<ProgT | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const { open, toggle } = useCollapsed("home_progression", true);
 
+  // Lazy: fetch only once the section is (or becomes) open — keeps Home's cold load light.
   useEffect(() => {
+    if (!open || data) return;
     let cancelled = false;
+    setLoading(true);
     getProgression().then((d) => { if (!cancelled) { setData(d as ProgT | null); setLoading(false); } });
     return () => { cancelled = true; };
-  }, []);
+  }, [open, data]);
 
   if (!apiEnabled()) return null; // progression needs the live vault
 
@@ -63,7 +67,7 @@ export default function ProgressionPanel() {
   );
 
   return (
-    <CollapsibleSection persistKey="home_progression" tint="var(--gold)" title={title}>
+    <CollapsibleSection persistKey="home_progression" open={open} onToggle={toggle} tint="var(--gold)" title={title}>
       {loading ? (
         <p className="py-2 pulse-soft" style={{ fontSize: 14, color: "var(--text-dim)" }}>Loading progression… <span className="cap-data">(free-tier API may be waking)</span></p>
       ) : !data ? (
