@@ -55,6 +55,17 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — Live-AI stabilization (global toasts, AI Activity, Atlas nav, item actions)
+- **Global notifications:** `toastTask` no longer excludes the active tab — a completing job toasts on ANY route; bell + tab badges update globally; history persists across routes + reload. (Provider already shell-level.)
+- **Canonical View routing:** `accept()` → child node (`/atlas?focus`) → source node → **`/activity?task=…`**; never generic Home.
+- **AI Activity screen** (`/activity`): the engine room — Running/Completed/Archived, per-run feature/source/status/progress/timestamp/error + View result · Open source · Retry · Archive · Delete. Reached from the bell + More. Task-Center-sourced (survives reload + panel close). Added `archive()` to the Task Center.
+- **Atlas:** "Back to full Atlas" pill when focused/selected; zoom/center controls → 44px; container reserves safe-area top+bottom (clear of tab bar). (Deeper canvas centering/label-collision + full view-state breadcrumb scoped as a dedicated next pass to protect pointer math + 60fps.)
+- **Item actions:** AI results get full actions (Activity); nodes get Create quest + Copy (node DELETE backend already exists). Broader cross-entity `ItemActions` rollout documented as recommended-next.
+- **Result persistence verified** (no new table): jobs + ai_calls + child nodes + client Task Center. Full status in `docs/state/16_LIVE_STABILIZATION.md`.
+- Behaviour-preserving; pwa/api/worker typecheck+build green; verify matrix **409/409**; capture/upload/Shortcut untouched. **Pending owner device confirm of the global toast → View → AI Activity loop.**
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — AURORA A6–A15 + a11y (full UI pass)
 - **A6** Time Machine one-panel-at-a-time (Replay/Lessons/Resurfaced/Past Self, segmented + swipe); **A7** editorial Weekly Brief; **A10** loading skeletons (resolve to real states); **A11** `.page-enter` + gated haptics; **A12** intentional empty states; **A13** premium spacing/type across pages; **A14** Home cold-load 4→1 request, worker-Redis guard confirmed; **A15** UI honestly reflects deterministic-vs-live (no wiring).
 - **A8 deferred (intentional):** Atlas already ships the cosmos (G8, 60fps); heavy changes risk the canvas pointer math (hard constraint) — recommend a dedicated Atlas branch. No regressions.

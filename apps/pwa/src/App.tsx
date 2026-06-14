@@ -27,6 +27,7 @@ const ImportExport = lazy(() => import("./pages/ImportExport"));
 const More = lazy(() => import("./pages/More"));
 const Insights = lazy(() => import("./pages/Insights"));
 const SituationRoom = lazy(() => import("./pages/SituationRoom"));
+const Activity = lazy(() => import("./pages/Activity"));
 const Diagnostics = lazy(() => import("./pages/Diagnostics"));
 const CaptureDeepLink = lazy(() => import("./pages/CaptureDeepLink"));
 const Share = lazy(() => import("./pages/Share"));
@@ -53,6 +54,7 @@ function Routes() {
         <Route path="/more" component={More} />
         <Route path="/insights" component={Insights} />
         <Route path="/situation-room" component={SituationRoom} />
+        <Route path="/activity" component={Activity} />
         <Route path="/diagnostics" component={Diagnostics} />
         <Route path="/capture" component={CaptureDeepLink} />
         <Route path="/share" component={Share} />

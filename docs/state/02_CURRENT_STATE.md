@@ -1,6 +1,8 @@
 # Current State
 
-`Last updated: 2026-06-14 · Commit: aurora-full (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: aurora-stabilize (off main) · By: claude (Claude Code)`
+
+> **Live-AI stabilization (on `claude/aurora-ia`):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 
 > **AURORA A1–A15 (branch `claude/aurora-ia`, NOT merged; A8 Atlas deferred):** full UX/IA pass — 4-section Home, 5-tab bar + More/Insights, conversational Companion, Quests Today/Later/Archive, single Ask input, Situation Room, Time Machine panels, editorial Brief, skeletons, haptics, per-route scroll, colour-blind status, Home 4→1 fetch. Behaviour-preserving; 409/409. See `14_AURORA.md`. Superseded earlier A1+A9 note. **Pending owner eyeball.**
 > **(prior) AURORA A1+A9:** Home decluttered to 4 sections; tab bar 8→5 (+`/more` hub, `/insights`); I/O→Settings (raw access under Advanced); per-route scroll restoration; colour-blind-safe status shapes. Behaviour-preserving (engines frozen); 409/409. **Pending owner IA confirmation before A2–A15.**

@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useJson } from "@/hooks/useJson";
 import { type GraphNode, type GraphEdge } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
-import { Share2, X, Plus, Minus, Locate, Sparkles } from "lucide-react";
+import { Share2, X, Plus, Minus, Locate, Sparkles, ArrowLeft, Swords, Copy } from "lucide-react";
 import CompanionPanel from "@/components/CompanionPanel";
 import { deriveNodeState, NODE_STATE_STYLE, LEGEND, isForgottenGem, isResurfaced, type NodeState } from "@/lib/nodeState";
 import { inferTracks, trackColor, type Track } from "@/lib/progression";
-import { getQuestNodeStatus, getProgression, getLiveNodes, getLiveEdges } from "@/lib/api";
+import { getQuestNodeStatus, getProgression, getLiveNodes, getLiveEdges, createQuest } from "@/lib/api";
+import { toast } from "sonner";
 
 // Atlas — the constellation. Flat luminous points on a deep indigo-black field,
 // hairline edges, organic force layout. Color encodes node type (a desaturated
@@ -703,7 +704,7 @@ export default function Atlas() {
   }
 
   return (
-    <div className="relative" style={{ height: "calc(100dvh - 64px - env(safe-area-inset-top))", background: FIELD }}>
+    <div className="relative" style={{ height: "calc(100dvh - 64px - env(safe-area-inset-top) - env(safe-area-inset-bottom))", background: FIELD }}>
       <div ref={wrapRef} className="absolute inset-0 overflow-hidden" style={{ background: FIELD }}>
         <canvas ref={canvasRef} className="absolute inset-0 touch-none" style={{ cursor: "grab" }} />
       </div>
@@ -727,21 +728,36 @@ export default function Atlas() {
         )}
       </div>
 
-      {/* Controls — 36px ghost circles, hairline border, bottom-right */}
-      <div className="absolute right-4 bottom-4 flex flex-col gap-2">
+      {/* Back to full Atlas — visible whenever a node is focused/selected (incl. a generated
+          result/what-if cluster opened via ?focus). Resets the view + clears the selection. */}
+      {selected && (
+        <div className="absolute left-0 right-0 flex justify-center pointer-events-none" style={{ top: "calc(48px + env(safe-area-inset-top))" }}>
+          <button
+            onClick={() => { apiRef.current?.reset(); setSelected(null); }}
+            className="press pointer-events-auto inline-flex items-center gap-2 px-4"
+            style={{ minHeight: 44, borderRadius: 999, background: "rgba(19,21,26,0.85)", border: "1px solid var(--gold-line)", color: "var(--gold)", backdropFilter: "blur(8px)", fontSize: 13, fontWeight: 600 }}
+          >
+            <ArrowLeft size={15} strokeWidth={1.5} /> Back to full Atlas
+            <span className="cap-data" style={{ color: "var(--text-dim)", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {selected.title}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Controls — 44px ghost circles, hairline border, bottom-right (clear of the tab bar + safe area) */}
+      <div className="absolute right-4 flex flex-col gap-2.5" style={{ bottom: "calc(16px + env(safe-area-inset-bottom))" }}>
         {[
           { icon: Plus, fn: () => apiRef.current?.zoom(1.25), label: "Zoom in" },
           { icon: Minus, fn: () => apiRef.current?.zoom(0.8), label: "Zoom out" },
-          { icon: Locate, fn: () => apiRef.current?.reset(), label: "Reset view" },
+          { icon: Locate, fn: () => { apiRef.current?.reset(); }, label: "Center / reset view" },
         ].map(({ icon: Icon, fn, label }) => (
           <button
             key={label}
             aria-label={label}
             onClick={fn}
-            className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(19,21,26,0.7)", border: "1px solid #22252D", color: "#8E929C", backdropFilter: "blur(8px)" }}
+            className="rounded-full flex items-center justify-center"
+            style={{ width: 44, height: 44, background: "rgba(19,21,26,0.78)", border: "1px solid #2a2d36", color: "#C9C5BA", backdropFilter: "blur(8px)" }}
           >
-            <Icon size={16} strokeWidth={1.5} />
+            <Icon size={18} strokeWidth={1.5} />
           </button>
         ))}
       </div>
@@ -856,11 +872,28 @@ function NodeSheet({ node, onClose, onAsk }: { node: GraphNode; onClose: () => v
         <p className="text-sm leading-relaxed mb-3" style={{ color: "#8E929C" }}>{node.summary}</p>
         <button
           onClick={onAsk}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold mb-4"
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold mb-2.5"
           style={{ borderRadius: 6, border: "1px solid #3A3320", color: "#C9A45C" }}
         >
           <Sparkles size={13} strokeWidth={1.5} /> Ask Radian
         </button>
+        {/* Item actions (Issue 6) — safe, refresh-free actions on this node. */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={async () => { await createQuest({ title: `Act on: ${node.title}`.slice(0, 80), summary: node.summary, kind: "side", source_type: "node", node_id: node.id, state: "suggested" }); toast.success("Quest created", { description: "Find it under Quests → Later." }); }}
+            className="press flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-xs"
+            style={{ borderRadius: 6, border: "1px solid #22252D", color: "#C9C5BA", minHeight: 40 }}
+          >
+            <Swords size={12} strokeWidth={1.5} /> Create quest
+          </button>
+          <button
+            onClick={async () => { try { await navigator.clipboard.writeText(`${node.title}\n${node.summary}`); toast.success("Copied"); } catch { toast("Copy blocked"); } }}
+            className="press flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-xs"
+            style={{ borderRadius: 6, border: "1px solid #22252D", color: "#C9C5BA", minHeight: 40 }}
+          >
+            <Copy size={12} strokeWidth={1.5} /> Copy
+          </button>
+        </div>
         <div className="flex items-end gap-5">
           <div>
             <div className="text-xs mb-0.5" style={{ color: "#8E929C" }}>Memory value</div>

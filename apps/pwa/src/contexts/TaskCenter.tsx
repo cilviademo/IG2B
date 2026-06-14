@@ -31,6 +31,7 @@ export interface Task {
   error?: string;               // failure / skip reason
   seen: boolean;                // notification read
   toastShown?: boolean;         // toast already surfaced (don't re-pop)
+  archived?: boolean;           // moved to the Archived group in AI Activity
   createdAt: number;
   updatedAt: number;
 }
@@ -47,6 +48,7 @@ interface TaskCtx {
   markSeen: (id: string) => void;
   markAllSeen: () => void;
   clearTerminal: () => void;
+  archive: (id: string) => void;
   retry: (id: string) => void;
   latest: (tab: string, kind?: string) => Task | undefined;
   badge: (tab: string) => number;        // unseen terminal for a tab (0 on the active tab)
@@ -138,10 +140,11 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     const t = tasksRef.current.find((x) => x.id === id);
     patch(id, { seen: true, toastShown: true });
     if (!t) return;
-    // Open the result: child node on the Atlas, else the originating node, else the tab.
+    // Canonical destination — NEVER generic Home. The created child node on the Atlas,
+    // else the originating node, else the AI Activity detail for this run (always meaningful).
     if (t.childNodeId) navigate(`/atlas?focus=${t.childNodeId}`);
     else if (t.subjectType === "node" && t.subjectId) navigate(`/atlas?focus=${t.subjectId}`);
-    else navigate(t.tab);
+    else navigate(`/activity?task=${id}`);
   }, [patch, navigate]);
 
   const snooze = useCallback((id: string) => patch(id, { toastShown: true }), [patch]);
@@ -149,6 +152,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   const markSeen = useCallback((id: string) => patch(id, { seen: true, toastShown: true }), [patch]);
   const markAllSeen = useCallback(() => setTasks((ts) => ts.map((t) => (isTerminal(t.status) ? { ...t, seen: true, toastShown: true } : t))), []);
   const clearTerminal = useCallback(() => setTasks((ts) => ts.filter((t) => !isTerminal(t.status))), []);
+  const archive = useCallback((id: string) => patch(id, { archived: true, seen: true, toastShown: true }), [patch]);
 
   const retry = useCallback((id: string) => {
     const t = tasksRef.current.find((x) => x.id === id);
@@ -174,12 +178,12 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, [location]);
 
   const latest = useCallback((tab: string, kind?: string) => tasks.filter((t) => t.tab === tab && (kind ? t.kind === kind : true) && (t.result !== undefined || t.childNodeId)).sort((a, b) => b.updatedAt - a.updatedAt)[0], [tasks]);
-  const badge = useCallback((tab: string) => (tab === location ? 0 : tasks.filter((t) => t.tab === tab && !t.seen && isTerminal(t.status)).length), [tasks, location]);
-  const unreadCount = useCallback(() => tasks.filter((t) => !t.seen && isTerminal(t.status)).length, [tasks]);
-  const toastTask = useCallback(() => tasks.filter((t) => isTerminal(t.status) && !t.toastShown && t.tab !== location).sort((a, b) => b.updatedAt - a.updatedAt)[0], [tasks, location]);
+  const badge = useCallback((tab: string) => (tab === location ? 0 : tasks.filter((t) => t.tab === tab && !t.seen && !t.archived && isTerminal(t.status)).length), [tasks, location]);
+  const unreadCount = useCallback(() => tasks.filter((t) => !t.seen && !t.archived && isTerminal(t.status)).length, [tasks]);
+  const toastTask = useCallback(() => tasks.filter((t) => isTerminal(t.status) && !t.toastShown && !t.archived).sort((a, b) => b.updatedAt - a.updatedAt)[0], [tasks]);
 
   return (
-    <Ctx.Provider value={{ tasks, trackJob, runTask, accept, snooze, dismiss, markSeen, markAllSeen, clearTerminal, retry, latest, badge, unreadCount, toastTask }}>
+    <Ctx.Provider value={{ tasks, trackJob, runTask, accept, snooze, dismiss, markSeen, markAllSeen, clearTerminal, archive, retry, latest, badge, unreadCount, toastTask }}>
       {children}
     </Ctx.Provider>
   );

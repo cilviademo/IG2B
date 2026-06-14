@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Bell, ExternalLink, RotateCcw, X, CheckCheck, Trash2 } from "lucide-react";
+import { Link } from "wouter";
+import { Bell, ExternalLink, RotateCcw, X, CheckCheck, Trash2, Activity } from "lucide-react";
 import Sheet from "./Sheet";
 import { useTasks, isTerminal, type TaskStatus } from "@/contexts/TaskCenter";
 
@@ -46,6 +47,9 @@ export default function NotificationCenter() {
             <button onClick={markAllSeen} className="press ml-auto inline-flex items-center gap-1 cap-data" style={{ color: "var(--text-dim)" }}><CheckCheck size={12} strokeWidth={1.5} /> Mark read</button>
             <button onClick={clearTerminal} className="press inline-flex items-center gap-1 cap-data" style={{ color: "var(--text-dim)" }}><Trash2 size={12} strokeWidth={1.5} /> Clear</button>
           </div>
+          <Link href="/activity" onClick={() => setOpen(false)} className="press inline-flex items-center gap-1.5 mb-3 cap-data" style={{ color: "var(--gold)" }}>
+            <Activity size={12} strokeWidth={1.5} /> Open AI Activity (full history) →
+          </Link>
 
           {list.length === 0 ? (
             <p className="py-6 text-center" style={{ fontSize: 13, color: "var(--text-dim)" }}>No activity yet. AI actions appear here.</p>
