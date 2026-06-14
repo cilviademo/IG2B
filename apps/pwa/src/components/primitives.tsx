@@ -85,12 +85,24 @@ export function SectionRule({ label }: { label?: string }) {
   );
 }
 
-// 6px semantic status dot.
-export function Dot({ color, size = 6, pulse }: { color: string; size?: number; pulse?: boolean }) {
+// 6px semantic status indicator. `shape` makes status distinguishable WITHOUT relying on
+// colour alone (colour-blind safe): dot = neutral/good, square = info, triangle = risk.
+export function Dot({ color, size = 6, pulse, shape = "dot" }: { color: string; size?: number; pulse?: boolean; shape?: "dot" | "square" | "triangle" }) {
+  const cls = pulse ? "pulse-dot" : undefined;
+  if (shape === "triangle") {
+    return (
+      <span
+        className={cls}
+        aria-hidden
+        style={{ width: 0, height: 0, borderLeft: `${size * 0.62}px solid transparent`, borderRight: `${size * 0.62}px solid transparent`, borderBottom: `${size * 1.1}px solid ${color}`, display: "inline-block", flexShrink: 0 }}
+      />
+    );
+  }
   return (
     <span
-      className={pulse ? "pulse-dot" : undefined}
-      style={{ width: size, height: size, borderRadius: 999, background: color, display: "inline-block", flexShrink: 0 }}
+      className={cls}
+      aria-hidden
+      style={{ width: size, height: size, borderRadius: shape === "square" ? 1 : 999, background: color, display: "inline-block", flexShrink: 0 }}
     />
   );
 }

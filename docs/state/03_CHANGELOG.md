@@ -55,6 +55,16 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — AURORA A1 (IA declutter) + A9 (scroll restoration)
+- **A1 — Home → four sections:** Companion (paragraph + Brief Me) · Today's Focus (≤3) · Active Quest (one live card, honest empty state) · Risk (only when present, colour-blind-safe triangles). Progression / Simulate / Research / Detections / Metrics / Recommended-focus **relocated to a new `/insights` page** (nothing removed). Whitespace + hierarchy over borders; Home gzip bundle 107→103 KB.
+- **A1 — tab bar 8 → 5:** Home · Inbox · Atlas · Timeline · **More**. New `/more` hub links Quests · Insights · Context · Brief · Time Machine · Settings · Diagnostics; the More tab badge rolls up unseen tasks from the relocated routes. Tap targets ≥56px wide / 44px tall.
+- **A1 — I/O → Settings** (`/settings` route added, `/io` kept as alias): grouped Connections (honest — connectors designed, not wired) · Import/Export · API (providers + AI usage) · Advanced (device token + raw endpoints + Diagnostics). Raw access is now under Advanced.
+- **A9 — scroll restoration:** `<main>` remembers `scrollTop` per route and restores on navigation (new routes start at top) — fixes tabs sharing an accidental scroll position. Native-feeling.
+- **a11y:** ported the colour-blind-safe `Dot` shape prop (dot/square/triangle) to this branch; Risk = triangle, Detections = square; decorative dots `aria-hidden`.
+- **Behavior-preserving:** no engine/endpoint/job touched. pwa/api/worker typecheck + builds green; verify matrix **409/409**. Before/after headless screenshots captured (Home/More/Insights/Settings). **STOP at the A1 boundary for owner IA confirmation before A2–A15.**
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/indigold-architecture-rnd-iYwF6` — Job 1: notification spine fix
 - **Diagnosed** the capture Ask-Radian lifecycle end-to-end (chain sound; gaps were panel-scoped state + unlinked capture child + sticky toast — see `05_DEBUGGING_LOG.md`).
 - **CaptureDetail** now shows a **persistent AI lifecycle** (working… → done/fallback/failed) with Open-result + Retry, read from the Task Center by capture id — survives closing the Companion panel. Ask Radian button shows "working…" while in flight.

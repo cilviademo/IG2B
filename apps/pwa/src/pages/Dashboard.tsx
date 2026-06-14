@@ -1,169 +1,125 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { History } from "lucide-react";
+import { ArrowRight, Swords } from "lucide-react";
 import { useJson } from "@/hooks/useJson";
 import type { DashboardData } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
 import { Dot } from "@/components/primitives";
-import QuestsPanel from "@/components/QuestsPanel";
-import ProgressionPanel from "@/components/ProgressionPanel";
-import ResearchPanel from "@/components/ResearchPanel";
-import SimulationPanel from "@/components/SimulationPanel";
+import QuestCard from "@/components/QuestCard";
 import CompanionBrief from "@/components/CompanionBrief";
-import CollapsibleSection from "@/components/CollapsibleSection";
+import { getQuests, apiEnabled, type Quest } from "@/lib/api";
+import { questBucket } from "@/lib/quests";
 
-// Styled section label used as the collapsible header title (matches the eyebrow look).
-const secTitle = (text: string) => (
-  <span className="cap-data" style={{ color: "var(--text-dim)", letterSpacing: "0.08em" }}>{text}</span>
+// AURORA A1 — Mission Control, decluttered to FOUR sections: Companion · Today's Focus ·
+// Active Quest · Risk (conditional). Progression / Simulate / Research / Detections /
+// Metrics / Recommended-focus relocated to /insights (nothing removed). Whitespace and
+// hierarchy over borders. Same deterministic data sources — re-presented, not rebuilt.
+
+const eyebrow = (text: string) => (
+  <div className="cap-data mb-3" style={{ color: "var(--text-dim)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{text}</div>
 );
 
-// Each stat tile links somewhere relevant — taps lead to a real screen, not a dead cell.
-const STAT_META: { key: keyof DashboardData["stats"]; label: string; href: string }[] = [
-  { key: "nodes", label: "Nodes", href: "/atlas" },
-  { key: "projects", label: "Projects", href: "/atlas" },
-  { key: "inbox", label: "Inbox", href: "/inbox" },
-  { key: "avg_mvs", label: "Avg MVS", href: "/atlas" },
-  { key: "review", label: "Review", href: "/quests" },
-  { key: "edges", label: "Edges", href: "/atlas" },
-];
-
-function today(): string {
-  return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-}
-
-// Commander's briefing voice. Every line is read from existing dashboard data —
-// no fabricated insight. "Risk signals" are derived strictly from the stat
-// figures (backlog / review queue), never invented.
 function riskSignals(s: DashboardData["stats"]): string[] {
   const out: string[] = [];
-  if (s.inbox > 0) out.push(`${s.inbox} ${s.inbox === 1 ? "capture" : "captures"} awaiting classification in the inbox.`);
+  if (s.inbox > 0) out.push(`${s.inbox} ${s.inbox === 1 ? "capture" : "captures"} awaiting classification.`);
   if (s.review > 0) out.push(`${s.review} ${s.review === 1 ? "node" : "nodes"} flagged for review.`);
   if (s.avg_mvs < 45) out.push(`Average memory value is low (${s.avg_mvs}) — the vault is thinning.`);
   if (s.edges < s.nodes) out.push(`More nodes than edges — connective tissue is sparse.`);
   return out;
 }
 
+// One live "active" quest (in-play first). Read from the vault; honest empty state.
+function ActiveQuest() {
+  const [quest, setQuest] = useState<Quest | null | undefined>(undefined);
+  useEffect(() => {
+    if (!apiEnabled()) { setQuest(null); return; }
+    let off = false;
+    getQuests().then((r) => {
+      if (off) return;
+      const now = Date.now();
+      const items = r?.items || [];
+      const active = items.find((q) => questBucket(q, now) === "active") || items.find((q) => questBucket(q, now) === "blocked");
+      setQuest(active || null);
+    });
+    return () => { off = true; };
+  }, []);
+
+  if (quest === undefined) return <p className="pulse-soft" style={{ fontSize: 14, color: "var(--text-dim)" }}>Loading…</p>;
+  if (!quest) {
+    return (
+      <p style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.55 }}>
+        Nothing active right now. <Link href="/quests" style={{ color: "var(--gold)" }}>Pick up a quest →</Link>
+      </p>
+    );
+  }
+  return <QuestCard quest={quest} bucket={questBucket(quest, Date.now()) || "active"} />;
+}
+
 export default function Dashboard() {
   const { data, loading, error } = useJson<DashboardData>("/data/sample_dashboard.json");
-
   if (loading) return <Loading label="Mission Control" />;
   if (error || !data) return <ErrorState message={error ?? "no data"} />;
 
-  // Highest-priority directives first; numbered so it reads as a focus order.
-  const focus = [...data.urgent_actions].sort((a, b) => (a.priority === "high" ? -1 : 0) - (b.priority === "high" ? -1 : 0));
+  const focus = [...data.urgent_actions]
+    .sort((a, b) => (a.priority === "high" ? -1 : 0) - (b.priority === "high" ? -1 : 0))
+    .slice(0, 3);
   const risks = riskSignals(data.stats);
-  const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-    <div className="cap-data mt-7 mb-2" style={{ color: "var(--text-dim)", letterSpacing: "0.08em" }}>{children}</div>
-  );
 
   return (
-    <div className="px-5 pt-6 pb-6">
-      {/* Eyebrow + date — the briefing header */}
-      <div className="flex items-center gap-2">
-        <Dot color="var(--gold)" pulse />
-        <span style={{ fontSize: 12, color: "var(--text-dim)" }}>Mission control</span>
-        <Link href="/time-machine" className="ml-auto flex items-center gap-1" style={{ fontSize: 11, color: "var(--gold)" }}>
-          <History size={12} strokeWidth={1.5} /> Time Machine
-        </Link>
-        <span className="cap-data font-data" style={{ color: "var(--text-dim)", letterSpacing: "0.02em" }}>{today()}</span>
-      </div>
-
-      {/* COMPANION — the spoken commander's briefing (G10) */}
-      <div className="mt-4"><CompanionBrief /></div>
-
-      {/* SITUATION — the standing brief, then a single status line from the stats */}
-      <SectionLabel>Situation</SectionLabel>
-      <p style={{ fontSize: 16, lineHeight: 1.55, color: "var(--text)", maxWidth: "60ch" }}>
+    <div className="px-5 pt-6 pb-12">
+      {/* COMPANION — greeting + one paragraph + Brief Me */}
+      <CompanionBrief />
+      <p className="mt-4" style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text)", maxWidth: "60ch" }}>
         {data.brief}
       </p>
-      <p className="mt-2 font-data" style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--text-dim)" }}>
-        {data.stats.nodes} nodes across {data.stats.projects} projects · {data.stats.edges} links · avg MVS {data.stats.avg_mvs}.
-      </p>
 
-      {/* Stats — one hairline-ruled row, mono figures over quiet labels */}
-      <div
-        className="grid grid-cols-6 mt-5"
-        style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}
-      >
-        {STAT_META.map((s, i) => (
-          <Link key={s.key} href={s.href} className="tap-row py-3 px-1 text-center" style={{ borderLeft: i === 0 ? "none" : "1px solid var(--line)" }}>
-            <div className="font-data" style={{ fontSize: 18, color: "var(--text)", lineHeight: 1.1 }}>{data.stats[s.key]}</div>
-            <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 3 }}>{s.label}</div>
-          </Link>
-        ))}
-      </div>
-
-      {/* PROGRESSION — today's XP, momentum, recommended next move (G4) */}
-      <ProgressionPanel />
-
-      {/* SIMULATE — deterministic "what happens if…?" best/likely/worst (G7) */}
-      <SimulationPanel />
-
-      {/* RESEARCH HORIZON — deterministic research directions → research quests (G6) */}
-      <ResearchPanel />
-
-      {/* QUESTS — today's playable actions (active + blocked + suggested) */}
-      <QuestsPanel />
-
-      {/* DETECTIONS — surfaced insights, verbatim (no fabrication) */}
-      {data.insights.length > 0 && (
-        <CollapsibleSection persistKey="home_detections" title={secTitle("Detections")}>
-          <ul>
-            {data.insights.map((insight, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-3 py-3"
-                style={{ borderBottom: i === data.insights.length - 1 ? "none" : "1px solid var(--line)" }}
-              >
-                <span className="mt-1.5"><Dot color="var(--info)" /></span>
-                <span style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.45 }}>{insight}</span>
-              </li>
-            ))}
-          </ul>
-        </CollapsibleSection>
-      )}
-
-      {/* RECOMMENDED FOCUS — urgent actions as a numbered order of march */}
-      {focus.length > 0 && (
-        <CollapsibleSection persistKey="home_focus" title={secTitle("Recommended focus")}>
+      {/* TODAY'S FOCUS — at most three */}
+      <section className="mt-9">
+        {eyebrow("Today's focus")}
+        {focus.length > 0 ? (
           <ul>
             {focus.map((a, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-3 py-3"
-                style={{ borderBottom: i === focus.length - 1 ? "none" : "1px solid var(--line)" }}
-              >
-                <span
-                  className="font-data shrink-0"
-                  style={{ fontSize: 13, color: a.priority === "high" ? "var(--gold)" : "var(--text-dim)", width: 16, lineHeight: 1.5 }}
-                >
-                  {i + 1}
-                </span>
-                <span style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.45 }}>{a.text}</span>
-              </li>
-            ))}
-          </ul>
-        </CollapsibleSection>
-      )}
-
-      {/* RISK — derived strictly from the figures above */}
-      <CollapsibleSection persistKey="home_risk" title={secTitle("Risk")}>
-        {risks.length > 0 ? (
-          <ul>
-            {risks.map((r, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-3 py-3"
-                style={{ borderBottom: i === risks.length - 1 ? "none" : "1px solid var(--line)" }}
-              >
-                <span className="mt-1.5"><Dot color="var(--risk)" /></span>
-                <span style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.45 }}>{r}</span>
+              <li key={i} className="flex items-start gap-3 py-2.5" style={{ borderBottom: i === focus.length - 1 ? "none" : "1px solid var(--line)" }}>
+                <span className="font-data shrink-0" style={{ fontSize: 13, color: a.priority === "high" ? "var(--gold)" : "var(--text-dim)", width: 14, lineHeight: 1.6 }}>{i + 1}</span>
+                <span style={{ fontSize: 15, color: "var(--text)", lineHeight: 1.5 }}>{a.text}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="py-3" style={{ fontSize: 14, color: "var(--text-dim)" }}>No outstanding risk signals. Vault is stable.</p>
+          <p style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.55 }}>A quiet day — nothing urgent surfaced.</p>
         )}
-      </CollapsibleSection>
+      </section>
+
+      {/* ACTIVE QUEST — one card */}
+      <section className="mt-9">
+        <div className="flex items-center gap-2 mb-3">
+          <Swords size={13} strokeWidth={1.5} style={{ color: "var(--gold)" }} />
+          <span className="cap-data" style={{ color: "var(--text-dim)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Active quest</span>
+          <Link href="/quests" className="ml-auto cap-data" style={{ color: "var(--gold)" }}>All quests →</Link>
+        </div>
+        <ActiveQuest />
+      </section>
+
+      {/* RISK — only when something is actually at risk */}
+      {risks.length > 0 && (
+        <section className="mt-9">
+          {eyebrow("Risk")}
+          <ul>
+            {risks.map((r, i) => (
+              <li key={i} className="flex items-start gap-3 py-2.5" style={{ borderBottom: i === risks.length - 1 ? "none" : "1px solid var(--line)" }}>
+                <span className="mt-1.5"><Dot color="var(--risk)" shape="triangle" /></span>
+                <span style={{ fontSize: 15, color: "var(--text-dim)", lineHeight: 1.5 }}>{r}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* The rest lives one tap away — progression, simulations, research, signals. */}
+      <Link href="/insights" className="tap-row flex items-center gap-2 mt-10 py-3" style={{ borderTop: "1px solid var(--line)", color: "var(--text-dim)", fontSize: 14 }}>
+        Progress, simulations &amp; research
+        <ArrowRight size={15} strokeWidth={1.5} className="ml-auto" style={{ color: "var(--gold)" }} />
+      </Link>
     </div>
   );
 }

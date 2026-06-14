@@ -151,10 +151,18 @@ export default function ImportExport() {
 
   return (
     <div className="px-5 pt-6 pb-6">
-      <h1 className="text-xl font-display mb-5">Input / output</h1>
+      <h1 className="text-xl font-display mb-1">Settings</h1>
+      <p className="cap-data mb-5" style={{ color: "var(--text-dim)" }}>vault · connections · import/export · API · advanced</p>
 
-      {/* Data */}
-      <SectionRule label="Data" />
+      {/* Connections — honest: connectors are designed (seam) but not yet wired. */}
+      <SectionRule label="Connections" />
+      <p className="text-xs leading-relaxed mt-3 mb-2" style={{ color: "var(--text-dim)" }}>
+        Capture today via the <strong style={{ color: "var(--text)" }}>iOS Shortcut</strong> (share → /capture).
+        Source connectors (Gmail, Calendar, Drive, Readwise…) are designed and arrive in a later wave — none are active yet.
+      </p>
+
+      {/* Import / Export */}
+      <div className="mt-6"><SectionRule label="Import / export" /></div>
       <div className="flex gap-2 mt-3 mb-2">
         <Button variant="ghost" full disabled={busy} leftIcon={<Download size={15} strokeWidth={1.5} />} onClick={handleExport}>Export</Button>
         <Button variant="ghost" full leftIcon={<Upload size={15} strokeWidth={1.5} />} onClick={() => fileRef.current?.click()}>Import</Button>
@@ -167,7 +175,7 @@ export default function ImportExport() {
       {/* Intelligence — LLM providers + budget (safe status only, never a secret) */}
       {llm && (
         <>
-          <div className="mt-6"><SectionRule label="Intelligence (Radian)" /></div>
+          <div className="mt-6"><SectionRule label="API" /></div>
           <div className="flex items-center gap-2 mt-3 mb-1.5">
             <Cpu size={15} strokeWidth={1.5} style={{ color: "var(--text-dim)" }} />
             <span style={{ fontSize: 14, color: "var(--text)" }}>Providers</span>
@@ -213,7 +221,8 @@ export default function ImportExport() {
       <AiUsagePanel />
 
       {/* Device token */}
-      <div className="mt-6"><SectionRule label="Device token" /></div>
+      <div className="mt-6"><SectionRule label="Advanced" /></div>
+      <p className="cap-data mt-2 mb-1" style={{ color: "var(--text-dim)" }}>device token — raw API access</p>
       <div className="flex items-center gap-2 mt-3 mb-1.5">
         <KeyRound size={15} strokeWidth={1.5} style={{ color: "var(--text-dim)" }} />
         <span style={{ fontSize: 14, color: "var(--text)" }}>API token</span>

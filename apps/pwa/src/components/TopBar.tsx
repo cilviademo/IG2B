@@ -14,7 +14,11 @@ const TITLES: Record<string, string> = {
   "/atlas": "Atlas",
   "/context": "Context",
   "/brief": "Brief",
-  "/io": "I/O",
+  "/io": "Settings",
+  "/settings": "Settings",
+  "/more": "More",
+  "/insights": "Insights",
+  "/diagnostics": "Diagnostics",
 };
 
 export default function TopBar() {

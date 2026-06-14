@@ -1,6 +1,8 @@
 # Current State
 
-`Last updated: 2026-06-14 · Commit: notify-spine (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: aurora-ia (off main) · By: claude (Claude Code)`
+
+> **AURORA A1+A9 (branch `claude/aurora-ia`, NOT merged):** Home decluttered to 4 sections; tab bar 8→5 (+`/more` hub, `/insights`); I/O→Settings (raw access under Advanced); per-route scroll restoration; colour-blind-safe status shapes. Behaviour-preserving (engines frozen); 409/409. **Pending owner IA confirmation before A2–A15.**
 
 > **VERIFICATION + HARDENING arc — Phases 0–7 done (latest); G12+ gated on owner greenlight.** On branch `claude/indigold-architecture-rnd-iYwF6` (design on `claude/design-polish`).
 > - **P0 hygiene:** `scripts/dedupe-derived-nodes.ts` (dry-run default; **owner runs the dev-vault dry-run**); schema.ts byte-current; green baseline.
