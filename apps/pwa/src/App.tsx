@@ -24,6 +24,7 @@ const Quests = lazy(() => import("./pages/Quests"));
 const ContextPack = lazy(() => import("./pages/ContextPack"));
 const WeeklyBrief = lazy(() => import("./pages/WeeklyBrief"));
 const ImportExport = lazy(() => import("./pages/ImportExport"));
+const Diagnostics = lazy(() => import("./pages/Diagnostics"));
 const CaptureDeepLink = lazy(() => import("./pages/CaptureDeepLink"));
 const Share = lazy(() => import("./pages/Share"));
 
@@ -45,6 +46,7 @@ function Routes() {
         <Route path="/context" component={ContextPack} />
         <Route path="/brief" component={WeeklyBrief} />
         <Route path="/io" component={ImportExport} />
+        <Route path="/diagnostics" component={Diagnostics} />
         <Route path="/capture" component={CaptureDeepLink} />
         <Route path="/share" component={Share} />
         <Route path="/404" component={NotFound} />

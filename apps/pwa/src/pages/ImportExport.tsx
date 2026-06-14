@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Upload, Info, KeyRound, Copy, Eye, EyeOff, Activity, Cpu } from "lucide-react";
+import { Link } from "wouter";
+import { Download, Upload, Info, KeyRound, Copy, Eye, EyeOff, Activity, Cpu, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError, syncCaptureToApi, lastSyncError, fetchLlmStatus, type LlmStatus } from "@/lib/api";
 import { Button, SectionRule, Dot } from "@/components/primitives";
@@ -250,6 +251,12 @@ export default function ImportExport() {
           <span className="font-mono break-words" style={{ fontSize: 12, color: "var(--text-dim)" }}>{syncMsg}</span>
         </div>
       )}
+
+      <div className="mt-6"><SectionRule label="Admin" /></div>
+      <Link href="/diagnostics" className="tap-row flex items-center gap-2 mt-3" style={{ fontSize: 14, color: "var(--text)" }}>
+        <ShieldCheck size={15} strokeWidth={1.5} style={{ color: "var(--gold)" }} />
+        Diagnostics — Verification Center + Debug Console
+      </Link>
 
       <hr className="rule mt-6 mb-3" />
       <div className="flex gap-3">

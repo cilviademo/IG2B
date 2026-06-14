@@ -3,7 +3,7 @@
 import { Router } from "express";
 import * as repo from "@indigold/db";
 import { seedProjectsIfEmpty, budgetStatus } from "@indigold/db";
-import { id, enqueue } from "@indigold/shared";
+import { id, enqueue, queueDepth, redisHealthy } from "@indigold/shared";
 import { providersStatus, providerConfigured, PROVIDER_ENV, ALL_PROVIDERS, type Provider } from "@indigold/shared/providers";
 import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
@@ -828,6 +828,38 @@ radianRouter.get("/meta", async (req: Authed, res) => {
 // and month-to-date spend so cost is never a silent surprise.
 radianRouter.get("/status", async (req: Authed, res) => {
   res.json(await budgetStatus(req.userId!));
+});
+
+// ---- Phase 5: Observability (Debug Console). Single authed aggregate — single-user
+// app, so the authed owner IS the admin. Everything here is operational status; NEVER a
+// secret (provider keys are presence-only via providersStatus). ----
+radianRouter.get("/observability", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const [budget, jobStatus, problems, redisOk, depth, embed] = await Promise.all([
+    budgetStatus(uid),
+    repo.jobs.countByStatus(uid),
+    repo.jobs.recentProblems(uid),
+    redisHealthy().catch(() => false),
+    queueDepth().catch(() => -1),
+    (async () => { const e = getEmbedder(); return { provider: e.provider, model: e.model, dim: e.dim, embedded: await repo.embeddings.count(uid).catch(() => 0), active: e.provider !== "deterministic" }; })(),
+  ]);
+  let dbOk = true; try { await repo.query("SELECT 1"); } catch { dbOk = false; }
+  let pgvector: { available: boolean; version?: string } = { available: false };
+  try {
+    const r = await repo.query<{ extversion: string }>(`SELECT extversion FROM pg_extension WHERE extname='vector'`);
+    if (r.rows[0]) pgvector = { available: true, version: r.rows[0].extversion };
+  } catch { /* not available */ }
+  res.json({
+    queue: { depth, redis: redisOk ? "healthy" : "unreachable" },
+    db: dbOk ? "healthy" : "unreachable",
+    jobs: jobStatus,
+    problems, // recent failed/skipped/queued with their human-readable reason in `error`
+    budget: { state: budget.state, month_to_date_cents: budget.month_cost_cents, monthly_budget_cents: budget.budget_cents, by_purpose: budget.by_purpose },
+    providers: providersStatus(),
+    embeddings: embed,
+    pgvector,
+    generated_at: new Date().toISOString(),
+  });
 });
 
 // pgvector verdict (owner-gated). Attempts the extension + reports honestly so the

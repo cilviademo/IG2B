@@ -1,0 +1,22 @@
+{
+  "note": "Stub + build truth from the green matrix (Phase 0/3). Live state comes from GET /radian/observability at runtime; phone-verified is owner-ticked in the Verification Center (mirrors docs/state/09_PHONE_GATES.md). Regenerate when suites change.",
+  "generated": "2026-06-14",
+  "build_verified": true,
+  "subsystems": [
+    { "key": "capture",     "label": "Capture (link/text)",   "gate": 1,  "stub": null,                       "live": "/captures",                 "phoneKey": "g_capture" },
+    { "key": "upload",      "label": "File upload",            "gate": 2,  "stub": null,                       "live": null,                         "phoneKey": "g_upload" },
+    { "key": "g1",          "label": "G1 Companion / research", "gate": 4, "stub": "living-os-verify (23)",    "live": "/radian/verbs/node",         "phoneKey": "g_g1" },
+    { "key": "g2",          "label": "G2 Time Machine",        "gate": 6,  "stub": "time-machine-verify (18)", "live": "/radian/time-machine",       "phoneKey": "g_g2" },
+    { "key": "g3",          "label": "G3 Quests",              "gate": 7,  "stub": "quests-verify (40)",       "live": "/radian/quests",             "phoneKey": "g_g3" },
+    { "key": "g4",          "label": "G4 Progression",         "gate": 8,  "stub": "progression-verify (32)",  "live": "/radian/progression",        "phoneKey": "g_g4" },
+    { "key": "g5",          "label": "G5 Boardroom",           "gate": 9,  "stub": "boardroom-verify (15)",    "live": null,                         "phoneKey": "g_g5" },
+    { "key": "g6",          "label": "G6 Research Horizon",    "gate": 10, "stub": "research-engine-verify (15)","live": "/radian/horizon",           "phoneKey": "g_g6" },
+    { "key": "g7",          "label": "G7 Simulation",          "gate": 11, "stub": "simulation-engine-verify (21)","live": null,                     "phoneKey": "g_g7" },
+    { "key": "g8",          "label": "G8 Atlas / Memory Palace","gate": 12,"stub": "living-os-verify (23)",    "live": null,                         "phoneKey": "g_g8" },
+    { "key": "g9",          "label": "G9 Mentor",              "gate": 13, "stub": "mentor-verify (11)",       "live": null,                         "phoneKey": "g_g9" },
+    { "key": "g10",         "label": "G10 Companion voice",    "gate": 14, "stub": "companion-verify (12)",    "live": "/radian/briefing",           "phoneKey": "g_g10" },
+    { "key": "g11",         "label": "G11 Context Engine",     "gate": 15, "stub": "context-engine-verify (12)","live": null,                        "phoneKey": "g_g11" },
+    { "key": "task_center", "label": "Task Center",            "gate": 16, "stub": null,                       "live": null,                         "phoneKey": "g_task" },
+    { "key": "perf",        "label": "Worker-Redis perf fix",  "gate": 17, "stub": "queue-verify (8)",         "live": null,                         "phoneKey": "g_perf" }
+  ]
+}

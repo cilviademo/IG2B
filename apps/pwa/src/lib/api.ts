@@ -301,6 +301,31 @@ export async function fetchLlmStatus(): Promise<LlmStatus | null> {
   }
 }
 
+export interface Observability {
+  queue: { depth: number; redis: string };
+  db: string;
+  jobs: { status: string; count: number }[];
+  problems: { id: string; type: string; status: string; error: string | null; updated_at: string }[];
+  budget: { state: string; month_to_date_cents: number; monthly_budget_cents: number; by_purpose?: { purpose: string; cost_cents: number; calls: number }[] };
+  providers: { mode: string; default_provider: string; providers: Record<string, { configured: boolean }> };
+  embeddings: { provider: string; model: string; embedded: number; active: boolean };
+  pgvector: { available: boolean; version?: string };
+  generated_at: string;
+}
+
+/** Phase 5 Debug Console — operational status only, never a secret. */
+export async function fetchObservability(): Promise<Observability | null> {
+  if (!apiEnabled()) return null;
+  if (!getToken() && !(await ensureSession())) return null;
+  try {
+    const res = await fetch(`${BASE}/radian/observability`, { headers: { authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) return null;
+    return (await res.json()) as Observability;
+  } catch {
+    return null;
+  }
+}
+
 // ---- Living OS G1: Companion Panel ("Ask Radian"). The frontend NEVER calls a
 // model directly — it asks the governed backend, which enqueues an existing job and
 // returns state we poll honestly. ----

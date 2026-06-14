@@ -195,6 +195,18 @@ export const jobs = {
     );
     return r.rows[0] || null;
   },
+  // Observability: job counts by status (Debug Console). Reasons (skipped/budget/etc.)
+  // live in the `error` column; surface the recent ones so failures aren't silent.
+  async countByStatus(userId: string) {
+    const r = await query<{ status: string; n: string }>(`SELECT status, COUNT(*)::text AS n FROM jobs WHERE user_id=$1 GROUP BY status`, [userId]);
+    return r.rows.map((x) => ({ status: x.status, count: Number(x.n) }));
+  },
+  async recentProblems(userId: string, limit = 8) {
+    const r = await query<{ id: string; type: string; status: string; error: string | null; updated_at: string }>(
+      `SELECT id, type, status, error, updated_at FROM jobs
+        WHERE user_id=$1 AND status IN ('failed','skipped','queued') ORDER BY updated_at DESC LIMIT $2`, [userId, limit]);
+    return r.rows;
+  },
 };
 
 export const audit = {
