@@ -55,6 +55,12 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/phase1-notify` → main — Phase 1: notification spine
+- Confirmed the **persistent Task Center is the survivor** on `main` (old version preserved on `architecture-rnd`); every worker handler reaches `repo.jobs.finish` on done/failed/skipped (no hung jobs); global toast fires on **any** route; CaptureDetail reflects the AI lifecycle inline.
+- **Fix:** `public/sw.js` API-bypass path list was missing `/radian`,`/llm`,`/events`,`/projects` → a same-origin job-poll could be cached and freeze the spine. Hardened the regex to the full API namespace + bumped SW cache `v0.22.0→v0.23.0` (forces device refresh; quit-reopen ×2). API still never cached.
+- **Verified:** pwa/api/worker typecheck+build green; matrix 454/454; live headless — `GET /radian/job/:id` returns `done` + `{child}` (the toast trigger); toast + bell badge render on an off-origin route. **Pushed to main; STOP for owner device confirmation before Phase 2.**
+
+
 ### 2026-06-14 · claude (Claude Code) · carry-forward — ALL remaining work consolidated onto main
 - **Carried onto `main` (clean, additive):** `scripts/reset-vault.ts` + `docs/state/15_FIRST_SHARE.md` (from `vault-reset`); `docs/state/12_DESIGN.md` (from `design-polish`).
 - **Design-polish reconciled, NOT blind-merged** (it had diverged from AURORA's evolved UI — merging would clobber). Took only its genuinely-unique, non-conflicting pieces onto main's CURRENT files: the `.celebrate` ring + `--elev-card` token (index.css, reduced-motion-guarded), the **quest-complete celebration** (re-applied to main's current `QuestCard`), and the **`EmptyState`** primitive. Main's AURORA Dashboard/QuestsPanel/primitives were preserved (already supersede design-polish's versions).

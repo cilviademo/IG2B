@@ -9,7 +9,7 @@
  *   the documented path to fully-local assets is to self-host the fonts.
  * - No analytics, no telemetry, no data exfiltration. */
 
-const CACHE = "indigold-v0.22.0";
+const CACHE = "indigold-v0.23.0";
 
 const PRECACHE = [
   "/",
@@ -117,10 +117,14 @@ self.addEventListener("fetch", (event) => {
   // NEVER cache API traffic — it must always hit the network so the vault shows
   // live data (caching it made refresh return stale/no data intermittently).
   // Matches the API host (any *onrender.com that isn't this PWA) and API paths.
+  // Full API namespace — NEVER cache any of it (job polling especially: a cached
+  // GET /radian/job/:id would freeze the poll on a stale status and the completion
+  // toast would never fire). Cross-origin API is already bypassed by the host checks;
+  // these path prefixes also cover a same-origin/relative API deploy.
   const isApi =
     /(^|\.)indigold-api\./.test(url.hostname) ||
     (url.hostname.endsWith(".onrender.com") && url.hostname !== self.location.hostname) ||
-    /^\/(captures|auth|assets|capture|ready|health|nodes|edges|timeline|context-packs|briefs|usage)(\/|$)/.test(url.pathname);
+    /^\/(captures|auth|assets|capture|ready|health|nodes|edges|timeline|context-packs|briefs|usage|radian|llm|events|projects)(\/|$)/.test(url.pathname);
   if (isApi) {
     event.respondWith(fetch(request));
     return;

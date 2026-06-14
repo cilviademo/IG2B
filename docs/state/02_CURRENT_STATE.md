@@ -4,7 +4,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: main-carryforward · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase1-notify · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 
