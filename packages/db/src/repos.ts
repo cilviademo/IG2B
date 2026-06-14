@@ -142,6 +142,7 @@ export const edges = {
 
 // ---- timeline ----
 export const timeline = {
+  async remove(userId: string, id: string) { await query(`DELETE FROM timeline_events WHERE user_id=$1 AND id=$2`, [userId, id]); },
   async create(t: TimelineEvent) {
     await query(
       `INSERT INTO timeline_events (id,user_id,date,type,significance,title,description,node_id)
@@ -157,6 +158,7 @@ export const timeline = {
 
 // ---- context packs ----
 export const contextPacks = {
+  async remove(userId: string, id: string) { await query(`DELETE FROM context_packs WHERE user_id=$1 AND id=$2`, [userId, id]); },
   async create(p: ContextPack) {
     await query(
       `INSERT INTO context_packs (id,user_id,title,purpose,token_budget_total,token_budget_used,source_nodes,sections)
@@ -177,6 +179,7 @@ export const contextPacks = {
 
 // ---- briefs ----
 export const briefs = {
+  async remove(userId: string, id: string) { await query(`DELETE FROM briefs WHERE user_id=$1 AND id=$2`, [userId, id]); },
   async create(b: Brief) {
     await query(`INSERT INTO briefs (id,user_id,kind,period,payload) VALUES ($1,$2,$3,$4,$5)`,
       [b.id, b.user_id, b.kind, b.period, JSON.stringify(b.payload)]);
@@ -357,6 +360,7 @@ export interface ProjectRow {
 }
 
 export const projects = {
+  async remove(userId: string, id: string) { await query(`DELETE FROM projects WHERE user_id=$1 AND id=$2`, [userId, id]); },
   async list(userId: string) {
     const r = await query<ProjectRow>(`SELECT * FROM projects WHERE user_id=$1 ORDER BY name ASC`, [userId]);
     return r.rows;

@@ -59,6 +59,11 @@ projectsRouter.patch("/:id", async (req: Authed, res) => {
   await repo.projects.patch(req.userId!, req.params.id, patch);
   res.json(await repo.projects.get(req.userId!, req.params.id));
 });
+projectsRouter.delete("/:id", async (req: Authed, res) => {
+  await repo.projects.remove(req.userId!, req.params.id);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "deleted", subject_type: "project", subject_id: req.params.id, correlation_id: req.params.id, payload: {} });
+  res.json({ ok: true });
+});
 
 export const radianRouter = Router();
 

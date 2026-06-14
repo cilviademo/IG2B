@@ -102,3 +102,8 @@ edgesRouter.post("/", validate(contracts.edgeCreate), async (req: Authed, res) =
 // ---- timeline ----
 export const timelineRouter = Router();
 timelineRouter.get("/", async (req: Authed, res) => res.json({ events: await repo.timeline.list(req.userId!) }));
+timelineRouter.delete("/:id", async (req: Authed, res) => {
+  await repo.timeline.remove(req.userId!, req.params.id);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "deleted", subject_type: "timeline_event", subject_id: req.params.id, correlation_id: req.params.id, payload: {} });
+  res.json({ ok: true });
+});

@@ -482,6 +482,15 @@ export async function deleteNode(id: string): Promise<boolean> {
   if (!apiEnabled() || !getToken()) return false;
   try { return (await fetch(`${BASE}/nodes/${id}`, { method: "DELETE", headers: { authorization: `Bearer ${getToken()}` } })).ok; } catch { return false; }
 }
+/** Generic item delete for the remaining entities (context packs, briefs, timeline, projects). */
+async function delAt(path: string): Promise<boolean> {
+  if (!apiEnabled() || !getToken()) return false;
+  try { return (await fetch(`${BASE}${path}`, { method: "DELETE", headers: { authorization: `Bearer ${getToken()}` } })).ok; } catch { return false; }
+}
+export const deleteContextPack = (id: string) => delAt(`/context-packs/${id}`);
+export const deleteBrief = (id: string) => delAt(`/briefs/${id}`);
+export const deleteTimelineEvent = (id: string) => delAt(`/timeline/${id}`);
+export const deleteProject = (id: string) => delAt(`/projects/${id}`);
 
 /** Load a resource from the API when enabled, else fall back to a local fixture. */
 export async function loadOrFixture<T>(apiCall: () => Promise<T>, fixturePath: string): Promise<T> {

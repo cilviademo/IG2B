@@ -7,6 +7,11 @@ import type { Authed } from "../middleware/auth";
 // ---- context packs (Encompass) ----
 export const contextRouter = Router();
 contextRouter.get("/", async (req: Authed, res) => res.json({ items: await repo.contextPacks.list(req.userId!) }));
+contextRouter.delete("/:id", async (req: Authed, res) => {
+  await repo.contextPacks.remove(req.userId!, req.params.id);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "deleted", subject_type: "context_pack", subject_id: req.params.id, correlation_id: req.params.id, payload: {} });
+  res.json({ ok: true });
+});
 contextRouter.get("/:id", async (req: Authed, res) => {
   const p = await repo.contextPacks.get(req.userId!, req.params.id);
   return p ? res.json(p) : res.status(404).json({ error: "not_found" });
@@ -39,6 +44,11 @@ contextRouter.post("/", async (req: Authed, res) => {
 // ---- briefs (Radian) ----
 export const briefsRouter = Router();
 briefsRouter.get("/", async (req: Authed, res) => res.json({ items: await repo.briefs.list(req.userId!) }));
+briefsRouter.delete("/:id", async (req: Authed, res) => {
+  await repo.briefs.remove(req.userId!, req.params.id);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "deleted", subject_type: "brief", subject_id: req.params.id, correlation_id: req.params.id, payload: {} });
+  res.json({ ok: true });
+});
 briefsRouter.post("/forecast", async (req: Authed, res) => {
   const nodes = await repo.nodes.list(req.userId!);
   const edges = await repo.edges.list(req.userId!);

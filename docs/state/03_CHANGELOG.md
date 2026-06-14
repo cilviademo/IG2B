@@ -55,6 +55,13 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — (a) folded Atlas-canvas + (b) item-management completed app-wide
+- **(a)** Fast-forwarded `claude/atlas-canvas` (B: fit-and-center + label collision) into `claude/aurora-ia` — one deployable UI line now has AURORA + stabilization + AI Activity + ItemActions + Atlas canvas.
+- **(b)** Item-management capability **complete app-wide**: added `remove` repos + `DELETE` routes (with `deleted` provenance events) for **context_packs, briefs, timeline_events, projects** (captures/quests/nodes already done) + client helpers. UI menus are live on the high-traffic surfaces (captures/quests/nodes/AI results); the other four are currently sample/single-item views without live lists, so their kebabs drop in once those get live-list surfaces (honest — not forcing a menu onto a sample view).
+- pwa/api/worker typecheck+build green; verify matrix **409/409**; capture/upload/Shortcut untouched.
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/atlas-canvas` — Atlas canvas pass (B)
 - **Fit-and-center:** `reset()` now fits the node bounding box to the viewport (centred, padded) instead of a fixed transform — small/generated clusters no longer sit smushed low. Powers the Center control + "Back to full Atlas" pill, and **auto-fits once** after the layout settles (immediate under reduced motion). Uses the same view transform the pointer math reads, so hit-testing stays exact.
 - **Label collision avoidance:** labels track drawn bounding boxes and skip overlaps (selected/active labels always win) — overlapping labels gone.
