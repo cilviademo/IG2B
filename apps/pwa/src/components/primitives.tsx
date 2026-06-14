@@ -154,3 +154,22 @@ export function Stat({ value, label }: { value: ReactNode; label: string }) {
     </div>
   );
 }
+
+// Inviting empty/sparse state (carried from the design pass) — soft gold ring + icon,
+// display headline, one sentence, optional action. Never "gray text that reads as broken".
+export function EmptyState({
+  icon, title, children, action,
+}: { icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="animate-fade-in-up" style={{ textAlign: "center", padding: "var(--s-7,48px) var(--s-4,16px)", maxWidth: 340, margin: "0 auto" }}>
+      {icon && (
+        <div style={{ width: 56, height: 56, margin: "0 auto var(--s-4,16px)", borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--gold-soft)", border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
+          {icon}
+        </div>
+      )}
+      <h3 className="font-display" style={{ fontSize: "1.0625rem", color: "var(--text)", marginBottom: "var(--s-2,8px)" }}>{title}</h3>
+      {children && <p style={{ fontSize: "0.9375rem", color: "var(--text-dim)", lineHeight: 1.55 }}>{children}</p>}
+      {action && <div style={{ marginTop: "var(--s-4,16px)" }}>{action}</div>}
+    </div>
+  );
+}

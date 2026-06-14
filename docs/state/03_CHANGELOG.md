@@ -55,6 +55,14 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · carry-forward — ALL remaining work consolidated onto main
+- **Carried onto `main` (clean, additive):** `scripts/reset-vault.ts` + `docs/state/15_FIRST_SHARE.md` (from `vault-reset`); `docs/state/12_DESIGN.md` (from `design-polish`).
+- **Design-polish reconciled, NOT blind-merged** (it had diverged from AURORA's evolved UI — merging would clobber). Took only its genuinely-unique, non-conflicting pieces onto main's CURRENT files: the `.celebrate` ring + `--elev-card` token (index.css, reduced-motion-guarded), the **quest-complete celebration** (re-applied to main's current `QuestCard`), and the **`EmptyState`** primitive. Main's AURORA Dashboard/QuestsPanel/primitives were preserved (already supersede design-polish's versions).
+- `main` is now the complete union of all built phases: hardening P0–7 · live Claude · AURORA · AI Activity · ItemActions · Atlas canvas · Wave-6 Stage-1 media · vault-reset tooling · design-system celebration/EmptyState.
+- **Still deferred by explicit owner instruction (NOT carried/touched):** the Task Center notification fix (known device bug — its own pass; old version preserved on `architecture-rnd`) and BoardroomView (AURORA A5; preserved on `architecture-rnd`). Wave-6 Stages 2–7 remain gated on the Docker media worker + timing spike.
+- Verification: pwa/api/worker typecheck + builds green; verify matrix **454/454**; capture/upload/SW/Shortcut + Task Center code untouched. Pushed to `main`. No PR.
+
+
 ### 2026-06-14 · claude (Claude Code) · cleanup Stage 2/3 — consolidation: main fast-forwarded
 - **Dedup:** removed dead `apps/scheduler/` (standalone Cron entrypoint superseded by the embedded `apps/api/src/lib/scheduler.ts`; no imports, not a deployed Render service — only referenced in comments) + dropped it from the root `install:all`/`build:all` loops. Matrix unchanged 454/454.
 - **Consolidated `main`:** fast-forwarded `main` → `claude/wave6-media` (a clean superset: `main→architecture-rnd→aurora-ia→atlas-canvas→wave6-media`). `main` now carries the full line: hardening Phases 0–7, live-Claude activation, AURORA UI + AI Activity + ItemActions + Atlas canvas, Wave-6 Stage-1 media intake router + SSRF spine. Single source of truth.

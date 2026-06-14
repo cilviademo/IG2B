@@ -259,7 +259,18 @@ h1, h2, h3, h4, .font-display {
 .animate-flash { animation: valueFlash 600ms ease-out; }
 
 /* AURORA — spacing scale (4px base) for consistent vertical rhythm. */
-:root { --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px; }
+:root { --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px;
+  /* the ONE elevation (no heavy shadows — AI-ism ban); a barely-perceptible lift. */
+  --elev-card: 0 1px 0 0 rgba(255,255,255,0.02) inset, 0 1px 2px rgba(0,0,0,0.25); }
+
+/* Celebration — a single warm gold ring expanding once on quest completion / level-up.
+   Subtle (no confetti, no sound); fully suppressed under reduced motion. */
+@keyframes celebrateRing {
+  0%   { box-shadow: 0 0 0 0 var(--gold-line); opacity: 0.9; }
+  100% { box-shadow: 0 0 0 14px rgba(201,164,92,0); opacity: 0; }
+}
+.celebrate { animation: celebrateRing 720ms cubic-bezier(0.23, 1, 0.32, 1) 1; border-radius: var(--r-md); }
+
 
 /* A11y: 44px minimum hit target for icon-only controls. */
 .tap-target { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
@@ -287,6 +298,7 @@ h1, h2, h3, h4, .font-display {
   .animate-fade-in-up { opacity: 1; }
   .animate-pop { opacity: 1; transform: none; }
   .page-enter { opacity: 1; transform: none; }
+  .celebrate { animation: none !important; }
   .skeleton { animation: none; }
 }
 
