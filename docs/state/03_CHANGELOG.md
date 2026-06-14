@@ -55,6 +55,14 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/wave6-media` — Media engine STEP 1 spike (feasibility only)
+- Probed the real binary stack: **FFmpeg 6.1.1** ✅ installs + normalizes audio (espeak→16k mono WAV end-to-end); **yt-dlp 2026.06.09** ✅ installs/runs but **YouTube extraction is blocked from this datacenter IP** (anti-bot — the documented fragility); **faster-whisper + ctranslate2 4.8.0** ✅ install + import.
+- **Could NOT measure transcription timings:** the sandbox **egress allowlist blocks huggingface.co** (model download) and YouTube media — so no real Whisper run was possible. **Did not fabricate timings**; provided clearly-labelled estimates + the exact spike to run on the real Render image.
+- **Key architecture finding:** the embedded Node worker can't do this (no python/ffmpeg/whisper). Wave 6 needs a **dedicated Docker media worker** consuming the same Redis queue, with the binaries + **Whisper model baked into the image** (avoids runtime HF egress), on a **paid plan** (CPU transcription). Draft `apps/media-worker/Dockerfile` + `render.yaml` delta documented.
+- Full report: `docs/state/17_WAVE6_MEDIA_SPIKE.md`. **No pipeline built; STOPPED for owner go after the real timing spike.** No app code changed; matrix still green.
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — (a) folded Atlas-canvas + (b) item-management completed app-wide
 - **(a)** Fast-forwarded `claude/atlas-canvas` (B: fit-and-center + label collision) into `claude/aurora-ia` — one deployable UI line now has AURORA + stabilization + AI Activity + ItemActions + Atlas canvas.
 - **(b)** Item-management capability **complete app-wide**: added `remove` repos + `DELETE` routes (with `deleted` provenance events) for **context_packs, briefs, timeline_events, projects** (captures/quests/nodes already done) + client helpers. UI menus are live on the high-traffic surfaces (captures/quests/nodes/AI results); the other four are currently sample/single-item views without live lists, so their kebabs drop in once those get live-list surfaces (honest — not forcing a menu onto a sample view).
