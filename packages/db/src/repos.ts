@@ -61,6 +61,9 @@ export const captures = {
   async archive(userId: string, id: string) {
     await query(`UPDATE captures SET status='archived' WHERE user_id=$1 AND id=$2`, [userId, id]);
   },
+  async unarchive(userId: string, id: string) {
+    await query(`UPDATE captures SET status='inbox' WHERE user_id=$1 AND id=$2`, [userId, id]);
+  },
   async remove(userId: string, id: string) {
     await query(`DELETE FROM captures WHERE user_id=$1 AND id=$2`, [userId, id]);
   },
@@ -565,6 +568,9 @@ export const quests = {
   },
   async setProject(userId: string, id: string, projectId: string) {
     await query(`UPDATE quests SET project_id=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, projectId]);
+  },
+  async remove(userId: string, id: string) {
+    await query(`DELETE FROM quests WHERE user_id=$1 AND id=$2`, [userId, id]);
   },
   // Node ids that carry a quest worth badging on the Atlas — ACTIVE or COMPLETED
   // (never merely suggested), per the G3 UX contract.

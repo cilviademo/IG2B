@@ -47,6 +47,10 @@ capturesRouter.post("/:id/archive", async (req: Authed, res) => {
   await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "archived", subject_type: "capture", subject_id: req.params.id, correlation_id: req.params.id, payload: {} });
   res.json({ ok: true });
 });
+capturesRouter.post("/:id/unarchive", async (req: Authed, res) => {
+  await repo.captures.unarchive(req.userId!, req.params.id);
+  res.json({ ok: true });
+});
 capturesRouter.delete("/:id", async (req: Authed, res) => {
   await repo.captures.remove(req.userId!, req.params.id);
   await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "deleted", subject_type: "capture", subject_id: req.params.id, correlation_id: req.params.id, payload: {} });

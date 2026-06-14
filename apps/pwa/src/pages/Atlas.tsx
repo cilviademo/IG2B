@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useJson } from "@/hooks/useJson";
 import { type GraphNode, type GraphEdge } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/State";
-import { Share2, X, Plus, Minus, Locate, Sparkles, ArrowLeft, Swords, Copy } from "lucide-react";
+import { Share2, X, Plus, Minus, Locate, Sparkles, ArrowLeft, Swords, Copy, Trash2 } from "lucide-react";
 import CompanionPanel from "@/components/CompanionPanel";
 import { deriveNodeState, NODE_STATE_STYLE, LEGEND, isForgottenGem, isResurfaced, type NodeState } from "@/lib/nodeState";
 import { inferTracks, trackColor, type Track } from "@/lib/progression";
-import { getQuestNodeStatus, getProgression, getLiveNodes, getLiveEdges, createQuest } from "@/lib/api";
+import { getQuestNodeStatus, getProgression, getLiveNodes, getLiveEdges, createQuest, deleteNode, apiEnabled } from "@/lib/api";
 import { toast } from "sonner";
+import ItemActions, { type ItemAction } from "@/components/ItemActions";
 
 // Atlas — the constellation. Flat luminous points on a deep indigo-black field,
 // hairline edges, organic force layout. Color encodes node type (a desaturated
@@ -773,6 +774,11 @@ export default function Atlas() {
             setCompanion(selected);
             setSelected(null);
           }}
+          onDeleted={() => {
+            const id = selected.id;
+            setLive((prev) => prev ? { nodes: prev.nodes.filter((n) => n.id !== id), edges: prev.edges.filter((e) => e.source_id !== id && e.target_id !== id) } : prev);
+            setSelected(null);
+          }}
         />
       )}
 
@@ -850,8 +856,11 @@ function StateLegend() {
   );
 }
 
-function NodeSheet({ node, onClose, onAsk }: { node: GraphNode; onClose: () => void; onAsk: () => void }) {
+function NodeSheet({ node, onClose, onAsk, onDeleted }: { node: GraphNode; onClose: () => void; onAsk: () => void; onDeleted?: () => void }) {
   const color = NODE_COLOR[node.type] || FALLBACK_COLOR;
+  const actions: ItemAction[] = apiEnabled() ? [
+    { label: "Delete permanently", icon: Trash2, tone: "danger", confirm: "Delete this node? Its edges are removed too. This cannot be undone.", onClick: async () => { const ok = await deleteNode(node.id); if (ok) { toast.success("Node deleted"); onDeleted?.(); } else toast.error("Delete failed"); } },
+  ] : [];
   return (
     <div className="absolute inset-0 z-40 flex items-end" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: "rgba(8,9,12,0.55)" }} />
@@ -860,9 +869,12 @@ function NodeSheet({ node, onClose, onAsk }: { node: GraphNode; onClose: () => v
         style={{ background: "#13151A", borderTop: "1px solid #22252D", borderTopLeftRadius: 10, borderTopRightRadius: 10 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4" style={{ color: "#8E929C" }}>
-          <X size={18} strokeWidth={1.5} />
-        </button>
+        <div className="absolute top-3 right-3 flex items-center gap-1">
+          {actions.length > 0 && <ItemActions actions={actions} />}
+          <button onClick={onClose} aria-label="Close" className="tap-target" style={{ color: "#8E929C" }}>
+            <X size={18} strokeWidth={1.5} />
+          </button>
+        </div>
         <div className="flex items-center gap-2 mb-2">
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
           <span className="text-xs" style={{ color: "#8E929C" }}>{node.type}</span>

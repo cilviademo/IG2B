@@ -12,7 +12,7 @@ import {
   SENSITIVITY_COLOR,
   PROCESSING_META,
 } from "@/lib/types";
-import { assetSignedUrl, createQuest, archiveCapture, deleteCapture } from "@/lib/api";
+import { assetSignedUrl, createQuest, archiveCapture, deleteCapture, unarchiveCapture } from "@/lib/api";
 import ItemActions, { type ItemAction } from "./ItemActions";
 import { Swords, Copy, Archive } from "lucide-react";
 import { toast } from "sonner";
@@ -98,7 +98,7 @@ export default function CaptureDetail({ item, onClose, onDelete, onChanged }: { 
     { label: "Create quest", icon: Swords, onClick: async () => { await createQuest({ title: `Triage: ${item.title}`.slice(0, 80), summary: body, kind: "side", source_type: "capture", source_id: item.id, state: "suggested" }); toast.success("Quest created", { description: "Under Quests → Later." }); } },
     { label: "Copy details", icon: Copy, onClick: async () => { try { await navigator.clipboard.writeText(`${item.title}\n${body}${item.url ? `\n${item.url}` : ""}`); toast.success("Copied"); } catch { toast("Copy blocked"); } } },
     ...(!item.local ? [
-      { label: "Archive", icon: Archive, onClick: async () => { const ok = await archiveCapture(item.id); toast[ok ? "success" : "error"](ok ? "Archived" : "Archive failed"); if (ok) { onChanged?.(); onClose(); } } } as ItemAction,
+      { label: "Archive", icon: Archive, onClick: async () => { const ok = await archiveCapture(item.id); if (ok) { toast.success("Archived", { description: "Hidden from the inbox.", action: { label: "Undo", onClick: () => { void unarchiveCapture(item.id).then(() => onChanged?.()); } } }); onChanged?.(); onClose(); } else toast.error("Archive failed"); } } as ItemAction,
       { label: "Delete permanently", icon: Trash2, tone: "danger" as const, confirm: "Delete this capture permanently? This cannot be undone.", onClick: async () => { const ok = await deleteCapture(item.id); toast[ok ? "success" : "error"](ok ? "Deleted" : "Delete failed"); if (ok) { onChanged?.(); onClose(); } } } as ItemAction,
     ] : []),
   ];

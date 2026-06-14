@@ -635,6 +635,13 @@ radianRouter.post("/quests/:id/convert-project", async (req: Authed, res) => {
   res.status(201).json({ quest: await repo.quests.get(req.userId!, q.id), project: pid });
 });
 
+// Item management — permanent delete (archive is the soft path via /action {archive}).
+radianRouter.delete("/quests/:id", async (req: Authed, res) => {
+  await repo.quests.remove(req.userId!, req.params.id);
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "deleted", subject_type: "quest", subject_id: req.params.id, correlation_id: req.params.id, payload: {} });
+  res.json({ ok: true });
+});
+
 
 // ---- Stage 7: Opportunities (review queue; never auto-promoted) ----
 radianRouter.get("/opportunities", async (req: Authed, res) => {

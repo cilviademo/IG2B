@@ -469,6 +469,19 @@ export const snoozeQuest = (id: string, hours = 24) => questReq<Quest>(`/radian/
 export const resumeQuest = (id: string) => questReq<Quest>(`/radian/quests/${id}/resume`, { method: "POST", body: "{}" });
 export const acceptQuest = async (id: string) => { await questAction(id, "accept"); return questAction(id, "start"); };
 export const convertQuestToProject = (id: string) => questReq<{ project: string }>(`/radian/quests/${id}/convert-project`, { method: "POST", body: "{}" });
+export async function deleteQuest(id: string): Promise<boolean> {
+  if (!apiEnabled() || !getToken()) return false;
+  try { return (await fetch(`${BASE}/radian/quests/${id}`, { method: "DELETE", headers: { authorization: `Bearer ${getToken()}` } })).ok; } catch { return false; }
+}
+export async function unarchiveCapture(id: string): Promise<boolean> {
+  if (!apiEnabled() || !getToken()) return false;
+  try { return (await fetch(`${BASE}/captures/${id}/unarchive`, { method: "POST", headers: { authorization: `Bearer ${getToken()}` } })).ok; } catch { return false; }
+}
+/** Node item-action: permanent delete (cascades edges, emits a `deleted` event). */
+export async function deleteNode(id: string): Promise<boolean> {
+  if (!apiEnabled() || !getToken()) return false;
+  try { return (await fetch(`${BASE}/nodes/${id}`, { method: "DELETE", headers: { authorization: `Bearer ${getToken()}` } })).ok; } catch { return false; }
+}
 
 /** Load a resource from the API when enabled, else fall back to a local fixture. */
 export async function loadOrFixture<T>(apiCall: () => Promise<T>, fixturePath: string): Promise<T> {

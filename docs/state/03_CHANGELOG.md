@@ -55,6 +55,13 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — ItemActions rollout (A)
+- Reusable **`ItemActions`** now wired across the daily-driver entities: **captures** (create quest · copy · Archive [soft, **with Undo toast**] · Delete), **quests** (`QuestCard`: copy · convert-to-project · Archive · Delete), **nodes** (`NodeSheet`: Delete → removes from the live Atlas in place), **AI results** (Activity). Destructive actions confirm; archive is soft/reversible.
+- Backend: `DELETE /radian/quests/:id` + `POST /captures/:id/unarchive` (undo) + `quests.remove`/`captures.unarchive` repos; quest/node/capture deletes emit `deleted` events.
+- Remaining (mechanical, documented): briefs/timeline/context-packs/projects can drop in the same `ItemActions` (component + delete pattern proven). pwa/api/worker typecheck+build green; verify **409/409**; capture/upload/Shortcut untouched.
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/aurora-ia` — item management (reusable ItemActions)
 - New reusable **`ItemActions`** menu (kebab → action sheet; destructive actions confirm; ≥44px targets). Wired into **CaptureDetail** (Create quest · Copy · **Archive** soft/reversible · **Delete permanently** confirm) for backend captures; nodes + AI results already have actions.
 - Backend: `POST /captures/:id/archive` (soft, status=archived) + `DELETE /captures/:id` (permanent), both emit provenance events; node delete now emits a `deleted` event. New event types `archived`/`deleted`; new `captures.archive`/`captures.remove` repo methods. No schema change (uses existing `status` + `events`).
