@@ -7,6 +7,7 @@ import CompanionPanel from "@/components/CompanionPanel";
 import { deriveNodeState, NODE_STATE_STYLE, LEGEND, isForgottenGem, isResurfaced, type NodeState } from "@/lib/nodeState";
 import { inferTracks, trackColor, type Track } from "@/lib/progression";
 import { getQuestNodeStatus, getProgression, getLiveNodes, getLiveEdges, createQuest, deleteNode, apiEnabled } from "@/lib/api";
+import { onVaultSynced } from "@/lib/sync";
 import { toast } from "sonner";
 import ItemActions, { type ItemAction } from "@/components/ItemActions";
 
@@ -90,13 +91,17 @@ export default function Atlas() {
   useEffect(() => {
     if (synthetic) return;
     let cancelled = false;
-    (async () => {
+    const load = async () => {
       const [nr, er] = await Promise.all([getLiveNodes(), getLiveEdges()]);
       const n = nr?.nodes as GraphNode[] | undefined;
       const e = er?.edges as GraphEdge[] | undefined;
       if (!cancelled && n && e && n.length) setLive({ nodes: n, edges: e });
-    })();
-    return () => { cancelled = true; };
+    };
+    void load();
+    // Re-pull when a global Force Sync / device-pairing lands so the graph reflects
+    // the same vault as the rest of the app.
+    const offSynced = onVaultSynced(() => void load());
+    return () => { cancelled = true; offSynced(); };
   }, [synthetic]);
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 # Debugging Log (institutional scar tissue)
 
-`Last updated: 2026-06-14 · Commit: phase1-topbar-fit · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: one-vault-reality · By: claude (Claude Code)`
 
 Every significant bug: **symptom → root cause → fix → LESSON.** Append-only.
 
@@ -90,3 +90,9 @@ Every significant bug: **symptom → root cause → fix → LESSON.** Append-onl
 - **Root cause:** `TopBar` set a fixed `height: 48` while also carrying the `safe-top` class (`padding-top: env(safe-area-inset-top)`). Under the global `* { box-sizing: border-box }`, the notch inset was taken *out of* the 48px content box (padding eats into a fixed height) instead of being added above it, leaving only ~`48 − inset` px of usable bar.
 - **Fix:** `apps/pwa/src/components/TopBar.tsx` → `height: calc(48px + env(safe-area-inset-top))`, so the bar is a full 48px of content **below** the inset. This is the same pattern `Atlas.tsx` already uses for its top overlay.
 - **LESSON:** with `box-sizing: border-box`, a fixed-height element that also has `padding-top: env(safe-area-inset-top)` will *eat* its content; always fold the safe-area inset into the height (`calc(Hpx + env(...))`), never leave it as bare padding on a fixed-height box. Headless browsers report `env(safe-area-inset-*) = 0`, so this class of bug is invisible in screenshots — only the device shows it.
+
+### 2026-06-14 — Safari and the installed PWA show different vaults (two anonymous accounts)
+- **Symptom (device):** the Safari URL showed a freshly-captured Apple Note + its node + Atlas edge; the reinstalled home-screen PWA showed none of it. Owner correctly suspected it wasn't just a stale install.
+- **Root cause:** the PWA has no login — `ensureSession()` (`apps/pwa/src/lib/api.ts`) silently mints a *random* device account (`device-<rand>@indigold.local`) into `localStorage` (`indigold_device`), and every server read is scoped to it. On iOS the installed home-screen PWA gets a **separate storage partition from Safari**, so each surface minted its OWN random account → two different users on the server → two different vaults. The Shortcut opens its capture link in Safari (default browser), so the capture landed under Safari's account; the PWA's partition had a fresh empty account.
+- **Fix:** device **pairing code** (`lib/sync.ts`): `IG1.<base64url(creds)>` copied on one surface, pasted on the other, which then adopts the same account (replace creds → clearToken → ensureSession → forceSync). Both surfaces converge on one server vault. Plus Force Sync + sync-on-launch + stale/update banners + a Debug/Sync panel that surfaces the device-account email so the divergence is visible at a glance. SW re-audited (no API cached) + cache bumped `v0.24.0`.
+- **LESSON:** "same origin" does NOT mean "same storage" on iOS — an installed PWA is a different storage partition than Safari. An app that auto-creates anonymous per-partition identities will silently fork into multiple vaults across a user's own surfaces. Anonymous device accounts need an explicit way to be *shared* (pairing/login), and the device-account identity must be visible in-app so this class of bug is diagnosable. Also: headless screenshots run with no `VITE_API_URL` and a single storage partition, so neither the multi-account split nor the live counts are reproducible there — only the device shows it.

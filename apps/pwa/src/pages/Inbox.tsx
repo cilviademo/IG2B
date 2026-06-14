@@ -36,6 +36,7 @@ import CaptureDetail, { type DetailItem } from "@/components/CaptureDetail";
 import Sheet from "@/components/Sheet";
 import { listCaptures, removeCapture, subscribeCaptures, exportCaptures, importCaptures, markSynced, type LocalCapture } from "@/lib/captureStore";
 import { apiEnabled, ensureSession, syncCaptureToApi, fetchCaptures, lastSessionError, lastSyncError, type BackendCapture } from "@/lib/api";
+import { onVaultSynced } from "@/lib/sync";
 import { Button, Dot } from "@/components/primitives";
 import { flushUploadQueue } from "@/lib/uploadQueue";
 
@@ -165,9 +166,13 @@ export default function Inbox() {
     };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
+    // Re-pull when a global Force Sync / device-pairing lands (the account may have
+    // changed) so Inbox converges with the rest of the app.
+    const offSynced = onVaultSynced(() => void refresh());
     return () => {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
+      offSynced();
     };
   }, [refresh]);
 

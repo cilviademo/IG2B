@@ -8,8 +8,33 @@ import "./index.css";
 // see public/sw.js and README for the path to fully-local assets.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      /* offline-first is best-effort; ignore registration failures */
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        // A new build is downloading: when it finishes installing AND a SW already
+        // controls the page, a fresh version is ready — surface the reload banner
+        // instead of silently running stale code on the installed PWA.
+        reg.addEventListener("updatefound", () => {
+          const installing = reg.installing;
+          if (!installing) return;
+          installing.addEventListener("statechange", () => {
+            if (installing.state === "installed" && navigator.serviceWorker.controller) {
+              window.dispatchEvent(new CustomEvent("indigold:sw-update"));
+            }
+          });
+        });
+      })
+      .catch(() => {
+        /* offline-first is best-effort; ignore registration failures */
+      });
+
+    // The SW uses skipWaiting()+clients.claim(), so a new version can take control
+    // mid-session. Signal the UI once so the banner can offer a clean reload.
+    let signalled = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (signalled) return;
+      signalled = true;
+      window.dispatchEvent(new CustomEvent("indigold:sw-update"));
     });
   });
 }

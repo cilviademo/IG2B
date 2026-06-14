@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError, syncCaptureToApi, lastSyncError, fetchLlmStatus, type LlmStatus } from "@/lib/api";
 import { Button, SectionRule, Dot } from "@/components/primitives";
 import AiUsagePanel from "@/components/AiUsagePanel";
+import VaultSyncPanel from "@/components/VaultSyncPanel";
 
 const DATA_FILES = [
   "sample_nodes",
@@ -152,7 +153,11 @@ export default function ImportExport() {
   return (
     <div className="px-5 pt-6 pb-6">
       <h1 className="text-xl font-display mb-1">Settings</h1>
-      <p className="cap-data mb-5" style={{ color: "var(--text-dim)" }}>vault · connections · import/export · API · advanced</p>
+      <p className="cap-data mb-5" style={{ color: "var(--text-dim)" }}>vault sync · connections · import/export · API · advanced</p>
+
+      {/* One vault reality — environment parity, Force Sync, device pairing. First
+          because cross-surface divergence (Safari vs installed PWA) is the priority. */}
+      <VaultSyncPanel />
 
       {/* Connections — honest: connectors are designed (seam) but not yet wired. */}
       <SectionRule label="Connections" />

@@ -9,7 +9,7 @@
  *   the documented path to fully-local assets is to self-host the fonts.
  * - No analytics, no telemetry, no data exfiltration. */
 
-const CACHE = "indigold-v0.23.0";
+const CACHE = "indigold-v0.24.0";
 
 const PRECACHE = [
   "/",
@@ -51,6 +51,18 @@ self.addEventListener("activate", (event) => {
       await self.clients.claim();
     })(),
   );
+});
+
+// Lightweight message channel: the app asks the active SW for its cache version
+// (shown in the Debug/Sync panel so you can confirm both surfaces run the same
+// build) and can tell a waiting SW to activate immediately.
+self.addEventListener("message", (event) => {
+  const data = event.data || {};
+  if (data.type === "VERSION") {
+    event.ports?.[0]?.postMessage({ version: CACHE });
+  } else if (data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 // ---- Web Share Target (POST) ----
