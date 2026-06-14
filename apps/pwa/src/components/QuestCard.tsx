@@ -11,15 +11,19 @@ import { questReward, trackColor } from "@/lib/progression";
 // transitions are deterministic + provenanced server-side.
 export default function QuestCard({ quest, bucket, onChange }: { quest: Quest; bucket: Bucket; onChange?: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
   const kind = QUEST_KIND_STYLE[(quest.kind as QuestKind)] || QUEST_KIND_STYLE.side;
   const st = QUEST_STATE_STYLE[(quest.state as QuestState)] || QUEST_STATE_STYLE.suggested;
 
-  async function run(fn: () => Promise<unknown>) {
+  async function run(fn: () => Promise<unknown>, opts: { celebrate?: boolean } = {}) {
     if (busy) return;
     setBusy(true);
+    if (opts.celebrate) setCelebrating(true);
     await fn();
     setBusy(false);
-    onChange?.();
+    // On completion, let the celebration ring play briefly before the parent re-buckets.
+    if (opts.celebrate) setTimeout(() => { setCelebrating(false); onChange?.(); }, 700);
+    else onChange?.();
   }
 
   const Btn = ({ icon: Icon, label, onClick, tone = "ghost" }: { icon: typeof Check; label: string; onClick: () => void; tone?: "primary" | "ghost" }) => (
@@ -36,7 +40,7 @@ export default function QuestCard({ quest, bucket, onChange }: { quest: Quest; b
   const ts = quest.updated_at ? new Date(quest.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
 
   return (
-    <div className="p-3.5 mb-2.5 animate-fade-in-up" style={{ borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", opacity: bucket === "completed" ? 0.75 : 1 }}>
+    <div className={`p-3.5 mb-2.5 animate-fade-in-up ${celebrating ? "celebrate" : ""}`} style={{ borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", opacity: bucket === "completed" ? 0.75 : 1 }}>
       <div className="flex items-center gap-2 mb-1.5">
         <span className="text-[10px] px-2 py-0.5 animate-pop" style={{ borderRadius: 6, border: `1px solid ${kind.color}55`, color: kind.color }}>{kind.label}</span>
         {bucket === "completed" ? (
@@ -83,7 +87,7 @@ export default function QuestCard({ quest, bucket, onChange }: { quest: Quest; b
         )}
         {bucket === "active" && (
           <>
-            <Btn icon={Check} label="Complete" tone="primary" onClick={() => run(() => questAction(quest.id, "complete"))} />
+            <Btn icon={Check} label="Complete" tone="primary" onClick={() => run(() => questAction(quest.id, "complete"), { celebrate: true })} />
             <Btn icon={FolderPlus} label="Convert to project" onClick={() => run(() => convertQuestToProject(quest.id))} />
             <Btn icon={Clock} label="Snooze" onClick={() => run(() => snoozeQuest(quest.id, 24))} />
           </>
@@ -97,11 +101,11 @@ export default function QuestCard({ quest, bucket, onChange }: { quest: Quest; b
         {bucket === "blocked" && (
           <>
             <Btn icon={Swords} label="Unblock" tone="primary" onClick={() => run(() => questAction(quest.id, "unblock"))} />
-            <Btn icon={Check} label="Complete" onClick={() => run(() => questAction(quest.id, "complete"))} />
+            <Btn icon={Check} label="Complete" onClick={() => run(() => questAction(quest.id, "complete"), { celebrate: true })} />
           </>
         )}
         {bucket === "converted" && (
-          <Btn icon={Check} label="Complete" tone="primary" onClick={() => run(() => questAction(quest.id, "complete"))} />
+          <Btn icon={Check} label="Complete" tone="primary" onClick={() => run(() => questAction(quest.id, "complete"), { celebrate: true })} />
         )}
         {bucket === "completed" && (
           <Btn icon={RotateCcw} label="Archive" onClick={() => run(() => questAction(quest.id, "archive"))} />

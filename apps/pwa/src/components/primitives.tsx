@@ -85,13 +85,61 @@ export function SectionRule({ label }: { label?: string }) {
   );
 }
 
-// 6px semantic status dot.
-export function Dot({ color, size = 6, pulse }: { color: string; size?: number; pulse?: boolean }) {
+// 6px semantic status indicator. `shape` makes status distinguishable WITHOUT relying
+// on colour alone (colour-blind safe): dot = neutral/good, square = info, triangle =
+// risk/warning. Defaults to a dot for back-compat.
+export function Dot({ color, size = 6, pulse, shape = "dot" }: { color: string; size?: number; pulse?: boolean; shape?: "dot" | "square" | "triangle" }) {
+  const cls = pulse ? "pulse-dot" : undefined;
+  if (shape === "triangle") {
+    // CSS triangle via borders — the bottom border carries the colour.
+    return (
+      <span
+        className={cls}
+        aria-hidden
+        style={{ width: 0, height: 0, borderLeft: `${size * 0.62}px solid transparent`, borderRight: `${size * 0.62}px solid transparent`, borderBottom: `${size * 1.1}px solid ${color}`, display: "inline-block", flexShrink: 0 }}
+      />
+    );
+  }
   return (
     <span
-      className={pulse ? "pulse-dot" : undefined}
-      style={{ width: size, height: size, borderRadius: 999, background: color, display: "inline-block", flexShrink: 0 }}
+      className={cls}
+      aria-hidden
+      style={{ width: size, height: size, borderRadius: shape === "square" ? 1 : 999, background: color, display: "inline-block", flexShrink: 0 }}
     />
+  );
+}
+
+// Inviting empty/sparse state — never "gray text that reads as broken". A soft gold
+// ring around an icon, a display-face headline, one sentence of why-it's-empty, and an
+// optional primary action. Used wherever a live-vault surface has nothing yet.
+export function EmptyState({
+  icon,
+  title,
+  children,
+  action,
+}: {
+  icon?: ReactNode;
+  title: string;
+  children?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="animate-fade-in-up" style={{ textAlign: "center", padding: "var(--s-7) var(--s-4)", maxWidth: 340, margin: "0 auto" }}>
+      {icon && (
+        <div
+          style={{
+            width: 56, height: 56, margin: "0 auto var(--s-4)", borderRadius: 999,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "var(--gold-soft)", border: "1px solid var(--gold-line)", color: "var(--gold)",
+          }}
+        >
+          {icon}
+        </div>
+      )}
+      <h3 className="font-display" style={{ fontSize: "var(--t-3)", color: "var(--text)", marginBottom: "var(--s-2)" }}>{title}</h3>
+      {children && <p style={{ fontSize: "var(--t-2)", color: "var(--text-dim)", lineHeight: 1.55 }}>{children}</p>}
+      {action && <div style={{ marginTop: "var(--s-4)" }}>{action}</div>}
+    </div>
   );
 }
 

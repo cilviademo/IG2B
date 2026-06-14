@@ -5,6 +5,7 @@ import { getQuests, suggestQuests, apiEnabled, type Quest } from "@/lib/api";
 import { questBucket, type QuestBucket as Bucket } from "@/lib/quests";
 import QuestCard from "./QuestCard";
 import CollapsibleSection from "./CollapsibleSection";
+import { EmptyState, Button } from "./primitives";
 import { useTaskAction } from "@/contexts/TaskCenter";
 
 // Mission Control's quest surface. Every quest lands in exactly ONE clearly-labelled
@@ -56,9 +57,16 @@ export default function QuestsPanel({ variant = "home" }: { variant?: "home" | "
     return (
       <div className={full ? "" : "mt-7"}>
         <Head full={full} />
-        <p className="py-2" style={{ fontSize: 13, color: "var(--text-dim)" }}>
-          Quests come from your live vault — connect the API to turn briefs, insights and Companion answers into playable actions.
-        </p>
+        {full ? (
+          <EmptyState icon={<Swords size={24} strokeWidth={1.5} />} title="Quests live in your vault">
+            Connect the API to turn briefs, insights and Companion answers into playable,
+            stateful actions — anchored to your Atlas.
+          </EmptyState>
+        ) : (
+          <p className="py-2" style={{ fontSize: 13, color: "var(--text-dim)" }}>
+            Quests come from your live vault — connect the API to turn briefs, insights and Companion answers into playable actions.
+          </p>
+        )}
       </div>
     );
   }
@@ -85,6 +93,19 @@ export default function QuestsPanel({ variant = "home" }: { variant?: "home" | "
       />
       {loading && quests.length === 0 ? (
         <p className="py-2 pulse-soft" style={{ fontSize: 14, color: "var(--text-dim)" }}>Loading quests… <span className="cap-data">(free-tier API may be waking)</span></p>
+      ) : full && total === 0 ? (
+        <EmptyState
+          icon={<Swords size={24} strokeWidth={1.5} />}
+          title="Your quest board is clear"
+          action={
+            <Button variant="primary" disabled={suggesting} leftIcon={suggesting ? <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> : <Sparkles size={14} strokeWidth={1.5} />} onClick={onSuggest}>
+              {suggesting ? "Generating…" : "Suggest quests"}
+            </Button>
+          }
+        >
+          Indigold turns your briefs, inbox backlog, top nodes and Time Machine reflections
+          into playable actions. Tap suggest to generate today's.
+        </EmptyState>
       ) : (
         <>
           {SECTIONS.map(({ bucket, label, color, empty }) => {

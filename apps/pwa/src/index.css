@@ -66,6 +66,19 @@ html.dark {
   --r-sm: 6px;
   --r-md: 10px;
 
+  /* spacing scale (4px base) — use these for vertical rhythm between sections so
+     density is consistent across screens instead of ad-hoc margins. */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 24px; --s-6: 32px; --s-7: 48px;
+
+  /* type scale (rem) — Display uses Syne, body Inter Tight, data Plex Mono.
+     t-1 caption · t-2 body · t-3 lead · t-4 title · t-5 headline */
+  --t-1: 0.75rem; --t-2: 0.9375rem; --t-3: 1.0625rem; --t-4: 1.25rem; --t-5: 1.6rem;
+
+  /* the ONE elevation (cards are rare; no heavy shadows — AI-ism ban). A barely
+     perceptible lift so a true card reads as raised without a drop shadow. */
+  --elev-card: 0 1px 0 0 rgba(255,255,255,0.02) inset, 0 1px 2px rgba(0,0,0,0.25);
+
   /* legacy aliases (mapped to roles) */
   --surface-elevated: var(--surface-2);
   --indigo: var(--info);
@@ -248,6 +261,18 @@ h1, h2, h3, h4, .font-display {
 @keyframes valueFlash { 0% { color: var(--gold); transform: scale(1.18); } 100% { } }
 .animate-flash { animation: valueFlash 600ms ease-out; }
 
+/* Celebration — a single warm gold ring that expands and fades once, for a quest
+   completion or level-up. Subtle (no confetti, no sound), and fully suppressed under
+   reduced motion. Apply `.celebrate` to a positioned wrapper. */
+@keyframes celebrateRing {
+  0%   { box-shadow: 0 0 0 0 var(--gold-line); opacity: 0.9; }
+  100% { box-shadow: 0 0 0 14px rgba(201,164,92,0); opacity: 0; }
+}
+.celebrate { animation: celebrateRing 720ms cubic-bezier(0.23, 1, 0.32, 1) 1; border-radius: var(--r-md); }
+
+/* Minimum 44px hit target for icon-only controls (a11y). */
+.tap-target { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+
 /* ---- Reduced motion: disable drift + entry/pulse animations ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -257,6 +282,7 @@ h1, h2, h3, h4, .font-display {
   }
   .animate-fade-in-up { opacity: 1; }
   .animate-pop { opacity: 1; transform: none; }
+  .celebrate { animation: none !important; }
 }
 
 /* ---- Scrollbar ---- */

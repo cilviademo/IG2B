@@ -114,7 +114,7 @@ export default function Dashboard() {
                 className="flex items-start gap-3 py-3"
                 style={{ borderBottom: i === data.insights.length - 1 ? "none" : "1px solid var(--line)" }}
               >
-                <span className="mt-1.5"><Dot color="var(--info)" /></span>
+                <span className="mt-1.5"><Dot color="var(--info)" shape="square" /></span>
                 <span style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.45 }}>{insight}</span>
               </li>
             ))}
@@ -155,7 +155,7 @@ export default function Dashboard() {
                 className="flex items-start gap-3 py-3"
                 style={{ borderBottom: i === risks.length - 1 ? "none" : "1px solid var(--line)" }}
               >
-                <span className="mt-1.5"><Dot color="var(--risk)" /></span>
+                <span className="mt-1.5"><Dot color="var(--risk)" shape="triangle" /></span>
                 <span style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.45 }}>{r}</span>
               </li>
             ))}
