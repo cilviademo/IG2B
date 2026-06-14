@@ -21,6 +21,7 @@ working code out of ignorance of history.
 | 7 | [`07_ROADMAP.md`](07_ROADMAP.md) | Forward plan + gates |
 | 8 | [`08_CONSTRAINTS.md`](08_CONSTRAINTS.md) | The iron rules. **If you read only one file beyond this index, read this.** |
 | 9 | [`09_VERIFICATION.md`](09_VERIFICATION.md) | How to prove work: stubs, headless, the phone re-test ritual |
+| 9b | [`09_PHONE_GATES.md`](09_PHONE_GATES.md) | The per-subsystem phone-gate **checklist** (walk top-to-bottom, flip 🟡→🟢) |
 
 **Minimum reading before any work:** `00_INDEX` → `02_CURRENT_STATE` → `08_CONSTRAINTS`
 (+ any file relevant to your task area).
