@@ -19,16 +19,19 @@ export default function WeeklyBrief() {
   const ke = data.knowledge_evolution;
 
   return (
-    <div className="px-5 pt-8 pb-6">
+    <div className="px-5 pt-8 pb-10 page-enter">
       {/* Masthead — the magazine moment */}
-      <div className="cap-data mb-1" style={{ color: "var(--text-dim)" }}>Radian · {data.period}</div>
-      <h1 className="font-display" style={{ fontSize: 28, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em" }}>Weekly brief</h1>
+      <div className="flex items-center justify-between cap-data" style={{ color: "var(--text-dim)", letterSpacing: "0.14em", textTransform: "uppercase" }}>
+        <span>The Brief</span><span>{data.period}</span>
+      </div>
+      <h1 className="font-display" style={{ fontSize: "clamp(2rem, 9vw, 2.75rem)", fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em", lineHeight: 1.05, marginTop: 6 }}>This week in your vault</h1>
+      <hr className="rule" style={{ marginTop: 16, borderTopWidth: 2 }} />
 
-      {/* Executive summary as set prose */}
-      <p className="mt-4" style={{ fontSize: 18, lineHeight: 1.6, color: "var(--text)", maxWidth: "60ch" }}>{data.summary}</p>
+      {/* Executive summary as the lede */}
+      <p className="mt-5" style={{ fontSize: 20, lineHeight: 1.62, color: "var(--text)", maxWidth: "62ch", fontWeight: 450 }}>{data.summary}</p>
 
       {/* Forecasts — big mono figure right-aligned, dot+label, 2px hairline meter */}
-      <div className="mt-8"><SectionRule label="Strategic forecast" /></div>
+      <div className="mt-10"><SectionRule label="Strategic forecast" /></div>
       {data.forecasts.map((f, i) => {
         const isOpp = f.type === "Opportunity";
         const color = isOpp ? "var(--good)" : "var(--risk)";
@@ -40,7 +43,7 @@ export default function WeeklyBrief() {
                   <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: color }} />
                   <span style={{ fontSize: 12, color: "var(--text-dim)" }}>{f.type}</span>
                 </div>
-                <h3 className="font-semibold" style={{ fontSize: 16, color: "var(--text)" }}>{f.title}</h3>
+                <h3 className="font-display" style={{ fontSize: 19, lineHeight: 1.2, color: "var(--text)" }}>{f.title}</h3>
               </div>
               <div className="font-data" style={{ fontSize: 30, lineHeight: 1, color: "var(--text)" }}>{f.confidence}</div>
             </div>
@@ -53,7 +56,7 @@ export default function WeeklyBrief() {
       })}
 
       {/* Knowledge evolution — hairline-ruled stat row + prose */}
-      <div className="mt-8"><SectionRule label="Knowledge evolution" /></div>
+      <div className="mt-10"><SectionRule label="Knowledge evolution" /></div>
       <div className="grid grid-cols-3 mt-3" style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
         {[
           { label: "New nodes", value: ke.new_nodes },
@@ -81,11 +84,11 @@ export default function WeeklyBrief() {
       </ul>
 
       {/* Boardroom synthesis — prose */}
-      <div className="mt-8"><SectionRule label="Boardroom synthesis" /></div>
+      <div className="mt-10"><SectionRule label="Boardroom synthesis" /></div>
       <p className="mt-3" style={{ fontSize: 16, lineHeight: 1.55, color: "var(--text)", maxWidth: "60ch" }}>{data.boardroom_synthesis}</p>
 
       {/* Recommended actions — plain rows, semantic dots, hairline separators */}
-      <div className="mt-8"><SectionRule label="Recommended actions" /></div>
+      <div className="mt-10"><SectionRule label="Recommended actions" /></div>
       <ul className="mt-1">
         {data.actions.map((a, i) => (
           <li key={i} className="flex items-center gap-3 py-3" style={{ borderBottom: i === data.actions.length - 1 ? "none" : "1px solid var(--line)" }}>

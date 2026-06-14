@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useJson } from "@/hooks/useJson";
 import { Loading, ErrorState } from "@/components/State";
 import { getTimeMachine, getProgression, createQuest, apiEnabled } from "@/lib/api";
@@ -38,8 +38,16 @@ const ago = (days: number) => (days <= 0 ? "today" : days === 1 ? "yesterday" : 
 
 interface ProgWindow { days: number; byTrack: Record<string, number>; growing: string | null; faded: string | null; accelerated: { name: string } | null; stalled: { name: string } | null }
 
+type TMPanel = "replay" | "lessons" | "resurfaced" | "past";
+const TM_PANELS: { key: TMPanel; label: string }[] = [
+  { key: "replay", label: "Replay" }, { key: "lessons", label: "Lessons" },
+  { key: "resurfaced", label: "Resurfaced" }, { key: "past", label: "Past Self" },
+];
+
 export default function TimeMachine() {
   const [range, setRange] = useState<RangeKey>("30d");
+  const [panel, setPanel] = useState<TMPanel>("replay");
+  const touchX = useRef<number | null>(null);
   const nodesRes = useJson<{ nodes: TimeMachineInput["nodes"] }>("/data/sample_nodes.json");
   const edgesRes = useJson<{ edges: TimeMachineInput["edges"] }>("/data/sample_edges.json");
   const tlRes = useJson<{ events: TimeMachineInput["timeline"] }>("/data/sample_timeline.json");
@@ -110,11 +118,39 @@ export default function TimeMachine() {
         ))}
       </div>
 
-      {/* Mentor Mode (G9) — talk with past you, voiced from real history */}
-      <MentorPanel rangeDays={RANGES.find((r) => r.key === range)?.days ?? 30} />
+      {/* A6 — one panel at a time: Replay · Lessons · Resurfaced · Past Self (swipeable). */}
+      <div className="flex gap-1 mt-4 p-1" style={{ borderRadius: 10, background: "var(--surface-2)" }}>
+        {TM_PANELS.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => setPanel(p.key)}
+            className="flex-1 py-2 text-xs font-semibold"
+            style={{ borderRadius: 8, background: panel === p.key ? "var(--surface)" : "transparent", color: panel === p.key ? "var(--gold)" : "var(--text-dim)", border: panel === p.key ? "1px solid var(--gold-line)" : "1px solid transparent" }}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Progression over time (G4) — deterministic XP/momentum deltas for the window */}
-      {prog && (
+      <div
+        className="page-enter"
+        key={panel}
+        onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+        onTouchEnd={(e) => {
+          if (touchX.current == null) return;
+          const dx = e.changedTouches[0].clientX - touchX.current; touchX.current = null;
+          if (Math.abs(dx) < 50) return;
+          const i = TM_PANELS.findIndex((p) => p.key === panel);
+          const ni = dx < 0 ? Math.min(TM_PANELS.length - 1, i + 1) : Math.max(0, i - 1);
+          setPanel(TM_PANELS[ni].key);
+        }}
+      >
+
+      {/* PAST SELF — Mentor Mode (G9), talk with past you */}
+      {panel === "past" && <MentorPanel rangeDays={RANGES.find((r) => r.key === range)?.days ?? 30} />}
+
+      {/* REPLAY — progression, what you were thinking, what changed */}
+      {panel === "replay" && prog && (
         <Section icon={TrendingUp} title="Progression over time" pkey="tm_progression">
           <div className="grid grid-cols-2 gap-x-4 gap-y-2">
             <Delta label="Strongest growing" value={prog.growing ? trackLabel(prog.growing as Track) : "—"} tone="good" />
@@ -133,6 +169,7 @@ export default function TimeMachine() {
         </Section>
       )}
 
+      {panel === "replay" && (<>
       {/* "What was I thinking then?" */}
       <Section icon={Sparkles} title="What was I thinking then?" pkey="tm_thinking">
         <p style={{ fontSize: 15, lineHeight: 1.55, color: "var(--text)" }}>
@@ -190,7 +227,9 @@ export default function TimeMachine() {
         )}
       </Section>
 
-      {/* "Where was I wrong?" */}
+      </>)}
+
+      {panel === "lessons" && (
       <Section icon={Scale} title="Where was I wrong?" pkey="tm_wrong">
         {reflection.total === 0 ? (
           <Empty>No decisions logged yet. Record decisions (with confidence + expected outcome) and they'll calibrate here over time.</Empty>
@@ -212,7 +251,9 @@ export default function TimeMachine() {
         )}
       </Section>
 
-      {/* "What resurfaced?" */}
+      )}
+
+      {panel === "resurfaced" && (
       <Section icon={RotateCcw} title="What resurfaced?" pkey="tm_resurfaced">
         {resurfaced.resurfacedThemes.length === 0 && resurfaced.forgottenGems.length === 0 ? (
           <Empty>Nothing has resurfaced from dormancy in this window.</Empty>
@@ -239,6 +280,8 @@ export default function TimeMachine() {
           </>
         )}
       </Section>
+      )}
+      </div>{/* swipe wrapper */}
     </div>
   );
 }

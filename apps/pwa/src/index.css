@@ -258,6 +258,25 @@ h1, h2, h3, h4, .font-display {
 @keyframes valueFlash { 0% { color: var(--gold); transform: scale(1.18); } 100% { } }
 .animate-flash { animation: valueFlash 600ms ease-out; }
 
+/* AURORA — spacing scale (4px base) for consistent vertical rhythm. */
+:root { --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px; }
+
+/* A11y: 44px minimum hit target for icon-only controls. */
+.tap-target { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+
+/* A10 — loading skeletons (shimmer). Resolve to real success/failure; never mask errors. */
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, color-mix(in srgb, var(--surface-2) 60%, var(--line)) 37%, var(--surface-2) 63%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* A11 — gentle route/content entrance. */
+@keyframes auroraIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.page-enter { animation: auroraIn 260ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
 /* ---- Reduced motion: disable drift + entry/pulse animations ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -267,6 +286,8 @@ h1, h2, h3, h4, .font-display {
   }
   .animate-fade-in-up { opacity: 1; }
   .animate-pop { opacity: 1; transform: none; }
+  .page-enter { opacity: 1; transform: none; }
+  .skeleton { animation: none; }
 }
 
 /* ---- Scrollbar ---- */

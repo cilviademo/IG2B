@@ -7,6 +7,7 @@ import {
   Menu,
 } from "lucide-react";
 import { useTasks } from "@/contexts/TaskCenter";
+import { haptic } from "@/lib/haptics";
 
 // AURORA A1 — five tabs. Home · Inbox · Atlas · Timeline · More. Everything else moved
 // under More so the bar breathes (was eight; tap targets were cramped on small phones).
@@ -49,6 +50,7 @@ export default function TabBar() {
           return (
             <Link key={tab.path} href={tab.path}>
               <button
+                onPointerDown={() => haptic(6)}
                 aria-label={count > 0 ? `${tab.label} (${count} ready)` : tab.label}
                 aria-current={isActive ? "page" : undefined}
                 className="relative flex flex-col items-center gap-0.5 px-3 py-1.5 min-w-[56px] min-h-[44px]"
