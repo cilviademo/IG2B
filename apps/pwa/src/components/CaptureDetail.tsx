@@ -164,8 +164,20 @@ export default function CaptureDetail({ item, onClose, onDelete, onChanged }: { 
         )}
 
         {item.url && (
-          <div className="flex items-center gap-1.5 text-xs font-mono break-all" style={{ color: "var(--info)" }}>
-            <Link2 size={12} strokeWidth={1.5} className="shrink-0" /> {item.url}
+          <div className="space-y-1.5">
+            {/* Re-access the source you shared — open the original link in a new tab. */}
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="press w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold"
+              style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}
+            >
+              <ExternalLink size={13} strokeWidth={1.5} /> Open original{item.domain ? ` · ${item.domain}` : ""}
+            </a>
+            <div className="flex items-center gap-1.5 text-[11px] font-mono break-all" style={{ color: "var(--text-dim)" }}>
+              <Link2 size={11} strokeWidth={1.5} className="shrink-0" /> {item.url}
+            </div>
           </div>
         )}
 

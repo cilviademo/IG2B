@@ -10,8 +10,15 @@ type AtlasNode = GraphNode & {
     ask?: { verb?: string; question?: string; answer?: string; subject_id?: string };
     research?: { of?: string; count?: number };
     parent_node?: string;
+    web?: { url?: string };
+    media?: { url?: string };
   };
 };
+// The original link behind a node (scraped web page or media), if any.
+function nodeSourceUrl(n: GraphNode): string | undefined {
+  const m = (n as AtlasNode).meta;
+  return m?.web?.url || m?.media?.url;
+}
 // One Radian conversation turn (an AI result) shown inside its parent node.
 export interface RadianTurn { id: string; label: string; text: string; at?: string }
 const VERB_TURN_LABEL: Record<string, string> = {
@@ -27,7 +34,8 @@ function turnText(c: AtlasNode): string {
   return (c.meta?.ask?.answer || c.summary || "").trim();
 }
 import { Loading, ErrorState } from "@/components/State";
-import { Share2, X, Plus, Minus, Locate, Sparkles, ArrowLeft, Swords, Copy, Trash2 } from "lucide-react";
+import { Share2, X, Plus, Minus, Locate, Sparkles, ArrowLeft, Swords, Copy, Trash2, ExternalLink } from "lucide-react";
+import { haptic } from "@/lib/haptics";
 import CompanionPanel from "@/components/CompanionPanel";
 import { deriveNodeState, NODE_STATE_STYLE, LEGEND, isForgottenGem, isResurfaced, type NodeState } from "@/lib/nodeState";
 import { inferTracks, trackColor, type Track } from "@/lib/progression";
@@ -406,6 +414,7 @@ export default function Atlas() {
       pointers.delete(ev.pointerId);
       if (!moved && p && pointers.size === 0) {
         const hit = pick(p.x, p.y);
+        if (hit) haptic(8); // tactile "pop" when a star is tapped — alive, not noisy
         setSelected(hit ? hit.node : null);
         hoverRef.id = hit ? hit.node.id : null;
       }
@@ -852,6 +861,7 @@ export default function Atlas() {
         <NodeSheet
           node={selected}
           turns={threads[selected.id] ?? []}
+          sourceUrl={nodeSourceUrl(selected)}
           onClose={() => setSelected(null)}
           onAsk={() => {
             setCompanion(selected);
@@ -972,7 +982,7 @@ function RadianThread({ turns }: { turns: RadianTurn[] }) {
   );
 }
 
-function NodeSheet({ node, turns = [], onClose, onAsk, onDeleted }: { node: GraphNode; turns?: RadianTurn[]; onClose: () => void; onAsk: () => void; onDeleted?: () => void }) {
+function NodeSheet({ node, turns = [], sourceUrl, onClose, onAsk, onDeleted }: { node: GraphNode; turns?: RadianTurn[]; sourceUrl?: string; onClose: () => void; onAsk: () => void; onDeleted?: () => void }) {
   const color = NODE_COLOR[node.type] || FALLBACK_COLOR;
   const actions: ItemAction[] = apiEnabled() ? [
     { label: "Delete permanently", icon: Trash2, tone: "danger", confirm: "Delete this node? Its edges are removed too. This cannot be undone.", onClick: async () => { const ok = await deleteNode(node.id); if (ok) { toast.success("Node deleted"); onDeleted?.(); } else toast.error("Delete failed"); } },
@@ -1009,6 +1019,12 @@ function NodeSheet({ node, turns = [], onClose, onAsk, onDeleted }: { node: Grap
         >
           <Sparkles size={13} strokeWidth={1.5} /> {turns.length > 0 ? "Continue with Radian" : "Ask Radian"}
         </button>
+        {sourceUrl && (
+          // Re-access the original link this node came from.
+          <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="press w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold mb-2.5" style={{ borderRadius: 6, border: "1px solid #22252D", color: "#8E929C" }}>
+            <ExternalLink size={13} strokeWidth={1.5} /> Open source
+          </a>
+        )}
         {/* Item actions (Issue 6) — safe, refresh-free actions on this node. */}
         <div className="flex gap-2 mb-4">
           <button

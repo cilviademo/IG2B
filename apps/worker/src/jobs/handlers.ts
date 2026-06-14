@@ -39,14 +39,14 @@ const ingestCapture: Handler = async (job) => {
   // (not just the link string). Privacy-gated (no external fetch for secret/internal)
   // and best-effort — failure falls back to the note. Media URLs go via media_ingest.
   let content = cap.note || "";
-  let web: { title: string; description: string; chars: number } | undefined;
+  let web: { url: string; title: string; description: string; chars: number } | undefined;
   if (cap.url && isResearchSafe(cap.sensitivity)) {
     const wplan = planIntake({ url: cap.url, captureType: cap.type, text: cap.note, source: cap.source });
     if (wplan.pipeline === "url") {
       const page = await fetchReadable(cap.url);
       if (page && (page.text || page.description)) {
         content = `${page.title}\n${page.description}\n\n${page.text}`.trim().slice(0, 6000);
-        web = { title: page.title, description: page.description, chars: page.chars };
+        web = { url: cap.url, title: page.title, description: page.description, chars: page.chars };
       }
     }
   }
