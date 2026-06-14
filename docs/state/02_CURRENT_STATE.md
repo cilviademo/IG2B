@@ -1,6 +1,8 @@
+> **CONSOLIDATED (latest):** `main` fast-forwarded to the full line (hardening P0–7 + live Claude + AURORA + AI Activity + ItemActions + Atlas canvas + Wave-6 Stage-1 media intake/SSRF). 35 merged branches pruned locally; dead `apps/scheduler` removed. Deferred for their own passes (preserved on `architecture-rnd`): the **Task Center notification fix** (known device bug — untouched) and **BoardroomView** (AURORA A5). Rollback: `git reset --hard f711706`. 454/454 green.
+
 # Current State
 
-`Last updated: 2026-06-14 · Commit: wave6-stage1 (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: consolidated-main · By: claude (Claude Code)`
 
 > **Live-AI stabilization (on `claude/aurora-ia`):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

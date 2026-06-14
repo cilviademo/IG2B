@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "description": "Indigold — local-first Personal Intelligence OS as a Render multi-service platform.",
   "scripts": {
-    "install:all": "for d in apps/api apps/worker apps/scheduler services/radian services/encompass apps/pwa; do echo \"== install $d ==\"; (cd \"$d\" && npm install) || exit 1; done",
-    "build:all": "for d in apps/api apps/worker apps/scheduler services/radian services/encompass apps/pwa; do echo \"== build $d ==\"; (cd \"$d\" && npm run build) || exit 1; done",
+    "install:all": "for d in apps/api apps/worker services/radian services/encompass apps/pwa; do echo \"== install $d ==\"; (cd \"$d\" && npm install) || exit 1; done",
+    "build:all": "for d in apps/api apps/worker services/radian services/encompass apps/pwa; do echo \"== build $d ==\"; (cd \"$d\" && npm run build) || exit 1; done",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:all": "npm run typecheck && (cd apps/pwa && npm run typecheck)"
   },

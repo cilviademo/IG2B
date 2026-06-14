@@ -55,6 +55,14 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · cleanup Stage 2/3 — consolidation: main fast-forwarded
+- **Dedup:** removed dead `apps/scheduler/` (standalone Cron entrypoint superseded by the embedded `apps/api/src/lib/scheduler.ts`; no imports, not a deployed Render service — only referenced in comments) + dropped it from the root `install:all`/`build:all` loops. Matrix unchanged 454/454.
+- **Consolidated `main`:** fast-forwarded `main` → `claude/wave6-media` (a clean superset: `main→architecture-rnd→aurora-ia→atlas-canvas→wave6-media`). `main` now carries the full line: hardening Phases 0–7, live-Claude activation, AURORA UI + AI Activity + ItemActions + Atlas canvas, Wave-6 Stage-1 media intake router + SSRF spine. Single source of truth.
+- **Deferred artifacts preserved on `architecture-rnd`** (per owner): the old in-memory Task Center + `BoardroomView` remain there for the notification fix / AURORA A5. `main`'s line uses the persistent Task Center + has BoardroomView deleted (AURORA's state) — to be revisited in those dedicated passes, NOT touched in this cleanup.
+- Rollback: `git reset --hard f711706` (pre-consolidation `main`). Local `pre-cleanup-2026-06-14` tag exists; tag/remote-delete pushes are 403-blocked by the git proxy (owner prunes the 11 leftover merged remote branches via GitHub UI).
+- pwa/api/worker typecheck+build green; verify **454/454**; capture/upload/SW/Shortcut + Task Center code untouched. No PR.
+
+
 ### 2026-06-14 · claude (Claude Code) · cleanup/consolidation Stage 2 (partial — main push HELD)
 - **Branch cleanup:** deleted **35 fully-merged local branches** (cognition-*, living-os-g1..g11 + g3/g4 variants, radian-2.0, semantic-memory, task-center(-all), ux-polish, integration, pwa-integration, file-upload, vault-redesign, living-handoff-system, fix-*, g1-completion-gate, release). Keep-set intact: `architecture-rnd`, `aurora-ia`, `wave6-media`, `vault-reset`, `design-polish`, `atlas-canvas`, `main`.
 - **Blocked by env:** remote branch deletes + the `pre-cleanup-2026-06-14` tag push both return **403 from the git proxy** (delete/tag pushes disallowed here; ordinary commit pushes work). 11 merged branches remain on origin — owner prunes via GitHub UI or retries. `main` is **untouched at `f711706`**, so the rollback point is simply current `main` (no tag needed).
