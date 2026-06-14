@@ -425,18 +425,41 @@ function FilterChip({ active, onClick, label }: { active: boolean; onClick: () =
 }
 
 // One status, not two — a 6px dot + word. Synced (green) / Queued (gold) / Local (dim).
+// Companion-voiced status — what Radian is doing with this item, in plain words.
 function statusOf(item: DetailItem): { color: string; word: string } {
-  if (item.synced) return { color: "var(--good)", word: "Synced" };
-  if (item.processing_status === "queued" || item.processing_status === "processing") return { color: "var(--gold)", word: "Queued" };
-  if (item.local) return { color: "var(--text-dim)", word: "Local" };
+  if (item.processing_status === "queued" || item.processing_status === "processing") return { color: "var(--gold)", word: "Radian analyzing…" };
+  if (item.synced) return { color: "var(--good)", word: "Saved to vault" };
+  if (item.local) return { color: "var(--text-dim)", word: "On this device" };
   return { color: "var(--text-dim)", word: PROCESSING_META[item.processing_status].label };
+}
+
+// Human-readable platform from a URL host — "Instagram", "YouTube", … (never a raw host).
+const PLATFORM: { test: RegExp; name: string }[] = [
+  { test: /instagram\.com/i, name: "Instagram" }, { test: /(youtube\.com|youtu\.be)/i, name: "YouTube" },
+  { test: /tiktok\.com/i, name: "TikTok" }, { test: /(twitter\.com|x\.com)/i, name: "X" },
+  { test: /reddit\.com/i, name: "Reddit" }, { test: /vimeo\.com/i, name: "Vimeo" },
+  { test: /(facebook\.com|fb\.watch)/i, name: "Facebook" }, { test: /linkedin\.com/i, name: "LinkedIn" },
+  { test: /threads\.net/i, name: "Threads" }, { test: /substack\.com/i, name: "Substack" },
+];
+function platformOf(url?: string): string | null {
+  if (!url) return null;
+  const m = PLATFORM.find((p) => p.test.test(url));
+  if (m) return m.name;
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return null; }
+}
+// A clean preview line — real text if we have it, never a raw URL or id.
+function previewOf(item: DetailItem): string {
+  const text = (item.user_note || item.body || item.note || "").trim();
+  if (text && !/^https?:\/\//i.test(text)) return text;
+  return "";
 }
 
 function CaptureCard({ item, index, onOpen }: { item: DetailItem; index: number; onOpen: () => void }) {
   const TypeIcon = TYPE_ICON[item.type];
   const sens = SENSITIVITY_COLOR[item.sensitivity];
   const status = statusOf(item);
-  const preview = item.user_note || item.body || item.note || item.url || "";
+  const preview = previewOf(item);
+  const platform = platformOf(item.url);
   const sensitive = item.sensitivity === "private" || item.sensitivity === "secret";
   return (
     <li
@@ -448,14 +471,14 @@ function CaptureCard({ item, index, onOpen }: { item: DetailItem; index: number;
         <span className="flex items-center gap-1 text-[10px] px-2 py-0.5" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
           <TypeIcon size={11} strokeWidth={1.5} /> {CAPTURE_TYPE_LABEL[item.type]}
         </span>
-        {item.domain && <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{item.domain}</span>}
+        {platform && <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{platform}</span>}
         {sensitive && <span className="ml-auto" style={{ fontSize: 11, color: sens }}>{item.sensitivity}</span>}
       </div>
       <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>{item.title}</h3>
       {preview && <p className="text-xs leading-relaxed mb-2 line-clamp-2" style={{ color: "var(--text-dim)" }}>{preview}</p>}
       <div className="flex items-center gap-2">
-        <Dot color={status.color} />
-        <span style={{ fontSize: 12, color: "var(--text-dim)" }}>{status.word}</span>
+        <Dot color={status.color} pulse={status.word === "Radian analyzing…"} />
+        <span style={{ fontSize: 12, color: status.color === "var(--gold)" ? "var(--gold)" : "var(--text-dim)" }}>{status.word}</span>
         {item.files && item.files.length > 0 && (
           <span className="flex items-center gap-0.5" style={{ fontSize: 12, color: "var(--text-dim)" }}>
             <Paperclip size={11} strokeWidth={1.5} /> {item.files.length}

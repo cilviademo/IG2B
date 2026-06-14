@@ -1,6 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { useJson } from "@/hooks/useJson";
 import { type GraphNode, type GraphEdge } from "@/lib/types";
+
+// A node as the API actually returns it (GraphNode + the meta JSONB + timestamps).
+type AtlasNode = GraphNode & {
+  created_at?: string;
+  meta?: {
+    epistemic_type?: string;
+    ask?: { verb?: string; question?: string; answer?: string; subject_id?: string };
+    research?: { of?: string; count?: number };
+    parent_node?: string;
+  };
+};
+// One Radian conversation turn (an AI result) shown inside its parent node.
+export interface RadianTurn { id: string; label: string; text: string; at?: string }
+const VERB_TURN_LABEL: Record<string, string> = {
+  explain: "Explained", ask: "Answered", teach: "Taught", next_steps: "Next steps",
+  research: "Researched", simulate: "Simulated", challenge: "Challenged", create_task: "Task",
+};
+function turnLabel(c: AtlasNode): string {
+  const v = c.meta?.ask?.verb;
+  if (v) return VERB_TURN_LABEL[v] || c.truth_label || "Radian";
+  return c.truth_label || "Radian";
+}
+function turnText(c: AtlasNode): string {
+  return (c.meta?.ask?.answer || c.summary || "").trim();
+}
 import { Loading, ErrorState } from "@/components/State";
 import { Share2, X, Plus, Minus, Locate, Sparkles, ArrowLeft, Swords, Copy, Trash2 } from "lucide-react";
 import CompanionPanel from "@/components/CompanionPanel";
@@ -78,6 +103,9 @@ export default function Atlas() {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [selected, setSelected] = useState<GraphNode | null>(null);
   const [companion, setCompanion] = useState<GraphNode | null>(null);
+  // Radian conversation turns per parent node (AI-derived results, kept OUT of the
+  // graph and shown as an in-node thread instead of separate dots).
+  const [threads, setThreads] = useState<Record<string, RadianTurn[]>>({});
   const selectedRef = useRef<string | null>(null);
   const focusRef = useRef<string | null>(focusId);
   const apiRef = useRef<{ zoom: (f: number) => void; reset: () => void; redraw: () => void; focus: (id: string) => void } | null>(null);
@@ -93,9 +121,35 @@ export default function Atlas() {
     let cancelled = false;
     const load = async () => {
       const [nr, er] = await Promise.all([getLiveNodes(), getLiveEdges()]);
-      const n = nr?.nodes as GraphNode[] | undefined;
-      const e = er?.edges as GraphEdge[] | undefined;
-      if (!cancelled && n && e && n.length) setLive({ nodes: n, edges: e });
+      const all = (nr?.nodes ?? []) as AtlasNode[];
+      const allEdges = (er?.edges ?? []) as GraphEdge[];
+      if (cancelled || !all.length) return;
+      // INVERSION: AI results (epistemic_type "inference") are conversation, not graph.
+      // Keep them out of the constellation and attach them to their parent as a thread.
+      const isAi = (x: AtlasNode) => x.meta?.epistemic_type === "inference";
+      const aiIds = new Set(all.filter(isAi).map((x) => x.id));
+      const graphNodes = all.filter((x) => !isAi(x)) as unknown as GraphNode[];
+      const graphEdges = allEdges.filter(
+        (e2) => e2.relationship !== "derived_from" && !aiIds.has(e2.source_id) && !aiIds.has(e2.target_id),
+      );
+      const map: Record<string, RadianTurn[]> = {};
+      const push = (pid: string, c: AtlasNode) => {
+        if (!pid) return;
+        (map[pid] ||= []).push({ id: c.id, label: turnLabel(c), text: turnText(c), at: c.created_at });
+      };
+      const aiNodes = all.filter(isAi);
+      const byId = new Map(aiNodes.map((x) => [x.id, x]));
+      for (const e2 of allEdges) {
+        if (e2.relationship === "derived_from" && byId.has(e2.target_id)) push(e2.source_id, byId.get(e2.target_id)!);
+      }
+      // meta back-refs catch children whose edge didn't land.
+      for (const c of aiNodes) {
+        const pid = c.meta?.ask?.subject_id || c.meta?.research?.of || c.meta?.parent_node || "";
+        if (pid && !(map[pid]?.some((t) => t.id === c.id))) push(pid, c);
+      }
+      for (const k of Object.keys(map)) map[k].sort((a, b) => (a.at || "").localeCompare(b.at || ""));
+      if (graphNodes.length) setLive({ nodes: graphNodes, edges: graphEdges });
+      setThreads(map);
     };
     void load();
     // Re-pull when a global Force Sync / device-pairing lands so the graph reflects
@@ -797,6 +851,7 @@ export default function Atlas() {
       {selected && (
         <NodeSheet
           node={selected}
+          turns={threads[selected.id] ?? []}
           onClose={() => setSelected(null)}
           onAsk={() => {
             setCompanion(selected);
@@ -884,7 +939,40 @@ function StateLegend() {
   );
 }
 
-function NodeSheet({ node, onClose, onAsk, onDeleted }: { node: GraphNode; onClose: () => void; onAsk: () => void; onDeleted?: () => void }) {
+// The in-node Radian conversation: each AI result (explain/research/challenge/…) as a
+// chat turn, newest last, tap to expand. Capped height so the sheet stays mobile-sane.
+function RadianThread({ turns }: { turns: RadianTurn[] }) {
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  return (
+    <div className="mb-3" style={{ borderTop: "1px solid #22252D", paddingTop: 12 }}>
+      <div className="flex items-center gap-1.5 mb-2">
+        <Sparkles size={12} strokeWidth={1.5} style={{ color: "#C9A45C" }} />
+        <span className="cap-data" style={{ color: "#8E929C", textTransform: "uppercase", letterSpacing: "0.06em" }}>Radian · {turns.length}</span>
+      </div>
+      <div className="space-y-2" style={{ maxHeight: 260, overflowY: "auto" }}>
+        {turns.map((t) => {
+          const isOpen = !!open[t.id];
+          const text = t.text || "(no content)";
+          return (
+            <button
+              key={t.id}
+              onClick={() => setOpen((o) => ({ ...o, [t.id]: !o[t.id] }))}
+              className="press w-full text-left p-2.5"
+              style={{ borderRadius: 8, border: "1px solid #22252D", background: "#0F1115" }}
+            >
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-[11px] font-semibold" style={{ color: "#C9A45C" }}>{t.label}</span>
+              </div>
+              <p className={isOpen ? "" : "line-clamp-2"} style={{ fontSize: 13.5, lineHeight: 1.5, color: "#C9C5BA", whiteSpace: "pre-wrap" }}>{text}</p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function NodeSheet({ node, turns = [], onClose, onAsk, onDeleted }: { node: GraphNode; turns?: RadianTurn[]; onClose: () => void; onAsk: () => void; onDeleted?: () => void }) {
   const color = NODE_COLOR[node.type] || FALLBACK_COLOR;
   const actions: ItemAction[] = apiEnabled() ? [
     { label: "Delete permanently", icon: Trash2, tone: "danger", confirm: "Delete this node? Its edges are removed too. This cannot be undone.", onClick: async () => { const ok = await deleteNode(node.id); if (ok) { toast.success("Node deleted"); onDeleted?.(); } else toast.error("Delete failed"); } },
@@ -910,12 +998,16 @@ function NodeSheet({ node, onClose, onAsk, onDeleted }: { node: GraphNode; onClo
         </div>
         <h2 className="text-lg font-display mb-1.5" style={{ color: "#EAE6DA" }}>{node.title}</h2>
         <p className="text-sm leading-relaxed mb-3" style={{ color: "#8E929C" }}>{node.summary}</p>
+
+        {/* Radian conversation — AI results live HERE as a thread, not as graph dots. */}
+        {turns.length > 0 && <RadianThread turns={turns} />}
+
         <button
           onClick={onAsk}
           className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold mb-2.5"
           style={{ borderRadius: 6, border: "1px solid #3A3320", color: "#C9A45C" }}
         >
-          <Sparkles size={13} strokeWidth={1.5} /> Ask Radian
+          <Sparkles size={13} strokeWidth={1.5} /> {turns.length > 0 ? "Continue with Radian" : "Ask Radian"}
         </button>
         {/* Item actions (Issue 6) — safe, refresh-free actions on this node. */}
         <div className="flex gap-2 mb-4">

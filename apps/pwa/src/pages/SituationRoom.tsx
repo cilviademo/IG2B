@@ -45,7 +45,8 @@ export default function SituationRoom() {
     setSynth(r.synthesis);
   }
 
-  const R = 112; // radial radius (px)
+  const R = 128; // radial radius (px) — wide enough that seat labels clear the Convene hub
+  const CX = 160, CY = 172; // radial center
   return (
     <div className="px-5 pt-6 pb-12">
       <div className="flex items-center gap-2 mb-1">
@@ -55,24 +56,24 @@ export default function SituationRoom() {
       <p className="cap-data mb-5" style={{ color: "var(--text-dim)" }}>six advisors on <span style={{ color: "var(--text)" }}>{title}</span></p>
 
       {/* Radial of advisors around a Convene control. */}
-      <div className="relative mx-auto" style={{ width: 300, height: 320, marginBottom: 12 }}>
+      <div className="relative mx-auto" style={{ width: 320, height: 348, marginBottom: 12 }}>
         {SEATS.map((seat, i) => {
           const angle = (i / SEATS.length) * Math.PI * 2 - Math.PI / 2;
-          const x = 150 + R * Math.cos(angle);
-          const y = 160 + R * Math.sin(angle);
+          const x = CX + R * Math.cos(angle);
+          const y = CY + R * Math.sin(angle);
           const Icon = PERSONA_ICON[seat];
           const voiced = seatLine[seat];
           return (
-            <div key={seat} className="absolute flex flex-col items-center animate-pop" style={{ left: x, top: y, transform: "translate(-50%, -50%)", width: 72, animationDelay: `${i * 60}ms` }}>
+            <div key={seat} className="absolute flex flex-col items-center animate-pop" style={{ left: x, top: y, transform: "translate(-50%, -50%)", width: 90, animationDelay: `${i * 60}ms` }}>
               <span className="flex items-center justify-center" style={{ width: 44, height: 44, borderRadius: 999, background: voiced ? "var(--gold-soft)" : "var(--surface-2)", border: `1px solid ${voiced ? (voiced.color || "var(--gold-line)") : "var(--line)"}`, color: voiced?.color || "var(--text-dim)" }}>
                 <Icon size={19} strokeWidth={1.5} />
               </span>
-              <span className="cap-data mt-1 text-center" style={{ color: voiced ? "var(--text)" : "var(--text-dim)" }}>{SEAT_LABEL[seat]}</span>
+              <span className="cap-data mt-1 text-center" style={{ color: voiced ? "var(--text)" : "var(--text-dim)", whiteSpace: "nowrap" }}>{SEAT_LABEL[seat]}</span>
             </div>
           );
         })}
         {/* Center convene */}
-        <button onClick={convene} disabled={busy} className="press absolute flex flex-col items-center justify-center" style={{ left: 150, top: 160, transform: "translate(-50%, -50%)", width: 92, height: 92, borderRadius: 999, background: "var(--gold)", color: "#161118", border: "2px solid var(--gold-line)" }}>
+        <button onClick={convene} disabled={busy} className="press absolute flex flex-col items-center justify-center" style={{ left: CX, top: CY, transform: "translate(-50%, -50%)", width: 80, height: 80, borderRadius: 999, background: "var(--gold)", color: "#161118", border: "2px solid var(--gold-line)" }}>
           {busy ? <Loader2 size={22} strokeWidth={1.5} className="animate-spin" /> : <Gavel size={22} strokeWidth={1.5} />}
           <span style={{ fontSize: 11, fontWeight: 700, marginTop: 2 }}>{synth ? "Re-convene" : "Convene"}</span>
         </button>
@@ -97,10 +98,16 @@ export default function SituationRoom() {
             );
           })}
 
-          {/* Consensus */}
+          {/* Radian's synthesis — the one recommended move out of the six voices. */}
           <div className="mt-4 p-3.5" style={{ borderRadius: 12, border: "1px solid var(--gold-line)", background: "var(--surface-2)" }}>
-            <div className="flex items-center gap-2 mb-1"><Gavel size={14} strokeWidth={1.5} style={{ color: "var(--gold)" }} /><span className="cap-data" style={{ color: "var(--gold)" }}>Resolved</span></div>
-            <p style={{ fontSize: 15.5, lineHeight: 1.55, color: "var(--text)" }}>{synth.resolved}</p>
+            <div className="flex items-center gap-2 mb-1.5"><Gavel size={14} strokeWidth={1.5} style={{ color: "var(--gold)" }} /><span className="cap-data" style={{ color: "var(--gold)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Radian's synthesis</span></div>
+            {synth.resolvedAction && (
+              <p className="mb-1.5" style={{ fontSize: 16.5, lineHeight: 1.4, color: "var(--text)", fontWeight: 600 }}>
+                <span className="cap-data block mb-0.5" style={{ color: "var(--text-dim)" }}>recommended move</span>
+                {synth.resolvedAction}
+              </p>
+            )}
+            <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--text-dim)" }}>{synth.resolved}</p>
             {!synth.bootstrap && (questMade ? (
               <span className="inline-flex items-center gap-1 mt-2 cap-data" style={{ color: "var(--good)" }}><Check size={12} strokeWidth={1.5} /> quest created</span>
             ) : (

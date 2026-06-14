@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: phase3-media · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: companion-inversion · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -433,3 +433,10 @@ commit(s) · what/why · live-test status).
   - **Forgotten gems glow** (high value gone quiet, `isForgottenGem`) — a gold halo even when dimmed, so they draw the eye instead of fading out. **Resurfaced ideas pulse** (`isResurfaced` — old idea freshly touched) — an expanding gold ring (motion only).
   - Atlas legend extended (Legendary auto-listed; gem/resurfaced + "galaxies = skill clusters / constellation lines" notes).
   - **Verification**: `living-os-verify` **23/23** (legendary precedence, pulse set {critical,growing,legendary}, ★ badge, gem/resurfaced helpers); all engine regressions green (quests/progression/boardroom/research/simulation); pwa typecheck + build green; **Atlas 200-node = 60.6 fps**, reduced-motion intact; live render shows BTZ TRACE as a Legendary cornerstone with constellation lines (screenshot `g8-atlas.png`). Capture/upload/SW/Shortcut + G1–G7 untouched. Live status: pending owner phone-gate.
+
+### 2026-06-14 · claude (Claude Code) · `claude/companion-inversion` → main — Companion inversion Phase A (AI results as in-node threads, human cards, Situation Room mobile)
+- **Owner directive:** Indigold still behaves like "a graph DB with AI attached" — invert to companion-first (You → Radian → conversation → Situation Room → Atlas as hidden memory). Phased A/B/C in `19_COMPANION_INVERSION.md`. This = Phase A.
+- **#2/#6 core:** AI-derived nodes (`meta.epistemic_type==="inference"`) + their `derived_from` edges are now **filtered out of Atlas** and rendered as an **in-node Radian conversation thread** (`RadianThread` in `Atlas.tsx` `NodeSheet`) — each Research/Explain/Challenge/etc. result is a chat turn built from already-fetched nodes/edges (no new backend). CompanionPanel "Open result" focuses the **parent** (the child is no longer a dot).
+- **#4:** Inbox cards are human-readable — platform name ("Instagram"/"YouTube"…) not raw host/id, clean preview (never a bare URL), companion-voiced status "Radian analyzing…" → "Saved to vault".
+- **#3 polish + #7 mobile:** Situation Room (boardroom backend already works) — radial fixed so advisor labels clear the Convene hub (R 112→128, hub 92→80, nowrap labels); consensus reframed as "Radian's synthesis · recommended move".
+- **Verified (sandbox):** typecheck:all + pwa build green; matrix **459/459**; headless `/inbox` + `/situation-room` confirmed. In-node thread + Atlas filtering need live AI-derived nodes → **owner verifies on device**. Phase B (Companion home, proactive arrival, Atlas demotion, media lifecycle) + C next.

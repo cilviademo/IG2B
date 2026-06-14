@@ -141,7 +141,9 @@ export default function CompanionPanel({
           {active.status === "fallback" && <p className="cap-data mt-1" style={{ color: "var(--gold)" }}>Live model unavailable — answered from your vault (deterministic).</p>}
           <div className="flex gap-2 mt-2">
             {active.childNodeId && (isTerminalOk(active.status)) && (
-              <Link href={`/atlas?focus=${active.childNodeId}`} onClick={onClose} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
+              // Results live as a thread INSIDE the source node now — focus the parent
+              // (subject), not the derived child (which is no longer a graph dot).
+              <Link href={`/atlas?focus=${encodeURIComponent(subjectId)}`} onClick={onClose} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
                 <ExternalLink size={12} strokeWidth={1.5} /> Open result
               </Link>
             )}
