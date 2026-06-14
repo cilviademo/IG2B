@@ -1,8 +1,17 @@
 # Current State
 
-`Last updated: 2026-06-13 · Commit: phase-0-hygiene (off main) · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase-7-architecture (off main) · By: claude (Claude Code)`
 
-> **Hardening Phase 0 done (latest):** green-matrix baseline = **386/386** across 21 `*-verify` suites + api/worker/pwa typecheck & build green; schema.ts **byte-current** with schema.sql (no drift). New `scripts/dedupe-derived-nodes.ts` (dry-run by default, `--apply` to write) collapses duplicate AI-derived nodes (Boardroom/What-if/etc.) keeping the earliest + re-pointing edges/quest anchors — self-tested + idempotent; **dev-vault dry-run is the owner's to run** (sandbox can't reach Render). Mode = VERIFICATION + HARDENING; no new G12+ waves until gates are green. Next: **Phase 1** = author `09_PHONE_GATES.md` (markdown checklist, not a PWA page).
+> **VERIFICATION + HARDENING arc — Phases 0–7 done (latest); G12+ gated on owner greenlight.** On branch `claude/indigold-architecture-rnd-iYwF6` (design on `claude/design-polish`).
+> - **P0 hygiene:** `scripts/dedupe-derived-nodes.ts` (dry-run default; **owner runs the dev-vault dry-run**); schema.ts byte-current; green baseline.
+> - **P1:** `09_PHONE_GATES.md` — 17-gate owner walk-through checklist.
+> - **P2:** `11_AI_AND_SCHEDULING.md` — free-tier scheduler delta (which jobs silently don't fire; fix = starter toggle) + governed-path audit (no key leaks; budget always queues; deterministic floor covers no-key AND mid-flight) + **on-device budget spend-by-purpose**.
+> - **P3:** Home cold-load 4→2 requests (lazy panels); perf fix **locked** with a runtime guard + `queue-verify`; **8 handler early-returns that hung jobs now finish `skipped`**.
+> - **P4 (design, on `claude/design-polish`, NOT merged):** spacing/type tokens, real `EmptyState`, quest-complete celebration, colour-blind-safe status shapes — for owner eyeball.
+> - **P5:** `GET /radian/observability` + **/diagnostics** Verification Center (Stub/Build/Live/Phone) + Debug Console; error-transparency live-verified.
+> - **P6:** centralized **privacy gate** (`governedComplete({localOnly})` keeps secret/internal local; sensitivity propagated to nodes; wired across ingest/contextualize/ask/assist/embed); security headers; error-detail redaction; `privacy-verify`. Audit in `06_SECURITY.md`.
+> - **P7:** `13_ARCHITECTURE_AUDIT.md` — mirror-drift verdicts, dead-code/hotspots, **connector seam design**, bus-factor matrix. Gate verdict: sound for G12.
+> - Matrix now **405/405** across 23 suites. **P8 (G12 Self-Evolution) needs explicit owner greenlight** (no autonomous code changes — ever).
 
 > **Perf fix:** the embedded worker's blocking `BRPOPLPUSH` shared the main Redis client and stalled every API request (~15s) — the real cause of slow loads. `consume()` now uses a dedicated Redis connection; endpoints dropped to <20ms (5 concurrent Home requests = 37ms). One-line fix in `queue.ts`; worker still processes jobs.
 
