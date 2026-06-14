@@ -1,6 +1,6 @@
 # First-Share Authenticity Test — pre-flight (Job 2b)
 
-`Last updated: 2026-06-14 · Commit: vault-reset · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase2-prep · By: claude (Claude Code)`
 
 > The end-to-end proof: share two real items from the phone and watch the honest pipeline.
 > **Run 2a (vault wipe) first** so you're testing a genuinely empty vault. This doc tells you
@@ -14,6 +14,15 @@
    the totals).
 3. Apply: add `--apply`. Preserves `users` + `prompt_overrides`; sessions (Redis) + provider
    keys (env) untouched. Self-tested + idempotent.
+
+> **Phase-2 self-test (2026-06-14):** ran the script end-to-end against an ephemeral Postgres
+> with the real `schema.sql` loaded (22 tables). Dry-run lists **all 20 user-data tables**;
+> `--apply` truncated every one to 0 while leaving `users` + `prompt_overrides` untouched; the
+> scoped `--user <id> --apply` path deleted only that user's rows and preserved the others.
+> **Coverage fix this pass:** the `jobs` table (worker queue — `user_id`, `payload`, `result`,
+> surfaced by `/activity` + the Task Center resume-poll) was **not** in the wipe list, so a
+> "reset" vault would still surface stale job results referencing deleted nodes. `jobs` is now
+> wiped. With it, WIPE(20) + preserved(`users`,`prompt_overrides`) = all 22 schema tables.
 
 ## What's WIRED vs ASPIRATIONAL (honest)
 
@@ -29,8 +38,11 @@
 
 1. **Queue (instant):** share → the item appears in **Inbox** within a second or two, marked
    synced (not stuck local/QUEUED). ✅ = synced badge. ❌ = stays "local/queued" → sync issue.
-2. **Notification (Job 1):** as ingest→contextualize run, the **bell** / a **toast** surfaces
-   completion; the capture sheet shows its lifecycle. ✅ = you see it progress without guessing.
+2. **Notification (Job 1 — now device-confirmed):** as ingest→contextualize run, the **bell** /
+   a **toast** surfaces completion; the capture sheet shows its lifecycle. The notification spine
+   is shipped + confirmed working on your device (Phase 1). ✅ = you see it progress without
+   guessing. (If you ever see nothing, it's a stale Service Worker — quit-reopen ×2; cache is
+   `v0.23.0`.)
 3. **Node:** open the capture → a derived node exists; on **Atlas** a new node appears. The
    **Apple Note** node will be substantive; the **Reel** node will be thin (URL-only) — that's
    expected, not a bug.

@@ -1,4 +1,6 @@
-> **PHASE 1 COMPLETE (latest):** notification spine shipped to `main` (persistent Task Center survivor; SW API-bypass hardened to full namespace, cache `v0.23.0`) and **device-confirmed working** by owner. Follow-up: **TopBar safe-area cutoff fixed** (`height: calc(48px + env(safe-area-inset-top))`) so the top of the PWA no longer hides under the Dynamic Island. 454/454. **Next: Phase 2 — vault reset + first authentic share-test prep.**
+> **PHASE 2 PREP (latest):** vault-reset hardened — added the missing `jobs` table to the wipe (now WIPE(20)+preserved(`users`,`prompt_overrides`) = all 22 tables); self-tested on an ephemeral Postgres (dry-run counts, full `--apply` truncate, scoped `--user`). First-share doc refreshed; WIRED-vs-ASPIRATIONAL re-verified (no drift). **STOP — owner runs the real Render dry-run/`--apply` + the two phone shares (Instagram Reel + Apple Note); do not wipe until owner says go.** 454/454.
+
+> **(prior) PHASE 1 COMPLETE:** notification spine shipped to `main` (persistent Task Center survivor; SW API-bypass hardened to full namespace, cache `v0.23.0`) and **device-confirmed working** by owner. Follow-up: **TopBar safe-area cutoff fixed** (`height: calc(48px + env(safe-area-inset-top))`) so the top of the PWA no longer hides under the Dynamic Island. 454/454.
 
 > **(prior) MAIN = COMPLETE UNION:** carried `vault-reset` (reset script + first-share doc) + `design-polish` unique bits (celebration, EmptyState, --elev-card, 12_DESIGN) onto `main`. Deferred-only (preserved on `architecture-rnd`): Task Center notification fix + BoardroomView. 454/454.
 
@@ -6,7 +8,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: phase1-topbar-fit · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase2-vault-reset-prep · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

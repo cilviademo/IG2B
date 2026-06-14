@@ -17,7 +17,7 @@ import { db, query } from "../packages/db/src/index";
 
 // Every table holding user/test content. `users`/`prompt_overrides` are intentionally absent.
 const WIPE = [
-  "events", "xp_ledger", "quests", "embeddings", "decisions", "opportunities", "constraints",
+  "events", "jobs", "xp_ledger", "quests", "embeddings", "decisions", "opportunities", "constraints",
   "ai_calls", "api_usage", "audit_logs", "assets", "briefs", "context_packs", "timeline_events",
   "edges", "nodes", "captures", "agents", "projects",
 ] as const;

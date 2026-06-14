@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: phase1-topbar-fit · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase2-vault-reset-prep · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -65,6 +65,12 @@ commit(s) · what/why · live-test status).
 - **Bug (device):** top of the PWA was cut off on iPhone — the back/forward/title/bell controls were crushed under the status bar / Dynamic Island. **Root cause:** `TopBar` had a fixed `height: 48` while also carrying `safe-top` (`padding-top: env(safe-area-inset-top)`) under the global `* { box-sizing: border-box }` → the notch inset was subtracted *from* the 48px content box instead of added above it, leaving only ~48−inset px of usable bar.
 - **Fix:** `apps/pwa/src/components/TopBar.tsx` height → `calc(48px + env(safe-area-inset-top))`, so the bar is a full 48px of content **below** the inset. Matches the pattern already used in `Atlas.tsx` (`top: calc(48px + env(safe-area-inset-top))`). No double-padding in the shell (`<main>` is the single scroll container; `TabBar` keeps its independent `safe-bottom`). One-line CSS change; no engine/endpoint/job/SW touched (no cache bump needed).
 - **Verified:** matrix 454/454; pwa/api/worker typecheck + build green ×3. Headless can't simulate a non-zero `env(safe-area-inset-top)` (it resolves to 0, so the bar is identical to before there) — the fix is the standard safe-area pattern and resolves the device cutoff. **Pending owner on-device confirm.**
+
+### 2026-06-14 · claude (Claude Code) · `claude/phase2-vault-reset-prep` → main — Phase 2 prep: vault-reset coverage + first-share readiness
+- **Coverage fix (real gap):** `scripts/reset-vault.ts` did **not** truncate the `jobs` table (worker queue — has `user_id`, `payload`, `result`, and is read by `/activity` + the Task Center resume-poll). A "reset" vault would have surfaced stale job results referencing deleted nodes / resurrected ghost tasks. Added `jobs` to `WIPE`. Now WIPE(20) + preserved(`users`, `prompt_overrides`) = **all 22 schema tables** accounted for.
+- **Self-tested end-to-end** against an ephemeral Postgres with the real `schema.sql` (22 tables): dry-run lists all 20 user-data tables with live counts; `--apply` (TRUNCATE … RESTART IDENTITY CASCADE) zeroed every one while leaving `users`+`prompt_overrides` intact; scoped `--user <id> --apply` (DELETE WHERE user_id) removed only that user's rows. Idempotent ("Vault already empty ✅" on re-run).
+- **First-share doc** (`15_FIRST_SHARE.md`) refreshed: documented the self-test + `jobs` fix; marked the Phase-1 notification step as device-confirmed. Re-verified WIRED-vs-ASPIRATIONAL has not drifted: capture is instant (`ingest_capture`); a shared media URL additionally enqueues `media_ingest` with **honest degradation** (no Instagram fetcher — reel node stays thin/URL-only, no fabrication); Apple-Note text → substantive node; privacy gate forces the deterministic floor for secret/internal; live Anthropic for non-secret when keyed.
+- **STOP for owner:** the dry-run/apply must be run against the real Render dev-vault (sandbox can't reach `*.onrender.com`); **do not wipe until owner says go**, and owner runs the two real shares (Instagram Reel + Apple Note) from the phone. **No app code touched** (script + docs only); matrix 454/454; typecheck green. No PR.
 
 
 ### 2026-06-14 · claude (Claude Code) · carry-forward — ALL remaining work consolidated onto main
