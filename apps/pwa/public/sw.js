@@ -9,7 +9,7 @@
  *   the documented path to fully-local assets is to self-host the fonts.
  * - No analytics, no telemetry, no data exfiltration. */
 
-const CACHE = "indigold-v0.24.0";
+const CACHE = "indigold-v0.25.0";
 
 const PRECACHE = [
   "/",
@@ -160,12 +160,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigations: network-first, fall back to cached app shell.
+  // Navigations: network-first with NO HTTP cache, so a new deploy's index.html
+  // (which points at the new hashed JS) is always fetched — the fix for "I have to
+  // reinstall the PWA to get updates." Refresh the offline fallback copy too.
   if (request.mode === "navigate") {
     event.respondWith(
       (async () => {
         try {
-          return await fetch(request);
+          const res = await fetch(request, { cache: "no-store" });
+          const cache = await caches.open(CACHE);
+          cache.put("/", res.clone()).catch(() => {});
+          return res;
         } catch (e) {
           const cache = await caches.open(CACHE);
           return (await cache.match("/")) || Response.error();

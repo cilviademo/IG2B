@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: companion-inversion · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: pwa-autoupdate-url-enrich · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -440,3 +440,9 @@ commit(s) · what/why · live-test status).
 - **#4:** Inbox cards are human-readable — platform name ("Instagram"/"YouTube"…) not raw host/id, clean preview (never a bare URL), companion-voiced status "Radian analyzing…" → "Saved to vault".
 - **#3 polish + #7 mobile:** Situation Room (boardroom backend already works) — radial fixed so advisor labels clear the Convene hub (R 112→128, hub 92→80, nowrap labels); consensus reframed as "Radian's synthesis · recommended move".
 - **Verified (sandbox):** typecheck:all + pwa build green; matrix **459/459**; headless `/inbox` + `/situation-room` confirmed. In-node thread + Atlas filtering need live AI-derived nodes → **owner verifies on device**. Phase B (Companion home, proactive arrival, Atlas demotion, media lifecycle) + C next.
+
+### 2026-06-14 · claude (Claude Code) · `claude/pwa-autoupdate-url-enrich` → main — PWA auto-update + URL scrape/synthesis
+- **PWA "reinstall every update" fixed (#1):** the SW served `index.html` from the HTTP cache, so the installed iPhone PWA kept loading old JS. Now navigations `fetch(..., {cache:"no-store"})` (always fresh HTML → new hashed assets) + refresh the offline fallback; `main.tsx` registers with `updateViaCache:"none"`, calls `reg.update()` on launch + on foreground, posts `SKIP_WAITING` to a freshly-installed worker, and **auto-reloads once** on `controllerchange` (guarded so first-install/loops don't reload). SW cache `v0.24.0→v0.25.0`. Updates now apply in tandem — no delete/re-add.
+- **Queue refresh catches shares (#2):** root cause was the stale-PWA bug above (the installed app ran pre-auto-sync code); with fresh code, Inbox pull-to-refresh/Refresh + sync-on-foreground already two-way sync the current account. (Both surfaces must be the SAME account — durable login — to see each other's captures.)
+- **Shared URLs now self-reason + synthesize + connect (#3):** `apps/worker/src/lib/fetchPage.ts` safely scrapes a shared web page (SSRF guard: DNS-resolved, blocks private/link-local/metadata IPs; http(s) only; 8s timeout; 1.5MB cap; text/html only; readable-text extraction). `ingest_capture` now fetches the page (privacy-gated: no external fetch for secret/internal; media URLs still go via media_ingest) and feeds the REAL page text into `governedComplete`, so the node gets a true summary/entities/type instead of link-only metadata — then the existing contextualize→embed chain auto-links it. Stores `meta.web {title,description,chars,scraped}`. Best-effort: fetch failure falls back to the note.
+- **Verified (sandbox):** typecheck:all + worker + pwa builds green; matrix **459/459**; SW `v0.25.0` in dist. Page fetch needs egress → **owner verifies on device** (share a website → node expands with a real summary + connections). No PR.

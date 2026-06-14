@@ -21,6 +21,7 @@ import {
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
 } from "@indigold/shared";
 import { model } from "../lib/model";
+import { fetchReadable } from "../lib/fetchPage";
 
 type Handler = (job: Job) => Promise<void>;
 
@@ -34,6 +35,22 @@ const ingestCapture: Handler = async (job) => {
   if (!cap) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
   await repo.captures.setProcessing(captureId, "processing");
 
+  // URL captures: scrape the actual page so Radian reasons about what it REALLY is
+  // (not just the link string). Privacy-gated (no external fetch for secret/internal)
+  // and best-effort — failure falls back to the note. Media URLs go via media_ingest.
+  let content = cap.note || "";
+  let web: { title: string; description: string; chars: number } | undefined;
+  if (cap.url && isResearchSafe(cap.sensitivity)) {
+    const wplan = planIntake({ url: cap.url, captureType: cap.type, text: cap.note, source: cap.source });
+    if (wplan.pipeline === "url") {
+      const page = await fetchReadable(cap.url);
+      if (page && (page.text || page.description)) {
+        content = `${page.title}\n${page.description}\n\n${page.text}`.trim().slice(0, 6000);
+        web = { title: page.title, description: page.description, chars: page.chars };
+      }
+    }
+  }
+
   const prompt = getPrompt("ingest_classify");
   let ingest: IngestResult;
   try {
@@ -41,7 +58,7 @@ const ingestCapture: Handler = async (job) => {
       userId: job.user_id, tier: "cheap", task: "classification", purpose: "ingest_classify",
       json: true, sourceId: captureId, promptVersion: prompt.version,
       localOnly: !isResearchSafe(cap.sensitivity), // secret/internal never leaves the device
-      ...prompt.build({ title: cap.title, source: cap.source, url: cap.url || "", content: cap.note || "" }),
+      ...prompt.build({ title: cap.title, source: cap.source, url: cap.url || "", content }),
     });
     ingest = parseIngest(r.text) ?? deterministicIngest(cap);
   } catch (e) {
@@ -68,6 +85,8 @@ const ingestCapture: Handler = async (job) => {
       sensitivity: cap.sensitivity,
       // B1 epistemic type: a user capture is an observation; a reference/asset is a source.
       epistemic_type: ingest.type === "Reference" || ingest.type === "Asset" ? "source" : "observation",
+      // Provenance: the page was actually scraped + reasoned about (not just the link).
+      ...(web ? { web: { ...web, scraped: true } } : {}),
     },
   });
   // Event Store: node + classification, tied to the capture lifecycle.

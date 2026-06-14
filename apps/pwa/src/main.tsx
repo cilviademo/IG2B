@@ -7,18 +7,31 @@ import "./index.css";
 // fixture caching. Fonts/images may still come from the network on first load;
 // see public/sw.js and README for the path to fully-local assets.
 if ("serviceWorker" in navigator) {
+  // Whether a SW already controls this load — used to auto-reload only on a REAL
+  // update (not the first-ever install).
+  const hadController = !!navigator.serviceWorker.controller;
+
   window.addEventListener("load", () => {
     navigator.serviceWorker
-      .register("/sw.js")
+      // updateViaCache:"none" stops the browser from serving a stale sw.js from its
+      // HTTP cache, so update checks actually see new deploys.
+      .register("/sw.js", { updateViaCache: "none" })
       .then((reg) => {
-        // A new build is downloading: when it finishes installing AND a SW already
-        // controls the page, a fresh version is ready — surface the reload banner
-        // instead of silently running stale code on the installed PWA.
+        // Proactively check for a new build on launch and whenever the app is
+        // brought back to the foreground (iOS PWAs otherwise rarely re-check).
+        const check = () => { reg.update().catch(() => {}); };
+        check();
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") check();
+        });
+        // A new build finished installing while a SW already controlled the page →
+        // tell it to activate immediately (also surfaces the reload banner).
         reg.addEventListener("updatefound", () => {
           const installing = reg.installing;
           if (!installing) return;
           installing.addEventListener("statechange", () => {
             if (installing.state === "installed" && navigator.serviceWorker.controller) {
+              installing.postMessage?.({ type: "SKIP_WAITING" });
               window.dispatchEvent(new CustomEvent("indigold:sw-update"));
             }
           });
@@ -28,13 +41,15 @@ if ("serviceWorker" in navigator) {
         /* offline-first is best-effort; ignore registration failures */
       });
 
-    // The SW uses skipWaiting()+clients.claim(), so a new version can take control
-    // mid-session. Signal the UI once so the banner can offer a clean reload.
-    let signalled = false;
+    // When the new SW takes control, reload ONCE so the page runs the fresh HTML+JS
+    // automatically — no manual reinstall. (Guarded so the first-ever install, and
+    // repeat controllerchanges, don't loop.)
+    let reloaded = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (signalled) return;
-      signalled = true;
       window.dispatchEvent(new CustomEvent("indigold:sw-update"));
+      if (!hadController || reloaded) return;
+      reloaded = true;
+      window.location.reload();
     });
   });
 }
