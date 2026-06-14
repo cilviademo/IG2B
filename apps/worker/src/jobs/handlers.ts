@@ -53,6 +53,11 @@ const ingestCapture: Handler = async (job) => {
 
   const prompt = getPrompt("ingest_classify");
   let ingest: IngestResult;
+  // Honest AI status: did a real model reason about this, or did we fall to the
+  // deterministic floor (no provider key / budget)? Surfaced in the UI so a thin
+  // result is explained, not mysterious.
+  let reasoned = false;
+  let provider = "deterministic";
   try {
     const r = await repo.governedComplete({
       userId: job.user_id, tier: "cheap", task: "classification", purpose: "ingest_classify",
@@ -60,6 +65,8 @@ const ingestCapture: Handler = async (job) => {
       localOnly: !isResearchSafe(cap.sensitivity), // secret/internal never leaves the device
       ...prompt.build({ title: cap.title, source: cap.source, url: cap.url || "", content }),
     });
+    provider = r.provider;
+    reasoned = r.provider !== "deterministic" && !!r.text;
     ingest = parseIngest(r.text) ?? deterministicIngest(cap);
   } catch (e) {
     if (e instanceof BudgetExceededError) {
@@ -85,6 +92,10 @@ const ingestCapture: Handler = async (job) => {
       sensitivity: cap.sensitivity,
       // B1 epistemic type: a user capture is an observation; a reference/asset is a source.
       epistemic_type: ingest.type === "Reference" || ingest.type === "Asset" ? "source" : "observation",
+      // Always keep the original link on the node so it's re-accessible from anywhere.
+      ...(cap.url ? { source_url: cap.url } : {}),
+      // Honest AI provenance: real model reasoning vs deterministic floor.
+      reasoned, provider,
       // Provenance: the page was actually scraped + reasoned about (not just the link).
       ...(web ? { web: { ...web, scraped: true } } : {}),
     },

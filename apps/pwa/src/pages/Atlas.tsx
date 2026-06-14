@@ -10,14 +10,15 @@ type AtlasNode = GraphNode & {
     ask?: { verb?: string; question?: string; answer?: string; subject_id?: string };
     research?: { of?: string; count?: number };
     parent_node?: string;
+    source_url?: string;
     web?: { url?: string };
     media?: { url?: string };
   };
 };
-// The original link behind a node (scraped web page or media), if any.
+// The original link behind a node (always stored as source_url; web/media as fallback).
 function nodeSourceUrl(n: GraphNode): string | undefined {
   const m = (n as AtlasNode).meta;
-  return m?.web?.url || m?.media?.url;
+  return m?.source_url || m?.web?.url || m?.media?.url;
 }
 // One Radian conversation turn (an AI result) shown inside its parent node.
 export interface RadianTurn { id: string; label: string; text: string; at?: string }

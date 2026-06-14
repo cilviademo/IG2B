@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: companion-arrival · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: shares-ai-honesty · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -456,3 +456,8 @@ commit(s) · what/why · live-test status).
 ### 2026-06-14 · claude (Claude Code) · `main` — Companion Phase B #1: proactive "What I found" arrival
 - The Companion (Radian) home now leads with a **"What I found"** feed — Radian surfaces what it learned from your recent **shares** (not just AI jobs you triggered): "Radian is reading this…" while a capture ingests, then the synthesis summary + real connection count + **"See what I found"** → the node's conversation thread. Built from recent captures + their derived nodes/edges (`source_capture_id` join; `derived_from` excluded from the connection count); refreshes on `vault-synced`. No capture-flow changes.
 - **Verified (sandbox):** typecheck:all + pwa build green; matrix 459/459; headless `/companion` renders (feed needs live data → owner device). Still to do: inline suggested questions/actions, media lifecycle indicator, retire standalone `/activity`.
+
+### 2026-06-14 · claude (Claude Code) · `main` — Shares: source link everywhere + honest AI-vs-deterministic status
+- **Source link re-accessible anywhere (owner ask):** `ingest_capture` now ALWAYS stores `meta.source_url = cap.url` on the node (not just when scraped), so Atlas NodeSheet "Open source" works for every shared link; the Companion "What I found" cards gain an **"Open link"** action; CaptureDetail already had "Open original". Files open via signed URL.
+- **AI reasoning made honest + visible (owner: "shares don't use AI at all"):** the pipeline IS wired (PWA share → POST /captures → ingest → `governedComplete`), so thin results mean the model ran in the **deterministic floor** (no provider key / budget). `ingest_capture` now records `meta.reasoned` + `meta.provider` from the governed result, and the Companion "What I found" card shows **"Analyzed by Radian"** (real model) vs **"Deterministic — add a model key in Settings → API for deep reasoning."** This surfaces the actual unlock instead of failing silently. URL scrape (prior commit) feeds real page text into that reasoning once a key is set.
+- **Verified (sandbox):** typecheck:all + worker + pwa builds green; matrix 459/459. The reasoned/deterministic split + live link depend on the deployed worker + provider key → owner confirms on device (and sets `ANTHROPIC_API_KEY` if the card reads "Deterministic").

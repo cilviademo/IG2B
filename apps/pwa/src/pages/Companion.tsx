@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, Inbox as InboxIcon, Globe2, Clock, Link2 } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
 import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, type BackendCapture } from "@/lib/api";
@@ -9,8 +9,8 @@ import { onVaultSynced } from "@/lib/sync";
 // "What I found" — the proactive arrival. Radian surfaces what it learned from your
 // recent shares (capture → enriched node), so the front door is "here's what I found,"
 // not a database you go dig through.
-interface Found { id: string; title: string; platform?: string; status: "reading" | "ready"; summary?: string; nodeId?: string; connections: number; at: string }
-type NodeRow = { id: string; summary?: string; source_capture_id?: string; meta?: { web?: { url?: string }; media?: { url?: string } } };
+interface Found { id: string; title: string; platform?: string; status: "reading" | "ready"; summary?: string; nodeId?: string; connections: number; at: string; url?: string; reasoned?: boolean }
+type NodeRow = { id: string; summary?: string; source_capture_id?: string; meta?: { reasoned?: boolean; web?: { url?: string }; media?: { url?: string } } };
 type EdgeRow = { source_id: string; target_id: string; relationship?: string };
 
 const PLATFORM: { test: RegExp; name: string }[] = [
@@ -68,7 +68,7 @@ export default function Companion() {
         status: ready ? "ready" : "reading",
         summary: node?.summary, nodeId: node?.id,
         connections: node ? realDegree(node.id) : 0,
-        at: c.captured_at,
+        at: c.captured_at, url: c.url ?? undefined, reasoned: node?.meta?.reasoned,
       };
     });
     setFound(items);
@@ -124,11 +124,20 @@ export default function Companion() {
                 ) : (
                   <>
                     {f.summary && <p className="line-clamp-3" style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--text-dim)" }}>{f.summary}</p>}
-                    <div className="flex items-center gap-3 mt-2">
+                    {/* Honest AI status — real reasoning vs the deterministic floor. */}
+                    <div className="cap-data mt-1.5 inline-flex items-center gap-1" style={{ color: f.reasoned ? "var(--good)" : "var(--gold)" }}>
+                      <Sparkles size={10} strokeWidth={1.5} /> {f.reasoned ? "Analyzed by Radian" : "Deterministic — add a model key in Settings → API for deep reasoning"}
+                    </div>
+                    <div className="flex items-center gap-3 mt-2 flex-wrap">
                       {f.connections > 0 && (
                         <span className="cap-data inline-flex items-center gap-1" style={{ color: "var(--text-dim)" }}>
                           <Link2 size={11} strokeWidth={1.5} /> {f.connections} connection{f.connections > 1 ? "s" : ""}
                         </span>
+                      )}
+                      {f.url && (
+                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
+                          <ExternalLink size={12} strokeWidth={1.5} /> Open link
+                        </a>
                       )}
                       <Link href={f.nodeId ? `/atlas?focus=${encodeURIComponent(f.nodeId)}` : "/inbox"} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs ml-auto" style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
                         See what I found <ArrowRight size={12} strokeWidth={1.5} />
