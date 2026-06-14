@@ -1,4 +1,4 @@
-> **ONE VAULT REALITY (latest):** fixed Safari↔installed-PWA divergence. **Root cause:** the PWA mints a *random* per-device account in localStorage and iOS gives the installed PWA a separate storage partition from Safari → two accounts → two vaults (not a cache bug). **Fix:** device **pairing code** (Settings → Vault sync & devices: copy on one surface, paste on the other → one shared vault) + Force Sync + sync-on-launch + stale/update banners + a Debug/Sync Status panel + SW re-audit (cache `v0.24.0`, no API cached) + build-version injection. 454/454; builds green ×3. **STOP — owner runs the pairing flow on device + confirms scenarios B/C** (`18_ONE_VAULT_REALITY.md`). Phase 3 blocked until convergence is confirmed.
+> **ONE VAULT REALITY (latest):** fixed Safari↔installed-PWA divergence. **Root cause:** the PWA mints a *random* per-device account in localStorage and iOS gives the installed PWA a separate storage partition from Safari → two accounts → two vaults (not a cache bug). **Fix:** device **pairing code** (Settings → Vault sync & devices: copy on one surface, paste on the other → one shared vault) + Force Sync + a Debug/Sync Status panel + stale/update banners + SW re-audit (cache `v0.24.0`, no API cached) + build-version injection. **Pairing persists** (linked badge + Unlink) and the vault **auto-syncs** with no taps — on launch, on foreground, and at **designated UTC times** (00/06/12/18); `forceSync` is two-way (pushes unsynced captures, then pulls). Owner confirmed pairing works on device. 454/454; builds green ×3. **STOP — owner confirms the linked PWA stays linked + auto-refreshes across relaunches** (`18_ONE_VAULT_REALITY.md`). Phase 3 blocked until convergence is confirmed.
 
 > **(prior) PHASE 2 PREP:** vault-reset hardened — added the missing `jobs` table to the wipe (now WIPE(20)+preserved(`users`,`prompt_overrides`) = all 22 tables); self-tested on an ephemeral Postgres (dry-run counts, full `--apply` truncate, scoped `--user`). First-share doc refreshed; WIRED-vs-ASPIRATIONAL re-verified (no drift). **Owner runs the real Render dry-run/`--apply` + the two phone shares; do not wipe until owner says go.** 454/454.
 
@@ -10,7 +10,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: one-vault-reality · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: one-vault-autosync · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

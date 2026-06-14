@@ -1,6 +1,6 @@
 # One Vault Reality — Safari ↔ installed-PWA convergence
 
-`Last updated: 2026-06-14 · Commit: one-vault-reality · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: one-vault-autosync · By: claude (Claude Code)`
 
 > Device-QA found the installed home-screen PWA and the Safari URL showing
 > **different** vault state (Safari had the new Apple-Note node + Atlas edge; the
@@ -35,6 +35,25 @@ Settings → **Vault sync & devices**:
 
 The pairing code IS the vault credential — treat it like a password. It only leaves
 the device when the owner deliberately copies it across their own surfaces.
+
+## Persistence & automatic sync (owner follow-up)
+
+You paste a pairing code **once**. It's stored in `localStorage` (`indigold_device`)
+and a `indigold_paired_at` flag marks the surface as **linked** — it stays on that
+vault across relaunches until you **Unlink**. Settings shows a *linked* badge so you
+can trust it persisted.
+
+The vault then refreshes itself with **no taps**:
+- **On launch** and **on foreground** (`startAutoSync` in `App.tsx`).
+- At **designated UTC times** — `SYNC_SLOTS_UTC = [0, 6, 12, 18]` (00/06/12/18 UTC).
+- iOS PWAs can't run reliably while fully closed, so a slot that elapses while the
+  app is shut **catches up on next open** (compares `lastSync` to the most recent
+  elapsed slot). On Android/desktop we also register native **Periodic Background
+  Sync** best-effort (iOS ignores it — foreground catch-up covers it).
+- `forceSync` is **two-way**: it pushes any unsynced local captures UP first (so an
+  offline capture is intaken even if you never open Inbox), then pulls the vault DOWN.
+- The panel shows the schedule + the next scheduled time; an **Unlink this device**
+  control forgets the account (next launch mints a fresh one).
 
 ## Supporting reliability work (all surfaces)
 

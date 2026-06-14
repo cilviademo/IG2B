@@ -12,7 +12,7 @@ import TopBar from "./components/TopBar";
 import TaskToast from "./components/TaskToast";
 import AppBanners from "./components/AppBanners";
 import { Loading } from "./components/State";
-import { forceSync } from "./lib/sync";
+import { forceSync, startAutoSync } from "./lib/sync";
 import Dashboard from "./pages/Dashboard";
 
 // Home loads eagerly (it's the landing surface). Every other route is code-split so the
@@ -112,12 +112,15 @@ function Shell() {
     if (el) el.scrollTop = positions.current[location] ?? 0;
   }, [location]);
 
-  // Sync-on-launch: pull the authoritative server vault once at startup so the
-  // installed PWA and Safari converge to the same state instead of showing
-  // whatever stale local cache each partition happens to hold. Best-effort; the
-  // stale banner surfaces a failure (we never show stale data silently).
+  // Sync-on-launch + scheduled auto-sync: pull the authoritative server vault at
+  // startup (so the installed PWA and Safari converge instead of showing stale
+  // local cache), then keep it fresh automatically — at designated UTC times, on
+  // foreground, and best-effort native periodic background sync. The owner pastes
+  // a pairing code ONCE; from then on this runs on the persisted account with no
+  // taps. The stale banner surfaces any failure (never stale data silently).
   useEffect(() => {
     void forceSync();
+    return startAutoSync();
   }, []);
 
   return (

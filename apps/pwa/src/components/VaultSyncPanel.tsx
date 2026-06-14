@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, Link2, Copy, ClipboardPaste, Smartphone, Globe, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import { RefreshCw, Link2, Link2Off, Copy, ClipboardPaste, Smartphone, Globe, AlertTriangle, Clock, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { Button, SectionRule, Dot } from "@/components/primitives";
+import { Button, SectionRule } from "@/components/primitives";
 import {
   snapshot, forceSync, pairingCode, applyPairingCode, isVaultStale,
+  isPaired, unlinkDevice, nextSlot, SYNC_SLOTS_UTC,
   type VaultSnapshot,
 } from "@/lib/sync";
 import { apiEnabled } from "@/lib/api";
@@ -82,7 +83,7 @@ export default function VaultSyncPanel() {
     try {
       const r = await applyPairingCode(v);
       if (r.ok) {
-        toast.success("Devices linked", { description: `Now showing the vault for ${r.email}.` });
+        toast.success("Devices linked", { description: `Now showing the vault for ${r.email}. Auto-sync is on — no need to paste again.` });
         setPasteOpen(false); setPasteVal("");
         await refresh();
       } else {
@@ -93,7 +94,16 @@ export default function VaultSyncPanel() {
     }
   }
 
+  async function onUnlink() {
+    unlinkDevice();
+    toast("Unlinked", { description: "This surface will start a fresh account on next sync." });
+    await refresh();
+  }
+
   const stale = isVaultStale();
+  const paired = isPaired();
+  const nextAuto = new Date(nextSlot()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const slots = SYNC_SLOTS_UTC.map((h) => String(h).padStart(2, "0")).join("/");
 
   return (
     <div className="mt-6">
@@ -111,12 +121,24 @@ export default function VaultSyncPanel() {
         {snap?.standalone ? <Smartphone size={15} strokeWidth={1.5} style={{ color: "var(--gold)" }} /> : <Globe size={15} strokeWidth={1.5} style={{ color: "var(--text-dim)" }} />}
         <span style={{ fontSize: 14, color: "var(--text)" }}>{snap?.standalone ? "Installed PWA (standalone)" : "Browser tab (Safari)"}</span>
       </div>
-      <p className="cap-data mb-2" style={{ color: "var(--text-dim)" }}>
-        device account · <span className="font-mono" style={{ color: "var(--text)" }}>{snap?.deviceEmail || "—"}</span>
+      <div className="flex items-center gap-2 mb-1">
+        <p className="cap-data" style={{ color: "var(--text-dim)" }}>
+          device account · <span className="font-mono" style={{ color: "var(--text)" }}>{snap?.deviceEmail || "—"}</span>
+        </p>
+        {paired && (
+          <span className="cap-data inline-flex items-center gap-1 px-1.5 py-0.5" style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
+            <Link2 size={10} strokeWidth={1.5} /> linked
+          </span>
+        )}
+      </div>
+      {/* Auto-sync is always-on; the pairing persists until you Unlink. */}
+      <p className="cap-data mb-2 inline-flex items-center gap-1" style={{ color: "var(--text-dim)" }}>
+        <Clock size={11} strokeWidth={1.5} /> auto-sync · {slots} UTC + on open · next ~{nextAuto}
       </p>
       <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-dim)" }}>
-        If Safari and the installed app show <strong style={{ color: "var(--text)" }}>different</strong> device accounts above, they're two separate vaults.
-        Link them: copy the pairing code on the one that has your data, paste it on the other.
+        {paired
+          ? <>This surface is <strong style={{ color: "var(--text)" }}>linked</strong> — it stays on this vault and refreshes itself automatically; you won't need to paste the code again.</>
+          : <>If Safari and the installed app show <strong style={{ color: "var(--text)" }}>different</strong> device accounts above, they're two separate vaults. Link them: copy the pairing code on the one that has your data, paste it on the other.</>}
       </p>
 
       {/* Status grid */}
@@ -175,6 +197,12 @@ export default function VaultSyncPanel() {
             {pairBusy ? "Linking…" : "Use pairing code"}
           </Button>
         </div>
+      )}
+
+      {paired && (
+        <button onClick={onUnlink} className="flex items-center gap-1.5 mt-3 press" style={{ fontSize: 12, color: "var(--text-dim)" }}>
+          <Link2Off size={13} strokeWidth={1.5} /> Unlink this device
+        </button>
       )}
     </div>
   );

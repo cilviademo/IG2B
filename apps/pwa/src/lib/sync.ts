@@ -9,13 +9,14 @@
 
 import {
   apiEnabled, apiBaseUrl, getToken, clearToken, ensureSession, lastSessionError,
-  fetchCaptures, getLiveNodes, getLiveEdges,
+  fetchCaptures, getLiveNodes, getLiveEdges, syncCaptureToApi,
 } from "./api";
-import { listCaptures } from "./captureStore";
+import { listCaptures, markSynced } from "./captureStore";
 import { BUILD_COMMIT, BUILD_TIME } from "./buildInfo";
 
 const DEVICE_KEY = "indigold_device"; // must match api.ts
 const LAST_SYNC_KEY = "indigold_last_sync";
+const PAIRED_KEY = "indigold_paired_at"; // set when a pairing code is adopted
 export const VAULT_SYNCED_EVENT = "indigold:vault-synced";
 
 export interface DeviceCreds { email: string; password: string }
@@ -76,8 +77,24 @@ export async function applyPairingCode(raw: string): Promise<PairResult> {
   if (!(await ensureSession())) {
     return { ok: false, error: lastSessionError() || "Couldn't sign in with that pairing code." };
   }
+  // Persist the link so it survives relaunches — you paste a code ONCE; from then
+  // on every (auto) sync uses it until you explicitly Unlink.
+  localStorage.setItem(PAIRED_KEY, new Date().toISOString());
   const sync = await forceSync();
   return { ok: true, email: creds.email, ...(sync.error ? { error: sync.error } : {}) };
+}
+
+/** When the current device account was adopted from a pairing code (null = this
+ *  surface's own auto-minted account). */
+export const pairedAt = (): string | null => localStorage.getItem(PAIRED_KEY);
+export const isPaired = (): boolean => !!pairedAt();
+
+/** Forget the linked account: next launch mints a fresh anonymous one. */
+export function unlinkDevice(): void {
+  localStorage.removeItem(DEVICE_KEY);
+  localStorage.removeItem(PAIRED_KEY);
+  localStorage.removeItem(LAST_SYNC_KEY);
+  clearToken();
 }
 
 // ---- Force sync -------------------------------------------------------------
@@ -105,6 +122,21 @@ export async function forceSync(): Promise<SyncResult> {
   };
   if (!apiEnabled()) return fail("API not configured (VITE_API_URL unset).");
   if (!(await ensureSession())) return fail(lastSessionError() || "couldn't sign in");
+
+  // Two-way: push any unsynced local captures UP first (so an offline capture is
+  // intaken even if you never open Inbox), then pull the authoritative vault DOWN.
+  try {
+    for (const c of listCaptures()) {
+      if (c.synced) continue;
+      const ok = await syncCaptureToApi({
+        type: c.type, source: c.source, title: c.title,
+        user_note: c.user_note, body: c.body, url: c.url, sensitivity: c.sensitivity,
+      });
+      if (ok) markSynced(c.id);
+    }
+  } catch {
+    /* best-effort; the pull below still runs */
+  }
 
   const [caps, nodes, edges] = await Promise.all([fetchCaptures(), getLiveNodes(), getLiveEdges()]);
   // `captures` is the canonical reachability signal (fetchCaptures returns null on
@@ -138,6 +170,96 @@ export function isVaultStale(): boolean {
   if (lastResult && !lastResult.ok) return true;
   if (!lastResult && !lastSyncAt()) return true;
   return false;
+}
+
+// ---- Scheduled auto-sync ----------------------------------------------------
+// The vault refreshes itself at designated UTC times each day, plus on launch and
+// whenever the app is foregrounded — so the data is already there without tapping
+// Force Sync. iOS PWAs can't run reliably while fully closed, so a slot that passes
+// while the app is shut "catches up" on the next open (we compare lastSync to the
+// most recent elapsed slot). On Android/desktop we also register native Periodic
+// Background Sync best-effort.
+export const SYNC_SLOTS_UTC = [0, 6, 12, 18]; // 00:00 / 06:00 / 12:00 / 18:00 UTC
+const FOREGROUND_REFRESH_MS = 5 * 60 * 1000; // also keep it fresh while in use
+const AUTO_THROTTLE_MS = 60 * 1000;
+
+function slotTime(d: Date, hour: number): number {
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hour, 0, 0, 0);
+}
+
+/** The latest designated UTC slot at or before `now` (rolls to yesterday's last
+ *  slot if `now` is before today's first). */
+function mostRecentSlot(now = Date.now()): number {
+  const d = new Date(now);
+  let best = -Infinity;
+  for (const h of SYNC_SLOTS_UTC) {
+    const t = slotTime(d, h);
+    if (t <= now && t > best) best = t;
+  }
+  if (best === -Infinity) {
+    const y = new Date(now - 86_400_000);
+    best = slotTime(y, Math.max(...SYNC_SLOTS_UTC));
+  }
+  return best;
+}
+
+/** The next designated UTC slot strictly after `now`. */
+export function nextSlot(now = Date.now()): number {
+  const d = new Date(now);
+  let best = Infinity;
+  for (const h of SYNC_SLOTS_UTC) {
+    const t = slotTime(d, h);
+    if (t > now && t < best) best = t;
+  }
+  if (best === Infinity) {
+    const tm = new Date(now + 86_400_000);
+    best = slotTime(tm, Math.min(...SYNC_SLOTS_UTC));
+  }
+  return best;
+}
+
+/** Has a designated slot elapsed since the last successful sync? */
+export function dueForScheduledSync(now = Date.now()): boolean {
+  const last = lastSyncAt();
+  if (!last) return true;
+  return new Date(last).getTime() < mostRecentSlot(now);
+}
+
+let lastAutoAttempt = 0;
+async function maybeAutoSync(): Promise<void> {
+  if (!apiEnabled()) return;
+  if (Date.now() - lastAutoAttempt < AUTO_THROTTLE_MS) return;
+  const last = lastSyncAt();
+  const fresh = last && Date.now() - new Date(last).getTime() < FOREGROUND_REFRESH_MS;
+  if (!dueForScheduledSync() && fresh) return; // nothing due and recently synced
+  lastAutoAttempt = Date.now();
+  await forceSync();
+}
+
+async function registerPeriodicSync(): Promise<void> {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    const ps = (reg as unknown as { periodicSync?: { getTags?: () => Promise<string[]>; register: (t: string, o: { minInterval: number }) => Promise<void> } })?.periodicSync;
+    if (!ps) return; // unsupported (iOS) — foreground catch-up covers it
+    const tags = (await ps.getTags?.()) || [];
+    if (!tags.includes("vault-sync")) await ps.register("vault-sync", { minInterval: 6 * 60 * 60 * 1000 });
+  } catch {
+    /* permission/unsupported — ignore */
+  }
+}
+
+/** Start the auto-sync loop (call once at app startup). Returns a stop fn. */
+export function startAutoSync(): () => void {
+  const onVisible = () => { if (document.visibilityState === "visible") void maybeAutoSync(); };
+  document.addEventListener("visibilitychange", onVisible);
+  window.addEventListener("focus", onVisible);
+  const timer = window.setInterval(() => void maybeAutoSync(), AUTO_THROTTLE_MS);
+  void registerPeriodicSync();
+  return () => {
+    document.removeEventListener("visibilitychange", onVisible);
+    window.removeEventListener("focus", onVisible);
+    clearInterval(timer);
+  };
 }
 
 // ---- Environment snapshot ---------------------------------------------------

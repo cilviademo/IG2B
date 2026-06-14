@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: one-vault-reality · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: one-vault-autosync · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -79,6 +79,12 @@ commit(s) · what/why · live-test status).
 - **Convergence plumbing:** **Force Sync** + **sync-on-launch** (`App.tsx` → `forceSync()`); Inbox + Atlas re-pull on the `indigold:vault-synced` event (server wins for synced objects). **Stale banner** ("Vault may be stale — tap to Force Sync") when the API is up but the last sync failed/never ran — no silent stale data. **Update banner + version display**: SW reports its cache version over a message channel; build commit/time injected via `vite.config.ts` `define`; "New version available — Reload" when a new SW takes control.
 - **SW re-audit + cache bump `v0.23.0→v0.24.0`** (added the VERSION/SKIP_WAITING message handler): confirmed NO API path is cached — `captures, auth, capture/upload, nodes, edges, timeline, briefs, context-packs, radian/*, assets, usage, llm, events, projects` + all cross-origin `*.onrender.com` API hosts; only Vite-hashed static assets cache. `/activity` is a client route (data via the bypassed `/radian/*`).
 - **No regressions:** Shortcut/Apple-Note/URL capture, live Claude, budget tracking, Task Center, AI Activity, Atlas linking, export, capture-instant/AI-async untouched. **Verified:** matrix 454/454; pwa/api/worker typecheck + builds green ×3; build commit (`c714160`) + time injected into the bundle; SW `v0.24.0` in dist with handlers; headless `/io` render shows the panel + working update banner (`scripts/shots/io-dark.png`). **Pending owner on-device:** run the pairing flow (Safari → copy → PWA → paste) and confirm scenarios B/C in `18_ONE_VAULT_REALITY.md`. No PR.
+
+### 2026-06-14 · claude (Claude Code) · `claude/one-vault-autosync` → main — One Vault Reality: persistence + automatic UTC-scheduled sync
+- **Owner follow-up:** "I pasted the code once, it should always remain unless I remove it… and it should auto-refresh at designated UTC times." The pairing already persisted (localStorage `indigold_device`) — made it **visible + controllable** (an `indigold_paired_at` flag, a *linked* badge in Settings, and an **Unlink this device** control) so it's trustworthy.
+- **Automatic sync (no taps):** `startAutoSync()` (mounted in `App.tsx`) refreshes on launch, on foreground, and at **designated UTC times** `SYNC_SLOTS_UTC = [0,6,12,18]`. iOS can't run a closed PWA, so an elapsed slot **catches up on next open** (compares `lastSync` to the most recent slot); Android/desktop also get best-effort native **Periodic Background Sync**. The panel shows the schedule + next time.
+- **`forceSync` is now two-way:** pushes unsynced local captures UP first (offline-capture intake even if Inbox is never opened), then pulls the vault DOWN — so a manual/auto sync already has everything.
+- **Verified:** matrix 454/454; pwa/api/worker typecheck + builds green ×3; headless `/io` shows "auto-sync · 00/06/12/18 UTC + on open · next ~…" + SW `v0.24.0`. No regressions. **Pending owner on-device confirm** that the linked PWA stays linked across relaunches and refreshes itself. No PR.
 
 
 ### 2026-06-14 · claude (Claude Code) · carry-forward — ALL remaining work consolidated onto main
