@@ -40,6 +40,7 @@ const ingestCapture: Handler = async (job) => {
     const r = await repo.governedComplete({
       userId: job.user_id, tier: "cheap", task: "classification", purpose: "ingest_classify",
       json: true, sourceId: captureId, promptVersion: prompt.version,
+      localOnly: !isResearchSafe(cap.sensitivity), // secret/internal never leaves the device
       ...prompt.build({ title: cap.title, source: cap.source, url: cap.url || "", content: cap.note || "" }),
     });
     ingest = parseIngest(r.text) ?? deterministicIngest(cap);
@@ -62,6 +63,9 @@ const ingestCapture: Handler = async (job) => {
     tags: ingest.entities, source_capture_id: captureId,
     meta: {
       kind: ingest.type, actionability: ingest.actionability, mvs_why: ingest.mvs.why, prompt_version: prompt.version,
+      // Propagate the source capture's sensitivity onto the node so every downstream
+      // LLM call (contextualize/ask/assist/embed) can honor the privacy gate.
+      sensitivity: cap.sensitivity,
       // B1 epistemic type: a user capture is an observation; a reference/asset is a source.
       epistemic_type: ingest.type === "Reference" || ingest.type === "Asset" ? "source" : "observation",
     },
@@ -96,6 +100,7 @@ const contextualize: Handler = async (job) => {
     const r = await repo.governedComplete({
       userId: job.user_id, tier: "cheap", task: "classification", purpose: "contextualize",
       json: true, sourceId: nodeId, promptVersion: prompt.version,
+      localOnly: !isResearchSafe(String((node as { meta?: { sensitivity?: string } }).meta?.sensitivity ?? "private")),
       ...prompt.build({
         item: `${node.title}\n${node.summary}`,
         neighbors: neighbors.filter((n) => n.id !== nodeId).slice(0, 20).map((n) => `${n.id}: ${n.title}`).join("\n"),
@@ -152,14 +157,17 @@ const askJob: Handler = async (job) => {
   let title = "item";
   let context = "";
   let srcCap: string | undefined;
+  let sensitivity = "private"; // drives the privacy gate (secret/internal => local-only)
   if (p.subjectType === "node") {
     const n = await repo.nodes.get(job.user_id, p.subjectId);
     if (!n) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
     title = n.title; context = `${n.title}\n${n.summary}\nTags: ${(n.tags || []).join(", ")}`;
+    sensitivity = String((n as { meta?: { sensitivity?: string } }).meta?.sensitivity ?? "private");
   } else if (p.subjectType === "capture") {
     const c = await repo.captures.get(job.user_id, p.subjectId);
     if (!c) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
     title = c.title; context = `${c.title}\n${c.note}\n${c.url || ""}`; srcCap = c.id;
+    sensitivity = c.sensitivity;
   } else if (p.subjectType === "project") {
     const proj = (await repo.projects.list(job.user_id)).find((x) => x.id === p.subjectId);
     if (!proj) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
@@ -179,7 +187,8 @@ const askJob: Handler = async (job) => {
   try {
     const r = await repo.governedComplete({
       userId: job.user_id, tier: "strong", task: "synthesis", purpose: `ask_${p.verb}`, sourceId: p.subjectId,
-      system: "You are RADIAN answering about ONE specific item the owner asked about. Be concise and specific, cite the item, never invent facts.",
+      localOnly: !isResearchSafe(sensitivity), // secret/internal subjects stay on-device
+      system: "You are RADIAN answering about ONE specific item the owner asked about. Be concise and specific, cite the item, never invent facts; if the evidence is thin, say so and lower your confidence rather than guessing.",
       prompt: `${framing}\n\nITEM:\n${context}`,
     });
     // Stub/no-provider mode returns generic adapter text — use our grounded deterministic
@@ -243,7 +252,10 @@ const embedJob: Handler = async (job) => {
   const text = `${node.title}\n${node.summary}\n${(node.tags || []).join(" ")}`.trim();
   const hash = contentHash(text);
   if ((await repo.embeddings.hash("node", nodeId)) === hash) { await repo.jobs.finish(job.id, "done", { skipped: "unchanged" }); return; }
-  let embedder = getEmbedder();
+  // Privacy gate: secret/internal nodes are embedded ONLY by the local deterministic
+  // embedder — their text is never sent to an external embedding provider.
+  const sensitive = !isResearchSafe(String((node as { meta?: { sensitivity?: string } }).meta?.sensitivity ?? "private"));
+  let embedder = sensitive ? deterministicEmbedder() : getEmbedder();
   let vec;
   try {
     vec = await embedder.embed(text);
@@ -291,6 +303,7 @@ const assist: Handler = async (job) => {
     const r = await repo.governedComplete({
       userId: job.user_id, tier: "strong", task: "planning", purpose: "assistance",
       json: true, sourceId: nodeId, promptVersion: prompt.version,
+      localOnly: !isResearchSafe(String((node as { meta?: { sensitivity?: string } }).meta?.sensitivity ?? cap?.sensitivity ?? "private")),
       system: `${built.system}\n\n${constitutionBlock()}`, prompt: `${built.prompt}\n\nCONSTRAINTS:\n${constraintPromptBlock(profile)}`,
     });
     res = parseAssist(r.text) ?? fallback();

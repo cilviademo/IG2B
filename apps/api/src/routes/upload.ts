@@ -129,7 +129,8 @@ uploadRouter.post("/capture/upload", (req: Authed, res) => {
       const msg = e instanceof Error ? e.message : "upload_failed";
       // A "Refusing…" message means the public-write guard tripped.
       const code = msg.startsWith("Refusing") ? 500 : 502;
-      res.status(code).json({ error: "upload_failed", detail: msg });
+      console.error("[upload] failed:", msg); // full reason server-side only
+      res.status(code).json({ error: "upload_failed" }); // never leak internals to the client
     }
   });
 
@@ -145,6 +146,7 @@ uploadRouter.get("/assets/:id/url", async (req: Authed, res) => {
     const url = await signedGetUrl(a.storage_key);
     res.json({ url, expires_in: Number(process.env.STORAGE_SIGNED_URL_TTL || 900) });
   } catch (e) {
-    res.status(502).json({ error: "sign_failed", detail: e instanceof Error ? e.message : "" });
+    console.error("[upload] sign failed:", e instanceof Error ? e.message : e);
+    res.status(502).json({ error: "sign_failed" });
   }
 });

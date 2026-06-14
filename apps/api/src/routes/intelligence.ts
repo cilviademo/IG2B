@@ -31,7 +31,8 @@ contextRouter.post("/", async (req: Authed, res) => {
     await addUsage(req.userId!, { apiCalls: 1, tokens: pack.token_budget.used });
     res.status(201).json(stored);
   } catch (e) {
-    res.status(502).json({ error: "encompass_unavailable", detail: String(e) });
+    console.error("[intelligence] encompass:", String(e));
+    res.status(502).json({ error: "encompass_unavailable" });
   }
 });
 
@@ -48,7 +49,8 @@ briefsRouter.post("/forecast", async (req: Authed, res) => {
     await addUsage(req.userId!, { apiCalls: 1 });
     res.status(201).json(brief);
   } catch (e) {
-    res.status(502).json({ error: "radian_unavailable", detail: String(e) });
+    console.error("[intelligence] radian:", String(e));
+    res.status(502).json({ error: "radian_unavailable" });
   }
 });
 

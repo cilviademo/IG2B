@@ -14,6 +14,20 @@ import { limit } from "./middleware/ratelimit";
 
 const app = express();
 app.disable("x-powered-by");
+
+// Baseline security headers (no extra dependency — the API serves JSON only, so a
+// strict, tiny set covers it). HSTS is sent only over https (behind Render's proxy).
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-site");
+  if (req.secure || req.headers["x-forwarded-proto"] === "https") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
+
 app.use(express.json({ limit: "8mb" }));
 
 // CORS: the PWA and API are SEPARATE Render services, so the API must allow the

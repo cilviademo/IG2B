@@ -1,6 +1,6 @@
 # Security
 
-`Last updated: 2026-06-12 · Commit: 603527b · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase-6-security · By: claude (Claude Code)`
 
 ## Secrets policy
 - **All secrets live in Render environment variables only.** Never in the repo, never in
@@ -57,3 +57,73 @@
 - [ ] No secret VALUE in examples or reconstructed history — names only.
 - [ ] Error/log statements redact auth headers + keys.
 - [ ] If touching `apps/`/`services/`, the changelog (`03_CHANGELOG.md`) is updated (drift guard).
+
+---
+
+## Phase 6 audit (2026-06-14 · `claude/indigold-architecture-rnd-iYwF6`)
+
+Full defensive review. The codebase is security-conscious: **all SQL is parameterized**
+(no interpolation), passwords use **scrypt + 16-byte salt + timing-safe compare**, auth is
+**Bearer-token (no cookies → no CSRF)**, uploads are **private with 15-min signed URLs +
+owner check**, and there is **no `dangerouslySetInnerHTML`** in the PWA.
+
+### Fixed this pass
+- **HTTP security headers** (no new dep) on every response: `X-Content-Type-Options:nosniff`,
+  `X-Frame-Options:DENY`, `Referrer-Policy:no-referrer`, `Cross-Origin-Resource-Policy:same-site`,
+  and `Strict-Transport-Security` over https. (`apps/api/src/index.ts`)
+- **Error-detail redaction** — routes no longer leak internal exception text to clients; the
+  full reason is logged server-side only: `upload.ts` (upload + sign), `intelligence.ts`
+  (encompass + radian). Client gets a stable error code.
+- **Privacy gate (the big one — see Privacy model below).**
+
+### Accepted / low-risk (documented, not changed)
+- CORS allows any `*.onrender.com` subdomain — Bearer-header auth means a malicious Render site
+  still cannot read the token (no cookies), so this is low risk; tighten to an exact allow-list
+  if ever multi-tenant.
+- `PATCH /nodes/:id` / `PATCH /projects/:id` don't use the zod `validate()` middleware, but the
+  repo layer **whitelists** updatable columns, so unknown fields are dropped. Add schemas for
+  consistency when convenient.
+- Agent/timescale values interpolated into a couple of system prompts are **enum-typed** (not
+  user input) — injection-safe; a runtime enum assert would be belt-and-suspenders.
+
+## Privacy model (Iron #12 + Phase 6 hard rule)
+
+**Rule:** secret/internal content is **never sent to an external provider without explicit
+per-action allowance.** Enforcement is now **centralized**: `governedComplete({ localOnly })`
+forces the **local deterministic adapter** ($0, no network) regardless of any provider key.
+- Sensitivity is **propagated onto the node** at ingest (`node.meta.sensitivity`), so it
+  survives the capture→node boundary (previously lost).
+- `localOnly = !isResearchSafe(sensitivity)` is wired into **ingest, contextualize, ask
+  (Companion verbs), assist**, and the **embed** job forces the local embedder for sensitive
+  nodes. Outward **research/tools** already hard-skip secret/internal (`research` job →
+  `skipped/privacy_excluded`; `POST /research/:nodeId` → 403).
+- Pure regression: `privacy-verify` (11/11) locks the decision logic (public/private may use
+  live; secret/internal → local-only; `filterResearchSafe` drops sensitive from any batch).
+- Export controls + delete: see Resilience (`10_RESILIENCE.md`) — vault export bundle +
+  `ON DELETE CASCADE` from `users` means a user delete removes all derived data.
+
+## Event-sourcing integrity
+
+The `events` table is **append-only by construction** — the repo exposes only `append`/read
+methods; there is **no UPDATE/DELETE on events** anywhere (grep-verified). `emitEvent` is
+best-effort and never fails a business write. Provenance (source ids, prompt version, model,
+confidence) is stored on every AI-generated node/brief. History is not mutated.
+
+## Anti-hallucination contract
+
+Baked into the governed path + prompts, not just docs:
+- System prompts instruct: cite the item, **never invent facts, and lower confidence / say so
+  when evidence is thin** (e.g. the Companion `ask` system prompt). Registry prompts return
+  explicit `confidence` fields that thresholds dispose (AI proposes, thresholds dispose).
+- Deterministic engines (boardroom/simulation/research/mentor/time-machine) are **honest by
+  construction** — they compute from real signals and show bootstrap copy when sparse rather
+  than fabricating (simulation is labelled "ESTIMATES, not predictions"; research proposes
+  directions, never findings).
+- When a live call fails mid-flight, the **deterministic floor** answers from the item's own
+  data — grounded, never a fabricated "paused" placeholder (Phase 2 audit §2.2c).
+
+## Backup & recovery
+
+Covered in `10_RESILIENCE.md`: `GET /radian/export-bundle` (full vault dump) + a weekly
+`export_bundle` job; event replay; additive-only schema; the vault must survive loss of
+Render / GitHub / provider / internet (deterministic floor keeps the app usable with no AI).

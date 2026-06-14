@@ -7,6 +7,7 @@ import { id } from "@indigold/shared";
 import {
   loadModelConfig,
   getModel,
+  deterministicAdapter,
   governorDecision,
   tierAllowed,
   preflightBlock,
@@ -31,6 +32,10 @@ export interface GovernedCompleteCtx {
   maxTokens?: number;
   sourceId?: string; // capture/node id for provenance
   promptVersion?: string; // from the prompt registry
+  // PRIVACY GATE (Iron #12 + Phase 6): when true, the content is secret/internal and
+  // MUST NOT leave the device — force the local deterministic adapter regardless of any
+  // provider key. $0, no external send. Callers set this from the subject's sensitivity.
+  localOnly?: boolean;
 }
 
 export interface GovernedResult {
@@ -48,16 +53,19 @@ export async function governedComplete(ctx: GovernedCompleteCtx): Promise<Govern
   const cfg = loadModelConfig();
   // Provider/model/mode resolution: task-based (LLM framework) when a task is set,
   // else the tier-based default adapter. Budgeting always uses a cost tier.
-  const sel = ctx.task ? getTaskAdapter(ctx.task) : null;
+  // localOnly (secret/internal content) forces the deterministic adapter — never external.
+  const local = ctx.localOnly === true;
+  const sel = !local && ctx.task ? getTaskAdapter(ctx.task) : null;
   const tier: ModelTier = sel ? sel.resolved.tier : ctx.tier;
   const month = await aiCalls.monthCostCents(ctx.userId);
   const state = governorDecision(month, cfg.monthlyBudgetCents);
 
   // Pre-flight estimate so even the FIRST call is blocked when it would breach the
   // budget (the "$0.01 -> queue, no calls" force-test). Worst-case output = maxTokens.
+  // localOnly calls are deterministic ($0) so the governor never blocks them.
   const maxTok = ctx.maxTokens ?? cfg.tiers[tier].maxTokens;
   const est = estimateCostCents(cfg.tiers[tier], { input: estTokens((ctx.system || "") + ctx.prompt), output: maxTok });
-  const blocked = !tierAllowed(state, tier) || preflightBlock(month, est, cfg.monthlyBudgetCents);
+  const blocked = !local && (!tierAllowed(state, tier) || preflightBlock(month, est, cfg.monthlyBudgetCents));
 
   if (blocked) {
     const why = !tierAllowed(state, tier) ? `governor_${state}` : "governor_block_preflight";
@@ -70,7 +78,7 @@ export async function governedComplete(ctx: GovernedCompleteCtx): Promise<Govern
     throw new BudgetExceededError(state === "ok" ? "block" : state, tier);
   }
 
-  const adapter = sel ? sel.adapter : getModel(tier, cfg);
+  const adapter = local ? deterministicAdapter(cfg.tiers[tier].model) : sel ? sel.adapter : getModel(tier, cfg);
   const res = await adapter.complete({
     system: ctx.system,
     prompt: ctx.prompt,
