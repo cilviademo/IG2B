@@ -6,14 +6,14 @@
 
 `Last updated: 2026-06-14 · Commit: main-carryforward · By: claude (Claude Code)`
 
-> **Live-AI stabilization (on `claude/aurora-ia`):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
+> **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 
-> **AURORA A1–A15 (branch `claude/aurora-ia`, NOT merged; A8 Atlas deferred):** full UX/IA pass — 4-section Home, 5-tab bar + More/Insights, conversational Companion, Quests Today/Later/Archive, single Ask input, Situation Room, Time Machine panels, editorial Brief, skeletons, haptics, per-route scroll, colour-blind status, Home 4→1 fetch. Behaviour-preserving; 409/409. See `14_AURORA.md`. Superseded earlier A1+A9 note. **Pending owner eyeball.**
+> **AURORA A1–A15 (ON MAIN; A8 Atlas canvas done; deferred: notification fix + BoardroomView on `architecture-rnd`):** full UX/IA pass — 4-section Home, 5-tab bar + More/Insights, conversational Companion, Quests Today/Later/Archive, single Ask input, Situation Room, Time Machine panels, editorial Brief, skeletons, haptics, per-route scroll, colour-blind status, Home 4→1 fetch. Behaviour-preserving; 409/409. See `14_AURORA.md`. Superseded earlier A1+A9 note. **Pending owner eyeball.**
 > **(prior) AURORA A1+A9:** Home decluttered to 4 sections; tab bar 8→5 (+`/more` hub, `/insights`); I/O→Settings (raw access under Advanced); per-route scroll restoration; colour-blind-safe status shapes. Behaviour-preserving (engines frozen); 409/409. **Pending owner IA confirmation before A2–A15.**
 
-> **Wave 6 Stage 1 (branch `claude/wave6-media`):** Universal Intake Router (`detectIntake`/`planIntake`, mirrored) + SSRF guard (opt-in domain-limited yt-dlp) + `media_ingest` job auto-routed from share → honest Media nodes (extraction_pending/metadata_only/secret_kept_local; synthesizes via governedComplete when a transcript exists). No fabrication; capture instant. 454/454. Stages 2–7 (Whisper/yt-dlp/vision) gated on the Docker media worker + owner timing spike (`17_WAVE6_MEDIA_SPIKE.md`).
+> **Wave 6 Stage 1 (ON MAIN):** Universal Intake Router (`detectIntake`/`planIntake`, mirrored) + SSRF guard (opt-in domain-limited yt-dlp) + `media_ingest` job auto-routed from share → honest Media nodes (extraction_pending/metadata_only/secret_kept_local; synthesizes via governedComplete when a transcript exists). No fabrication; capture instant. 454/454. Stages 2–7 (Whisper/yt-dlp/vision) gated on the Docker media worker + owner timing spike (`17_WAVE6_MEDIA_SPIKE.md`).
 
-> **VERIFICATION + HARDENING arc — Phases 0–7 done (latest); G12+ gated on owner greenlight.** On branch `claude/indigold-architecture-rnd-iYwF6` (design on `claude/design-polish`).
+> **VERIFICATION + HARDENING arc — Phases 0–7 (ON MAIN); G12+ gated on owner greenlight.**
 > - **P0 hygiene:** `scripts/dedupe-derived-nodes.ts` (dry-run default; **owner runs the dev-vault dry-run**); schema.ts byte-current; green baseline.
 > - **P1:** `09_PHONE_GATES.md` — 17-gate owner walk-through checklist.
 > - **P2:** `11_AI_AND_SCHEDULING.md` — free-tier scheduler delta (which jobs silently don't fire; fix = starter toggle) + governed-path audit (no key leaks; budget always queues; deterministic floor covers no-key AND mid-flight) + **on-device budget spend-by-purpose**.
