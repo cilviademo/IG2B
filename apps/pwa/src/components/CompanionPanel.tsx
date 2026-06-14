@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { Link } from "wouter";
-import { Sparkles, Loader2, Check, AlertTriangle, Users, ExternalLink, RotateCcw } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Sparkles, Loader2, Check, AlertTriangle, Users, ExternalLink, RotateCcw, ArrowUp, SlidersHorizontal } from "lucide-react";
 import Sheet from "./Sheet";
 import { Button, Dot } from "./primitives";
-import { askRadian, conveneBoardroom, type BoardroomSynthesis } from "@/lib/api";
-import BoardroomView from "./BoardroomView";
+import { askRadian } from "@/lib/api";
 import { useTasks } from "@/contexts/TaskCenter";
 
-// "Ask Radian" — the Companion Panel. Orchestration only: every verb maps to an
-// existing governed backend job; the frontend makes NO direct model calls and shows
-// honest job state (queued/running/completed/failed/budget-limited/fallback/skipped).
+// AURORA A4 — "Ask Radian" is now ONE natural-language input. The intent router maps the
+// phrasing to the existing verb (explain/challenge/next_steps/research/simulate/…) — the
+// engines are unchanged, just invisible. An "Advanced" affordance still exposes explicit
+// verbs. Orchestration only: the frontend makes NO direct model calls; honest job state.
 type Entity = "node" | "project" | "brief" | "capture";
 const VERBS: { verb: string; label: string; on: Entity[] }[] = [
   { verb: "explain", label: "Explain", on: ["node", "project", "brief", "capture"] },
@@ -24,6 +24,21 @@ const VERBS: { verb: string; label: string; on: Entity[] }[] = [
 
 const FEATURE: Record<string, string> = { explain: "Companion", teach: "Companion", next_steps: "Companion", challenge: "Companion", ask: "Companion", research: "Research", simulate: "Simulation", context_pack: "Context Packs" };
 
+// Deterministic intent router: phrasing → existing verb. Honest + transparent (we show the
+// routed verb back to the user). Defaults to a grounded "explain/ask".
+function routeIntent(q: string): { verb: string; question?: string } {
+  const t = q.toLowerCase();
+  if (/\b(argue|against|challenge|critique|devil|risk|why not|wrong|flaw|weak)\b/.test(t)) return { verb: "challenge", question: q };
+  if (/\b(teach|learn|eli5|simply|beginner|explain like)\b/.test(t)) return { verb: "teach", question: q };
+  if (/\b(next step|what should i|what do i do|plan|how do i start|action)\b/.test(t)) return { verb: "next_steps" };
+  if (/\b(research|find|sources?|look up|dig|investigate|prior art)\b/.test(t)) return { verb: "research" };
+  if (/\b(what if|simulate|scenario|compare|versus|vs\.?|odds|likely)\b/.test(t)) return { verb: "simulate" };
+  if (/\b(context|pack|gather everything|assemble)\b/.test(t)) return { verb: "context_pack" };
+  if (/\b(remind me|create task|add task|to-?do)\b/.test(t)) return { verb: "create_task", question: q };
+  return { verb: "ask", question: q }; // default: understand / connect / what-is / how
+}
+const VERB_LABEL: Record<string, string> = { explain: "Understanding", ask: "Answering", teach: "Teaching", next_steps: "Planning next steps", research: "Researching", simulate: "Simulating", challenge: "Challenging", context_pack: "Building context", create_task: "Creating task" };
+
 export default function CompanionPanel({
   subjectType, subjectId, title, onClose,
 }: { subjectType: Entity; subjectId: string; title: string; onClose: () => void }) {
@@ -31,22 +46,24 @@ export default function CompanionPanel({
   const [status, setStatus] = useState<string | null>(null);
   const [done, setDone] = useState<"ok" | "err" | null>(null);
   const [question, setQuestion] = useState("");
-  const [board, setBoard] = useState<{ synthesis: BoardroomSynthesis; node: string } | null>(null);
-  const [boardBusy, setBoardBusy] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const { runTask, trackJob, tasks, retry } = useTasks();
+  const [, navigate] = useLocation();
+  const { trackJob, tasks, retry } = useTasks();
   // The live task for THIS panel session — shows inline status while the sheet is open.
   const active = activeTaskId ? tasks.find((t) => t.id === activeTaskId) : undefined;
 
-  async function convene() {
-    if (boardBusy) return;
-    setBoardBusy(true); setBoard(null);
-    // Track the boardroom run so it's recoverable from the Task Center too.
-    runTask({ kind: "boardroom", feature: "Boardroom", tab: "/atlas", label: `Boardroom — ${title}`, subjectType, subjectId, run: async () => conveneBoardroom(subjectType, subjectId, question.trim() || undefined) });
-    const r = await conveneBoardroom(subjectType, subjectId, question.trim() || undefined);
-    if (!r) setStatus("couldn't reach the Boardroom (offline or API asleep)");
-    setBoard(r);
-    setBoardBusy(false);
+  function openSituationRoom() {
+    navigate(`/situation-room?subject_type=${subjectType}&subject_id=${encodeURIComponent(subjectId)}&title=${encodeURIComponent(title)}`);
+    onClose();
+  }
+
+  // Single natural-language entry: route the phrasing to a verb, then run it.
+  function ask() {
+    const q = question.trim();
+    if (!q || running) return;
+    const { verb, question: passedQ } = routeIntent(q);
+    void run(verb, passedQ);
   }
 
   async function run(verb: string, q?: string) {
@@ -75,34 +92,40 @@ export default function CompanionPanel({
         <span className="cap-data ml-auto">{subjectType}</span>
       </div>
 
-      {/* G5 Boardroom — the multi-agent council. Synchronous + deterministic; renders the
-          six-persona synthesis inline. */}
-      <Button variant="primary" full disabled={boardBusy} onClick={() => void convene()} style={{ marginBottom: 8 }}>
-        {boardBusy ? <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> : <Users size={14} strokeWidth={1.5} />} Convene Boardroom
-      </Button>
-      {board && <BoardroomView synthesis={board.synthesis} nodeId={subjectType === "node" ? subjectId : undefined} />}
-
-      <div className="grid grid-cols-2 gap-2 mt-1">
-        {verbs.map((v) => (
-          <Button key={v.verb} variant="ghost" disabled={!!running} onClick={() => void run(v.verb)}>
-            {running === v.verb ? <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> : null} {v.label}
-          </Button>
-        ))}
+      {/* ONE natural-language input — routes to the right verb internally. */}
+      <div className="flex gap-2 items-end">
+        <textarea
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }}
+          placeholder="Ask anything — “how does this connect to BTZ?”, “argue against this”, “what should I do next?”"
+          rows={2}
+          className="flex-1 px-3 py-2.5 text-sm min-w-0 resize-none"
+          style={{ background: "var(--bg)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 8 }}
+        />
+        <button onClick={ask} disabled={!!running || !question.trim()} aria-label="Ask" className="press flex items-center justify-center shrink-0" style={{ width: 44, height: 44, borderRadius: 999, background: question.trim() && !running ? "var(--gold)" : "var(--surface-2)", color: question.trim() && !running ? "#161118" : "var(--text-dim)", border: "1px solid var(--gold-line)" }}>
+          {running ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <ArrowUp size={18} strokeWidth={2} />}
+        </button>
       </div>
 
-      <div className="mt-3">
-        <label className="block mb-1" style={{ fontSize: 12, color: "var(--text-dim)" }}>Ask Radian about this…</label>
-        <div className="flex gap-2">
-          <input
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="e.g. how does this connect to BTZ?"
-            className="flex-1 px-3 py-2.5 text-sm min-w-0"
-            style={{ background: "var(--bg)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 6 }}
-          />
-          <Button variant="primary" disabled={!!running || !question.trim()} onClick={() => void run("ask", question.trim())}>Ask</Button>
+      {/* Situation Room (the six-persona council) lives on its own screen now (A5). */}
+      <button onClick={openSituationRoom} className="press w-full flex items-center justify-center gap-2 mt-2.5 py-2.5 text-xs font-semibold" style={{ borderRadius: 8, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
+        <Users size={14} strokeWidth={1.5} /> Open Situation Room
+      </button>
+
+      {/* Advanced — explicit verbs, for when you want to be precise. */}
+      <button onClick={() => setAdvanced((a) => !a)} className="press inline-flex items-center gap-1.5 mt-3 cap-data" style={{ color: "var(--text-dim)" }}>
+        <SlidersHorizontal size={12} strokeWidth={1.5} /> {advanced ? "Hide" : "Advanced"} — pick a verb
+      </button>
+      {advanced && (
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          {verbs.map((v) => (
+            <Button key={v.verb} variant="ghost" disabled={!!running} onClick={() => void run(v.verb, ["explain", "challenge", "teach", "ask"].includes(v.verb) ? question.trim() || undefined : undefined)}>
+              {running === v.verb ? <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> : null} {v.label}
+            </Button>
+          ))}
         </div>
-      </div>
+      )}
 
       {/* Live status for the in-flight verb — updates even as the job runs in the background. */}
       {active && (

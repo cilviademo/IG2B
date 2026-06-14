@@ -67,9 +67,9 @@ export default function Dashboard() {
 
   return (
     <div className="px-5 pt-6 pb-12">
-      {/* COMPANION — greeting + one paragraph + Brief Me */}
-      <CompanionBrief />
-      <p className="mt-4" style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text)", maxWidth: "60ch" }}>
+      {/* COMPANION — conversational greeting + one paragraph + Brief Me (A2) */}
+      <CompanionBrief paragraph={data.brief} />
+      <p className="mt-3" style={{ fontSize: 17, lineHeight: 1.6, color: "var(--text)", maxWidth: "60ch" }}>
         {data.brief}
       </p>
 
