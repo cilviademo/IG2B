@@ -3,7 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch, Router as WouterRouter, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { TaskProvider } from "./contexts/TaskCenter";
@@ -74,19 +74,18 @@ function App() {
   );
 }
 
-// The app shell. The global type-zoom is applied everywhere EXCEPT the Atlas: CSS `zoom`
-// desyncs canvas hit-testing (clientX vs getBoundingClientRect), and it does nothing for
-// the canvas-drawn Atlas labels anyway — so we skip it there to keep node-tapping exact.
+// The app shell. (Global CSS `zoom` was removed — it overflowed narrow viewports and
+// desynced Atlas hit-testing; readability now comes from a 16px base + responsive type.)
+// `<main>` is the single scroll container; we reset it to top on every route change so
+// tabs never share an accidental scroll position (Issue 6).
 function Shell() {
   const [location] = useLocation();
-  const zoom = location !== "/atlas";
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => { mainRef.current?.scrollTo(0, 0); }, [location]);
   return (
-    <div
-      className={`${zoom ? "app-zoom " : ""}min-h-[100dvh] flex flex-col`}
-      style={{ background: "var(--bg)" }}
-    >
+    <div className="min-h-[100dvh] flex flex-col" style={{ background: "var(--bg)" }}>
       <TopBar />
-      <main className="flex-1 overflow-y-auto pb-20">
+      <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden pb-20">
         <Routes />
       </main>
       <TaskToast />

@@ -327,7 +327,9 @@ const assist: Handler = async (job) => {
     id: id("edge"), user_id: job.user_id, source_id: nodeId, target_id: childId,
     relationship: "extends", weight: 0.9, valid_from: new Date().toISOString(), label: "assistance",
   });
-  await repo.jobs.finish(job.id, "done", { actions: res.next_actions.length, playbook: res.playbook.length, constraint_violations: constraintCheck.violations.length });
+  // Return the child id so the Task Center can link "Open result" straight to the Playbook
+  // node (this is why "Next steps" results were previously unfindable).
+  await repo.jobs.finish(job.id, "done", { child: childId, verb: "next_steps", actions: res.next_actions.length, playbook: res.playbook.length, constraint_violations: constraintCheck.violations.length });
 };
 
 const summarize: Handler = async (job) => {

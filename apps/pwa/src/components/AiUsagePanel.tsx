@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Cpu, RefreshCw } from "lucide-react";
+import { Link } from "wouter";
+import { Cpu, RefreshCw, ExternalLink } from "lucide-react";
 import { fetchAiUsage, apiEnabled, type AiUsage } from "@/lib/api";
 
 // AI Usage / Token Observatory. Reads /radian/usage (cost ledger aggregate) — metadata
@@ -97,8 +98,11 @@ export default function AiUsagePanel() {
               u.recent.map((r, i) => (
                 <div key={i} className="flex items-center gap-2 py-1" style={{ fontSize: 11, borderBottom: i < u.recent.length - 1 ? "1px solid var(--line)" : "none" }}>
                   <span style={{ width: 6, height: 6, borderRadius: 999, background: STATUS_COLOR[r.status] || "var(--text-dim)", display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ color: "var(--text)", minWidth: 78 }}>{r.feature}</span>
+                  <span style={{ color: "var(--text)", minWidth: 72 }}>{r.feature}</span>
                   <span className="font-mono" style={{ color: "var(--text-dim)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.input_tokens}/{r.output_tokens}t · {r.latency_ms}ms</span>
+                  {r.source_id && (
+                    <Link href={`/atlas?focus=${r.source_id}`} aria-label="Open source" className="press shrink-0" style={{ color: "var(--gold)" }}><ExternalLink size={11} strokeWidth={1.5} /></Link>
+                  )}
                   <span className="font-data" style={{ color: STATUS_COLOR[r.status] || "var(--text-dim)" }}>{r.status === "ok" ? usd(r.cost_cents) : r.status}</span>
                 </div>
               ))

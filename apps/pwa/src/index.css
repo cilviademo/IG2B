@@ -124,12 +124,17 @@ body,
   height: 100%;
 }
 
+html, body, #root {
+  max-width: 100%;
+  overflow-x: hidden; /* never let a stray fixed width force horizontal scroll/smush */
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 16px; /* readable base (replaces the old global zoom hack that overflowed) */
   line-height: 1.5;
   letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
@@ -137,10 +142,15 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* Global readability bump — scales the whole UI up a notch (the owner asked for
-   slightly larger text everywhere). zoom scales inline px sizes too (which rem-based
-   tweaks can't reach). Kept modest so layouts stay intact. */
-.app-zoom { zoom: 1.08; }
+/* Mobile-fit safety: long IDs/tokens/timestamps wrap instead of forcing the row wider
+   than the viewport (the "smushed horizontally" cause). Media (canvas/img) caps to width. */
+.font-mono, .font-data, .cap-data { overflow-wrap: anywhere; }
+img, canvas, svg, video { max-width: 100%; }
+
+/* Responsive headings: smaller on narrow phones, full size on larger screens. Applied to
+   the Tailwind size utilities the screens use so it actually takes effect. */
+.text-xl { font-size: clamp(1.125rem, 4.6vw, 1.35rem) !important; line-height: 1.2; }
+.text-lg { font-size: clamp(1.0625rem, 4.2vw, 1.2rem) !important; line-height: 1.25; }
 
 /* Display face — titles, wordmark, brief headline. Used sparingly. */
 h1, h2, h3, h4, .font-display {

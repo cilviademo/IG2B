@@ -1,5 +1,6 @@
 import { useLocation, Link } from "wouter";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import NotificationCenter from "./NotificationCenter";
 
 // Persistent top bar: back / forward page navigation + the wordmark. Addresses the
 // "I need a way to go back/return" gap — every screen now has explicit history controls
@@ -44,16 +45,20 @@ export default function TopBar() {
       <button
         onClick={() => window.history.forward()}
         aria-label="Forward"
-        className="press flex items-center justify-center"
+        className="press flex items-center justify-center shrink-0"
         style={{ width: 40, height: 40, borderRadius: 999, color: "var(--text-dim)" }}
       >
         <ChevronRight size={22} strokeWidth={1.5} />
       </button>
 
-      <Link href="/" className="ml-auto mr-2 flex items-center gap-2 press">
-        <span className="font-display" style={{ fontSize: 15, color: "var(--text)" }}>Indigold</span>
-        <span className="cap-data" style={{ color: "var(--text-dim)" }}>{title}</span>
+      {/* Title flexes + truncates so it never collides with the controls on small screens. */}
+      <Link href="/" className="flex-1 min-w-0 px-2 press text-center">
+        <span className="font-display block truncate" style={{ fontSize: 15, color: "var(--text)" }}>{title}</span>
       </Link>
+
+      <div className="shrink-0">
+        <NotificationCenter />
+      </div>
     </div>
   );
 }
