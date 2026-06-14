@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as repo from "@indigold/db";
-import { contracts, enqueue, id } from "@indigold/shared";
+import { contracts, enqueue, id, planIntake } from "@indigold/shared";
 import type { Authed } from "../middleware/auth";
 import { validate } from "../lib/validate";
 
@@ -34,6 +34,14 @@ capturesRouter.post("/", validate(contracts.captureCreate), async (req: Authed, 
   const job = await enqueue("ingest_capture", req.userId!, { captureId: capture.id });
   await repo.jobs.record({ id: job.id, user_id: req.userId!, type: job.type, status: "queued", payload: job.payload });
   await repo.captures.setProcessing(capture.id, "queued");
+  // Wave 6 — Universal Intake Router: if what was shared is MEDIA (video/audio/podcast/
+  // YouTube/reel/etc.), also enqueue the media pipeline. Capture stays instant; media work is
+  // async + best-effort and surfaces via the Task Center. Indigold decides — the Shortcut just delivers.
+  const plan = planIntake({ url: capture.url, captureType: capture.type, text: capture.note, source: capture.source });
+  if (["captions", "transcribe"].includes(plan.pipeline) || (plan.pipeline === "metadata_only" && plan.advancedOnly)) {
+    const mj = await enqueue("media_ingest", req.userId!, { captureId: capture.id });
+    await repo.jobs.record({ id: mj.id, user_id: req.userId!, type: mj.type, status: "queued", payload: mj.payload });
+  }
   await repo.audit.log({ user_id: req.userId!, actor: "api", action: "capture.create", target: capture.id });
   res.status(201).json({ capture, job: job.id });
 });

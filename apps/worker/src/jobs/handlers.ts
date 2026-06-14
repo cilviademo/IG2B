@@ -16,7 +16,7 @@ import {
   assignMemoryTier, findResurrectionCandidates, deterministicReview, parseReview, simulationGroundingBlock,
   constitutionBlock, whatMatters, type ActivityShare,
   getEmbedder, deterministicEmbedder, contentHash,
-  horizonScan,
+  horizonScan, planIntake,
   type ReviewTimescale, type ShadowCandidate,
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
 } from "@indigold/shared";
@@ -736,7 +736,77 @@ const research: Handler = async (job) => {
   await repo.jobs.finish(job.id, "done", { findings: findings.length, child });
 };
 
+// ---- Wave 6: Universal media intake. The deterministic router decides the path; honest
+// degradation always produces a useful node, never fabricated content. Real extraction
+// (yt-dlp/Whisper) runs on the dedicated Docker media worker; until that lands this produces
+// an honest media node and, when a transcript IS present (media-worker handoff or pasted),
+// synthesizes it through governedComplete (budget + privacy gated). ----
+function deterministicMediaSummary(title: string, transcript: string): string {
+  const clean = transcript.replace(/\s+/g, " ").trim();
+  return `${title} — transcript captured (${clean.length} chars). ${clean.slice(0, 200)}${clean.length > 200 ? "…" : ""}`;
+}
+
+const mediaIngest: Handler = async (job) => {
+  const p = job.payload as { captureId: string };
+  const cap = await repo.captures.get(job.user_id, p.captureId);
+  if (!cap) { await repo.jobs.finish(job.id, "skipped", undefined, "subject_not_found"); return; }
+  const advanced = process.env.MEDIA_ADVANCED === "on";
+  const plan = planIntake({ url: cap.url, captureType: cap.type, text: cap.note, source: cap.source }, advanced);
+  const safe = isResearchSafe(cap.sensitivity); // secret/internal → keep local, no external send
+  const transcript = (cap as { raw?: { transcript?: string } }).raw?.transcript || "";
+
+  // Transcript already present (media-worker handoff / pasted) → synthesize into knowledge.
+  if (transcript) {
+    let summary = ""; let deterministic = false;
+    try {
+      const r = await repo.governedComplete({
+        userId: job.user_id, tier: "strong", task: "synthesis", purpose: "media_synthesis", sourceId: p.captureId,
+        localOnly: !safe,
+        system: "You are RADIAN turning a media transcript into knowledge. Concise summary + key themes + named entities; never invent — only what the transcript supports.",
+        prompt: `TRANSCRIPT (${plan.platform || plan.kind}):\n${transcript.slice(0, 8000)}`,
+      });
+      deterministic = r.provider === "deterministic" || !r.text;
+      summary = deterministic ? deterministicMediaSummary(cap.title, transcript) : r.text;
+    } catch (e) {
+      if (e instanceof BudgetExceededError) { await repo.jobs.finish(job.id, "queued", undefined, "budget_governor"); return; }
+      summary = deterministicMediaSummary(cap.title, transcript); deterministic = true;
+    }
+    const nid = id("node");
+    await repo.nodes.create({
+      id: nid, user_id: job.user_id, type: "concept", title: `Media — ${cap.title}`.slice(0, 80),
+      summary: summary.slice(0, 400), truth_layer: "C", truth_label: "Media", mvs: 55, tags: [plan.kind],
+      source_capture_id: cap.id,
+      meta: { media: { kind: plan.kind, platform: plan.platform, pipeline: plan.pipeline, transcript_chars: transcript.length, captions_used: plan.pipeline === "captions", url: cap.url, deterministic }, epistemic_type: "source" },
+    });
+    await repo.emitEvent({ user_id: job.user_id, actor: "agent:Radian", event_type: "node_created", subject_type: "node", subject_id: nid, correlation_id: cap.id, payload: { media: plan.kind } });
+    const ej = await enqueue("embed", job.user_id, { nodeId: nid }); // auto-link (privacy-gated in embed)
+    await repo.jobs.record({ id: ej.id, user_id: job.user_id, type: ej.type, status: "queued" });
+    await repo.jobs.finish(job.id, "done", { node: nid, child: nid, verb: "media", deterministic, status: "synthesized" });
+    return;
+  }
+
+  // No transcript → honest media node + clear next step. Never fabricate.
+  const externalBlocked = plan.externalFetch && !safe;
+  const status = (plan.needsTranscription || plan.pipeline === "captions")
+    ? (externalBlocked ? "secret_kept_local" : "extraction_pending")
+    : "metadata_only";
+  const note =
+    status === "secret_kept_local" ? "Secret/internal — kept on-device; no external extraction."
+    : status === "extraction_pending" ? `${plan.platform || plan.kind}: transcript unavailable here. Upload a recording, or enable the media worker, for deep analysis. Stored as a link.`
+    : `${plan.platform || plan.kind}: stored as a link${plan.advancedOnly ? " — advanced extraction is opt-in + domain-limited." : "."}`;
+  const nid = id("node");
+  await repo.nodes.create({
+    id: nid, user_id: job.user_id, type: "concept", title: `Media — ${cap.title}`.slice(0, 80),
+    summary: note, truth_layer: "B", truth_label: "Media", mvs: 45, tags: [plan.kind],
+    source_capture_id: cap.id,
+    meta: { media: { kind: plan.kind, platform: plan.platform, pipeline: plan.pipeline, status, url: cap.url, advanced_required: plan.advancedOnly }, epistemic_type: "source" },
+  });
+  await repo.emitEvent({ user_id: job.user_id, actor: "agent:Radian", event_type: "node_created", subject_type: "node", subject_id: nid, correlation_id: cap.id, payload: { media: plan.kind, status } });
+  await repo.jobs.finish(job.id, "done", { node: nid, child: nid, verb: "media", status });
+};
+
 export const handlers: Partial<Record<Job["type"], Handler>> = {
+  media_ingest: mediaIngest,
   ingest_capture: ingestCapture,
   contextualize,
   embed: embedJob,

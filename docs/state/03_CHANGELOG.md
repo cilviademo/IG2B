@@ -55,6 +55,15 @@ commit(s) · what/why · live-test status).
 
 ## Session log (append below)
 
+### 2026-06-14 · claude (Claude Code) · `claude/wave6-media` — Wave 6 Stage 1: Universal Intake Router + media spine (deterministic-first)
+- **Universal Intake Router** (`intake-router.ts`, mirrored to `apps/pwa/src/lib/intakeRouter.ts`): pure `detectIntake` (text/note/url/article/pdf/image/screenshot/audio/voice/video/youtube/podcast/reel/tiktok/facebook/x/reddit/vimeo from url-host + mime + filename + CaptureType) + `planIntake` → safest pipeline (text/url/captions/transcribe/document/vision/metadata_only) with honest `degradeTo`. "The Shortcut delivers; Indigold decides." `intake-router-verify` 24/24.
+- **SSRF guard** (`url-safety.ts`): `isSafeFetchUrl` blocks loopback/private/link-local/cloud-metadata/non-http/embedded-creds/internal-TLD; **advanced yt-dlp is opt-in + domain-limited** (`isAdvancedMediaAllowed`); `FETCH_LIMITS`. `url-safety-verify` 21/21. (Module note: the server fetch wrapper must add DNS-resolution re-check + byte/timeout caps.)
+- **`media_ingest` job + handler** (new `JobType`): auto-enqueued from `/captures` for media kinds (capture stays instant; media is async). Honest, no-fabrication: produces a `Media` node with status `extraction_pending` (YouTube/audio — real extraction needs the Docker media worker), `metadata_only` (reels/TikTok by default — no scrape), or `secret_kept_local` (privacy gate). When a transcript IS present (media-worker handoff/pasted) it **synthesizes via `governedComplete`** (budget + privacy gated, deterministic floor) → `Media` node + embed for auto-linking + provenance. Finishes on ALL paths → Task Center/AI Activity.
+- **Live-smoke-verified** (ephemeral pg+redis+worker, stub mode): sharing a YouTube link → honest `captions/extraction_pending` Media node; an Instagram reel → `metadata_only` honest node. No fabrication.
+- pwa/api/worker typecheck+build green; full matrix **454/454** (25 suites, +url-safety +intake-router). Capture/upload/Shortcut/Atlas/Task-Center untouched. **Stages 2–7 (Whisper transcription, yt-dlp advanced, vision) are gated on the Docker media worker + the owner's real on-image timing spike** (see `17_WAVE6_MEDIA_SPIKE.md`). STOPPED at the Stage-1 boundary.
+
+
+
 ### 2026-06-14 · claude (Claude Code) · `claude/wave6-media` — Media engine STEP 1 spike (feasibility only)
 - Probed the real binary stack: **FFmpeg 6.1.1** ✅ installs + normalizes audio (espeak→16k mono WAV end-to-end); **yt-dlp 2026.06.09** ✅ installs/runs but **YouTube extraction is blocked from this datacenter IP** (anti-bot — the documented fragility); **faster-whisper + ctranslate2 4.8.0** ✅ install + import.
 - **Could NOT measure transcription timings:** the sandbox **egress allowlist blocks huggingface.co** (model download) and YouTube media — so no real Whisper run was possible. **Did not fabricate timings**; provided clearly-labelled estimates + the exact spike to run on the real Render image.
