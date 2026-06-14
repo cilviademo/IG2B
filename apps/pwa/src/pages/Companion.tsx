@@ -1,8 +1,29 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, Inbox as InboxIcon, Globe2, Clock } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, Inbox as InboxIcon, Globe2, Clock, Link2 } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
+import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, type BackendCapture } from "@/lib/api";
+import { onVaultSynced } from "@/lib/sync";
+
+// "What I found" — the proactive arrival. Radian surfaces what it learned from your
+// recent shares (capture → enriched node), so the front door is "here's what I found,"
+// not a database you go dig through.
+interface Found { id: string; title: string; platform?: string; status: "reading" | "ready"; summary?: string; nodeId?: string; connections: number; at: string }
+type NodeRow = { id: string; summary?: string; source_capture_id?: string; meta?: { web?: { url?: string }; media?: { url?: string } } };
+type EdgeRow = { source_id: string; target_id: string; relationship?: string };
+
+const PLATFORM: { test: RegExp; name: string }[] = [
+  { test: /instagram\.com/i, name: "Instagram" }, { test: /(youtube\.com|youtu\.be)/i, name: "YouTube" },
+  { test: /tiktok\.com/i, name: "TikTok" }, { test: /(twitter\.com|x\.com)/i, name: "X" },
+  { test: /reddit\.com/i, name: "Reddit" }, { test: /vimeo\.com/i, name: "Vimeo" },
+];
+function platformOf(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  const m = PLATFORM.find((p) => p.test.test(url));
+  if (m) return m.name;
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return undefined; }
+}
 
 // Phase B — the Companion is the front door. One place for everything Radian is doing:
 // what's running now, and your recent conversations (the AI work that used to be split
@@ -27,6 +48,37 @@ function relTime(ms: number): string {
 export default function Companion() {
   const { tasks, retry } = useTasks();
   const [, navigate] = useLocation();
+  const [found, setFound] = useState<Found[]>([]);
+
+  // Pull recent shares + their enriched nodes → "what I found".
+  const loadFound = useCallback(async () => {
+    if (!apiEnabled()) return;
+    const [caps, nr, er] = await Promise.all([fetchCaptures(), getLiveNodes(), getLiveEdges()]);
+    if (caps === null) return;
+    const nodes = (nr?.nodes ?? []) as NodeRow[];
+    const edges = (er?.edges ?? []) as EdgeRow[];
+    const nodeByCapture = new Map<string, NodeRow>();
+    for (const n of nodes) if (n.source_capture_id) nodeByCapture.set(n.source_capture_id, n);
+    const realDegree = (nid: string) => edges.filter((e) => e.relationship !== "derived_from" && (e.source_id === nid || e.target_id === nid)).length;
+    const items: Found[] = (caps as BackendCapture[]).slice(0, 8).map((c) => {
+      const node = nodeByCapture.get(c.id);
+      const ready = c.processing_status === "processed" && !!node;
+      return {
+        id: c.id, title: c.title, platform: platformOf(c.url),
+        status: ready ? "ready" : "reading",
+        summary: node?.summary, nodeId: node?.id,
+        connections: node ? realDegree(node.id) : 0,
+        at: c.captured_at,
+      };
+    });
+    setFound(items);
+  }, []);
+
+  useEffect(() => {
+    void loadFound();
+    const off = onVaultSynced(() => void loadFound());
+    return off;
+  }, [loadFound]);
 
   const running = useMemo(() => tasks.filter((t) => isRunning(t.status)).sort((a, b) => b.updatedAt - a.updatedAt), [tasks]);
   const recent = useMemo(() => tasks.filter((t) => !isRunning(t.status)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 30), [tasks]);
@@ -53,6 +105,42 @@ export default function Companion() {
           <Globe2 size={14} strokeWidth={1.5} /> Memory
         </button>
       </div>
+
+      {found.length > 0 && (
+        <section className="mb-6">
+          <div className="cap-data mb-2" style={{ color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em" }}>What I found</div>
+          <div className="space-y-2">
+            {found.map((f) => (
+              <div key={f.id} className="p-3.5" style={{ borderRadius: 12, border: `1px solid ${f.status === "ready" ? "var(--gold-line)" : "var(--line)"}`, background: "var(--surface)" }}>
+                <div className="flex items-center gap-2 mb-1">
+                  {f.status === "reading"
+                    ? <Loader2 size={14} strokeWidth={1.5} className="animate-spin" style={{ color: "var(--gold)", flexShrink: 0 }} />
+                    : <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--gold)", flexShrink: 0 }} />}
+                  <span className="flex-1 min-w-0 truncate" style={{ fontSize: 14.5, color: "var(--text)" }}>{f.title}</span>
+                  {f.platform && <span className="cap-data" style={{ color: "var(--text-dim)" }}>{f.platform}</span>}
+                </div>
+                {f.status === "reading" ? (
+                  <p className="cap-data" style={{ color: "var(--text-dim)" }}>Radian is reading this…</p>
+                ) : (
+                  <>
+                    {f.summary && <p className="line-clamp-3" style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--text-dim)" }}>{f.summary}</p>}
+                    <div className="flex items-center gap-3 mt-2">
+                      {f.connections > 0 && (
+                        <span className="cap-data inline-flex items-center gap-1" style={{ color: "var(--text-dim)" }}>
+                          <Link2 size={11} strokeWidth={1.5} /> {f.connections} connection{f.connections > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      <Link href={f.nodeId ? `/atlas?focus=${encodeURIComponent(f.nodeId)}` : "/inbox"} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs ml-auto" style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
+                        See what I found <ArrowRight size={12} strokeWidth={1.5} />
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {running.length > 0 && (
         <section className="mb-6">

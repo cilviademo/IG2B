@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: companion-phase-b · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: companion-arrival · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -452,3 +452,7 @@ commit(s) · what/why · live-test status).
 - **Atlas playful (owner ask):** tactile **haptic** "pop" on star tap (event-driven; the battery-smart rAF loop untouched). Deeper canvas motion deferred to a device-verified pass.
 - **Companion inversion Phase B (#5/#6):** new **Companion home** (`/companion`) is the **primary tab "Radian"** — "Running now" + "Recent conversations" (open-result → source-node thread, retry on fail) in one place (merges AI Activity/queue/Atlas-dots). **Atlas demoted to background**: removed from the tab bar (Home · Inbox · Radian · Timeline · More), still reachable via Radian's "Memory" button + the More hub; its badges roll into More. See `19_COMPANION_INVERSION.md`.
 - **Verified (sandbox):** typecheck:all + worker + pwa builds green; matrix 459/459; headless `/companion` (greeting + entries + recent), `/more` (Atlas entry), `/inbox` confirmed. Live AI conversations/thread need device. **Still to do:** proactive "I found something" arrival (#1), media lifecycle indicator, retire standalone `/activity`.
+
+### 2026-06-14 · claude (Claude Code) · `main` — Companion Phase B #1: proactive "What I found" arrival
+- The Companion (Radian) home now leads with a **"What I found"** feed — Radian surfaces what it learned from your recent **shares** (not just AI jobs you triggered): "Radian is reading this…" while a capture ingests, then the synthesis summary + real connection count + **"See what I found"** → the node's conversation thread. Built from recent captures + their derived nodes/edges (`source_capture_id` join; `derived_from` excluded from the connection count); refreshes on `vault-synced`. No capture-flow changes.
+- **Verified (sandbox):** typecheck:all + pwa build green; matrix 459/459; headless `/companion` renders (feed needs live data → owner device). Still to do: inline suggested questions/actions, media lifecycle indicator, retire standalone `/activity`.

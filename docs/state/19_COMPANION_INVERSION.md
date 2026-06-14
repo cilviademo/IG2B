@@ -1,6 +1,6 @@
 # Companion Inversion — from graph-app to AI companion
 
-`Last updated: 2026-06-14 · Commit: companion-phase-b · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: companion-arrival · By: claude (Claude Code)`
 
 > Owner directive: Indigold still behaves like "a graph database with AI attached." Invert it:
 > **You → Radian (companion) → conversation memory → Situation Room → Atlas (hidden memory) →
@@ -41,8 +41,11 @@ new Atlas dot).
   source" (from `meta.web.url` / `meta.media.url`).
 - **Atlas playful (owner ask, partial):** tactile haptic on star-tap (battery-smart loop
   untouched). Deeper canvas motion = a device-verified follow-up.
-- **Still to do:** **#1** proactive arrival on share ("Marc, I found something…" → summary →
-  connections → questions → actions); the dedicated **Media lifecycle indicator**
+- **#1 (DONE): proactive arrival.** The Companion home leads with a **"What I found"** feed —
+  recent shares + their enrichment: "Radian is reading this…" while ingesting, then the
+  synthesis summary + connection count + "See what I found" → the node thread. Driven by
+  recent captures + their derived nodes (no capture-flow changes).
+- **Still to do:** richer arrival (suggested questions/actions inline); the dedicated **Media lifecycle indicator**
   (Transcribing → Synthesizing → Done) once the media worker is live (today folded into
   "Radian analyzing…"); optionally retire the standalone `/activity` route now that the
   Companion home covers it.
