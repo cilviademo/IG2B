@@ -10,6 +10,7 @@
 import {
   apiEnabled, apiBaseUrl, getToken, clearToken, ensureSession, lastSessionError,
   fetchCaptures, getLiveNodes, getLiveEdges, syncCaptureToApi,
+  claimAccount, loginAccount, logoutAccount, type AccountResult,
 } from "./api";
 import { listCaptures, markSynced } from "./captureStore";
 import { BUILD_COMMIT, BUILD_TIME } from "./buildInfo";
@@ -17,6 +18,7 @@ import { BUILD_COMMIT, BUILD_TIME } from "./buildInfo";
 const DEVICE_KEY = "indigold_device"; // must match api.ts
 const LAST_SYNC_KEY = "indigold_last_sync";
 const PAIRED_KEY = "indigold_paired_at"; // set when a pairing code is adopted
+const CLAIMED_KEY = "indigold_account_email"; // set when a real login/claim succeeds
 export const VAULT_SYNCED_EVENT = "indigold:vault-synced";
 
 export interface DeviceCreds { email: string; password: string }
@@ -95,6 +97,43 @@ export function unlinkDevice(): void {
   localStorage.removeItem(PAIRED_KEY);
   localStorage.removeItem(LAST_SYNC_KEY);
   clearToken();
+}
+
+// ---- Account (the durable, recoverable identity) ----------------------------
+// A real email+password — the fix for iOS wiping the anonymous device account on
+// reinstall/eviction. Claim upgrades the CURRENT vault (keeps its data); login
+// restores it on any surface. Stored so the silent session re-auths to it.
+export const accountEmail = (): string | null => localStorage.getItem(CLAIMED_KEY);
+export const isClaimed = (): boolean => !!accountEmail();
+
+/** Secure the current vault with a real email+password (data preserved). */
+export async function claim(email: string, password: string): Promise<AccountResult> {
+  const r = await claimAccount(email, password);
+  if (r.ok) {
+    localStorage.setItem(CLAIMED_KEY, email);
+    localStorage.removeItem(PAIRED_KEY); // it's now an owned account, not a paired one
+    await forceSync();
+  }
+  return r;
+}
+
+/** Log in to an existing vault (after a reinstall, or on a second surface). */
+export async function login(email: string, password: string): Promise<AccountResult> {
+  const r = await loginAccount(email, password);
+  if (r.ok) {
+    localStorage.setItem(CLAIMED_KEY, email);
+    localStorage.removeItem(PAIRED_KEY);
+    await forceSync();
+  }
+  return r;
+}
+
+/** Sign out — next launch mints a fresh anonymous account until you log back in. */
+export function logout(): void {
+  logoutAccount();
+  localStorage.removeItem(CLAIMED_KEY);
+  localStorage.removeItem(PAIRED_KEY);
+  localStorage.removeItem(LAST_SYNC_KEY);
 }
 
 // ---- Force sync -------------------------------------------------------------

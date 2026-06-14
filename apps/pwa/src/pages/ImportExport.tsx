@@ -2,20 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Download, Upload, Info, KeyRound, Copy, Eye, EyeOff, Activity, Cpu, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError, syncCaptureToApi, lastSyncError, fetchLlmStatus, type LlmStatus } from "@/lib/api";
+import { apiEnabled, apiBaseUrl, getToken, ensureSession, lastSessionError, syncCaptureToApi, lastSyncError, fetchLlmStatus, fetchCaptures, getLiveNodes, getLiveEdges, type LlmStatus } from "@/lib/api";
+import { listCaptures } from "@/lib/captureStore";
 import { Button, SectionRule, Dot } from "@/components/primitives";
 import AiUsagePanel from "@/components/AiUsagePanel";
+import AccountPanel from "@/components/AccountPanel";
 import VaultSyncPanel from "@/components/VaultSyncPanel";
-
-const DATA_FILES = [
-  "sample_nodes",
-  "sample_edges",
-  "sample_timeline",
-  "sample_inbox",
-  "sample_dashboard",
-  "sample_context_pack",
-  "sample_weekly_brief",
-] as const;
 
 export default function ImportExport() {
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -92,32 +84,39 @@ export default function ImportExport() {
     }
   }
 
+  // Real backup of YOUR vault — captures + nodes + edges from the server (plus the
+  // local capture cache), NOT the demo fixtures. A restore point you can trust.
   async function handleExport() {
     setBusy(true);
     try {
-      const entries = await Promise.all(
-        DATA_FILES.map(async (name) => {
-          const res = await fetch(`/data/${name}.json`);
-          return [name, await res.json()] as const;
-        }),
-      );
+      let serverCaptures: unknown[] = [];
+      let nodes: unknown[] = [];
+      let edges: unknown[] = [];
+      if (apiEnabled()) {
+        const [caps, nr, er] = await Promise.all([fetchCaptures(), getLiveNodes(), getLiveEdges()]);
+        serverCaptures = caps ?? [];
+        nodes = (nr?.nodes as unknown[]) ?? [];
+        edges = (er?.edges as unknown[]) ?? [];
+      }
+      const localCaptures = listCaptures();
       const bundle = {
         app: "Indigold",
         version: "0.1.0",
-        synthetic: true,
+        synthetic: false,
         exported_at: new Date().toISOString(),
-        data: Object.fromEntries(entries),
+        source: apiEnabled() ? apiBaseUrl() : "local-only",
+        vault: { captures: serverCaptures, nodes, edges, local_captures: localCaptures },
       };
       const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "indigold_export.json";
+      a.download = `indigold_vault_${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast.success("Exported", { description: "7 fixtures bundled into indigold_export.json" });
+      toast.success("Vault exported", { description: `${serverCaptures.length} captures · ${nodes.length} nodes · ${edges.length} edges` });
     } catch (e) {
       toast.error("Export failed", { description: e instanceof Error ? e.message : "unknown" });
     } finally {
@@ -155,8 +154,11 @@ export default function ImportExport() {
       <h1 className="text-xl font-display mb-1">Settings</h1>
       <p className="cap-data mb-5" style={{ color: "var(--text-dim)" }}>vault sync · connections · import/export · API · advanced</p>
 
-      {/* One vault reality — environment parity, Force Sync, device pairing. First
-          because cross-surface divergence (Safari vs installed PWA) is the priority. */}
+      {/* Durable identity first — a real login is the recoverable fix for the
+          installed-PWA / Safari storage-wipe divergence. */}
+      <AccountPanel />
+
+      {/* One vault reality — environment parity, Force Sync, device pairing. */}
       <VaultSyncPanel />
 
       {/* Connections — honest: connectors are designed (seam) but not yet wired. */}

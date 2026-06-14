@@ -29,6 +29,12 @@ export const users = {
     const r = await query<User>(`SELECT id, email, created_at FROM users WHERE id=$1`, [id]);
     return r.rows[0] || null;
   },
+  // Upgrade an (anonymous device) account in place: set a real email + password so
+  // the SAME user id — and therefore all its data — becomes recoverable by login.
+  async claim(userId: string, email: string, password_hash: string) {
+    await query(`UPDATE users SET email=$2, password_hash=$3 WHERE id=$1`, [userId, email, password_hash]);
+    return this.byId(userId);
+  },
 };
 
 // ---- captures ----

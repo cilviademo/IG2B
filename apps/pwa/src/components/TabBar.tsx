@@ -21,7 +21,7 @@ const tabs = [
 ] as const;
 
 // Routes that now live under More — their badges roll up into the More tab.
-const MORE_ROUTES = ["/quests", "/insights", "/context", "/brief", "/time-machine", "/settings", "/io", "/diagnostics"];
+const MORE_ROUTES = ["/library", "/quests", "/insights", "/context", "/brief", "/time-machine", "/settings", "/io", "/diagnostics"];
 
 export default function TabBar() {
   const [location] = useLocation();

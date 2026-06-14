@@ -109,6 +109,61 @@ export async function ensureSession(): Promise<boolean> {
   return false;
 }
 
+export interface AccountResult { ok: boolean; email?: string; error?: string }
+
+/** Claim the CURRENT vault: set a real email+password on this account so its data
+ *  is preserved AND it's recoverable by login on any surface / after a reinstall.
+ *  Persists the creds locally so the silent session re-auths to the same account. */
+export async function claimAccount(email: string, password: string): Promise<AccountResult> {
+  if (!apiEnabled()) return { ok: false, error: "API not configured (VITE_API_URL unset)." };
+  if (!getToken() && !(await ensureSession())) return { ok: false, error: lastSessionError() || "no session" };
+  try {
+    const res = await fetch(`${BASE}/auth/claim`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ email, password }),
+    });
+    if (res.status === 409) return { ok: false, error: "That email is already in use." };
+    if (res.status === 400) return { ok: false, error: "Use a valid email + a password of at least 8 characters." };
+    if (!res.ok) return { ok: false, error: `claim failed (HTTP ${res.status})` };
+    const j = (await res.json()) as { token?: string };
+    if (j.token) setToken(j.token);
+    localStorage.setItem(DEVICE_KEY, JSON.stringify({ email, password }));
+    return { ok: true, email };
+  } catch (e) {
+    return { ok: false, error: `network/CORS: ${e instanceof Error ? e.message : "fetch failed"}` };
+  }
+}
+
+/** Log in to an existing vault (e.g. after a reinstall, or on a second surface).
+ *  Switches this surface to that account and persists the creds for re-auth. */
+export async function loginAccount(email: string, password: string): Promise<AccountResult> {
+  if (!apiEnabled()) return { ok: false, error: "API not configured (VITE_API_URL unset)." };
+  try {
+    const res = await fetch(`${BASE}/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (res.status === 401) return { ok: false, error: "Wrong email or password." };
+    if (!res.ok) return { ok: false, error: `login failed (HTTP ${res.status})` };
+    const j = (await res.json()) as { token?: string };
+    if (!j.token) return { ok: false, error: "login response had no token" };
+    setToken(j.token);
+    localStorage.setItem(DEVICE_KEY, JSON.stringify({ email, password }));
+    return { ok: true, email };
+  } catch (e) {
+    return { ok: false, error: `network/CORS: ${e instanceof Error ? e.message : "fetch failed"}` };
+  }
+}
+
+/** Sign out: drop the token + stored creds. Next launch mints a fresh anonymous
+ *  account (until the owner logs back in). */
+export function logoutAccount(): void {
+  clearToken();
+  localStorage.removeItem(DEVICE_KEY);
+}
+
 interface SyncableCapture {
   type: string;
   source: string;

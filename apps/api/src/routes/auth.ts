@@ -30,6 +30,26 @@ r.post("/login", validate(contracts.authBody), async (req, res) => {
   res.json({ token: tok, user: { id: user.id, email } });
 });
 
+// Claim: turn the current (anonymous device) account into a recoverable one by
+// setting a real email + password ON THE SAME user id — so all existing data is
+// preserved and the vault can be reached later by login (the durable fix for the
+// installed-PWA / Safari storage-wipe divergence).
+r.post("/claim", requireAuth, validate(contracts.authBody), async (req: Authed, res) => {
+  const { email, password } = req.body as { email: string; password: string };
+  const existing = await users.byEmail(email);
+  if (existing && existing.id !== req.userId) return res.status(409).json({ error: "email_in_use" });
+  try {
+    const user = await users.claim(req.userId!, email, await hashPassword(password));
+    if (!user) return res.status(500).json({ error: "claim_failed" });
+  } catch {
+    return res.status(409).json({ error: "email_in_use" });
+  }
+  const tok = token();
+  await setSession(tok, { userId: req.userId!, email });
+  await audit.log({ user_id: req.userId!, actor: "api", action: "claim" });
+  res.json({ token: tok, user: { id: req.userId, email } });
+});
+
 r.post("/logout", requireAuth, async (req, res) => {
   const header = req.header("authorization") || "";
   await delSession(header.slice(7));

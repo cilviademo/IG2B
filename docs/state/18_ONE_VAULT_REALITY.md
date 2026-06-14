@@ -1,6 +1,6 @@
 # One Vault Reality — Safari ↔ installed-PWA convergence
 
-`Last updated: 2026-06-14 · Commit: one-vault-autosync · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: durable-account · By: claude (Claude Code)`
 
 > Device-QA found the installed home-screen PWA and the Safari URL showing
 > **different** vault state (Safari had the new Apple-Note node + Atlas edge; the
@@ -23,7 +23,40 @@ or Force-Sync converges them — the data is partitioned by account.
 (The SW-caching and sync-on-launch gaps the owner suspected were also real and are
 fixed below, but they are *not* why the two surfaces diverged.)
 
-## The fix — pairing code (owner-chosen)
+## Durable fix — real login (after pairing proved fragile)
+
+Device-QA round 2 showed pairing **didn't persist**: a PWA reinstall (and iOS
+storage eviction) wiped the anonymous device account, so the surface minted a fresh
+empty one and the earlier note looked "lost" (it's orphaned on the server under the
+discarded account, not deleted). A code you copy between devices can't survive a
+storage wipe — so the owner chose a **real, recoverable login**.
+
+- **Backend:** `POST /auth/claim` (authed) + `users.claim(userId,email,password_hash)`
+  — sets a real email+password ON THE SAME user id, so the current vault's data is
+  preserved and becomes recoverable. `POST /auth/login` already existed.
+- **Frontend:** Settings → **Account** (`AccountPanel`): *Secure this vault* (claim,
+  keeps current data) and *Log in* (restore on any surface / after reinstall). Real
+  `<form>` with `autocomplete="username"` / `new-password` / `current-password`, so
+  **iCloud Keychain** offers to save it and autofills/syncs it across Safari + the
+  installed PWA — the two surfaces converge with no codes. Creds are persisted so the
+  silent session re-auths to the same account; `logout` clears them.
+- **Recovery:** after any wipe/reinstall, just log in with the email+password →
+  same vault, every time. Pairing code stays as an optional shortcut.
+
+## Real export (data-safety fix)
+
+The Settings **Export** button used to dump only the demo fixtures (so the earlier
+"backup" wasn't real). It now exports the **actual vault** — server captures + nodes
++ edges + the local capture cache — as `indigold_vault_<date>.json`.
+
+## Library / Repository (`/library`)
+
+A storage view of the vault — uploaded **Files**, **Completed** (processed) and
+**Archived** captures — bucketed with counts, reading the same server vault as Atlas
+(so they always agree). Open files via signed URL; restore archived items. Lives in
+the **More** hub.
+
+## The fix — pairing code (owner-chosen, now secondary)
 
 Settings → **Vault sync & devices**:
 - Shows this surface's **mode** (installed PWA vs browser tab) and **device account

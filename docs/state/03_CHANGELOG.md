@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: one-vault-autosync · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: durable-account · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -85,6 +85,15 @@ commit(s) · what/why · live-test status).
 - **Automatic sync (no taps):** `startAutoSync()` (mounted in `App.tsx`) refreshes on launch, on foreground, and at **designated UTC times** `SYNC_SLOTS_UTC = [0,6,12,18]`. iOS can't run a closed PWA, so an elapsed slot **catches up on next open** (compares `lastSync` to the most recent slot); Android/desktop also get best-effort native **Periodic Background Sync**. The panel shows the schedule + next time.
 - **`forceSync` is now two-way:** pushes unsynced local captures UP first (offline-capture intake even if Inbox is never opened), then pulls the vault DOWN — so a manual/auto sync already has everything.
 - **Verified:** matrix 454/454; pwa/api/worker typecheck + builds green ×3; headless `/io` shows "auto-sync · 00/06/12/18 UTC + on open · next ~…" + SW `v0.24.0`. No regressions. **Pending owner on-device confirm** that the linked PWA stays linked across relaunches and refreshes itself. No PR.
+
+### 2026-06-14 · claude (Claude Code) · `claude/durable-account` → main — Durable identity (real login) + real export + Library
+- **Device-QA round 2:** pairing **didn't persist** (a PWA reinstall / iOS storage eviction wiped the anonymous device account → fresh empty account → the earlier note looked "lost," actually orphaned on the server under the discarded account, not deleted) and an Instagram URL produced only a thin node (expected — media transcription is Phase 3). Owner chose a **real recoverable login** as the durable fix.
+- **Backend:** `POST /auth/claim` (authed) + `users.claim(userId,email,password_hash)` — sets a real email+password on the SAME user id so the current vault's data is preserved and recoverable. `/auth/login` already existed.
+- **Frontend:** Settings → **Account** (`AccountPanel`): *Secure this vault* (claim) / *Log in* (restore on any surface / after reinstall) / *Sign out*. Real `<form>` with `autocomplete=username/new-password/current-password` so **iCloud Keychain** saves + autofills + syncs the credential across Safari ↔ installed PWA (converge with no codes). `claim`/`login`/`logout` in `lib/sync.ts` persist creds + re-sync; `api.ts` adds `claimAccount`/`loginAccount`/`logoutAccount`.
+- **Data-safety fix:** Settings **Export** now dumps the **real vault** (server captures + nodes + edges + local cache) as `indigold_vault_<date>.json` — previously it exported only demo fixtures, so prior "backups" were worthless.
+- **Library / Repository (`/library`, in More):** storage view of the vault — uploaded **Files**, **Completed** (processed), **Archived** captures with counts; opens files via signed URL, restores archived items; reads the same server vault as Atlas. Badge rolls into the More tab.
+- **Instagram (point 4):** confirmed *expected* — no fetcher/transcriber is wired yet; reel/audio/video enrichment is Wave-6 Stage 2-7 = **Phase 3 (media Docker spike)**, still gated.
+- **Verified:** matrix 454/454; pwa/api/worker typecheck + builds green ×3; headless renders of `/io` (Account hides without API), `/library` (chips + empty state), `/more` (Library entry). No regressions. **Pending owner on-device:** Secure this vault (set email+password), confirm it survives a quit-reopen / reinstall via Log in, and that Library shows stored items. No PR.
 
 
 ### 2026-06-14 · claude (Claude Code) · carry-forward — ALL remaining work consolidated onto main
