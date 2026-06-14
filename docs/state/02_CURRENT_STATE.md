@@ -1,10 +1,12 @@
-> **MAIN = COMPLETE UNION (latest):** carried `vault-reset` (reset script + first-share doc) + `design-polish` unique bits (celebration, EmptyState, --elev-card, 12_DESIGN) onto `main`. Deferred-only (preserved on `architecture-rnd`): Task Center notification fix + BoardroomView. 454/454.
+> **PHASE 1 COMPLETE (latest):** notification spine shipped to `main` (persistent Task Center survivor; SW API-bypass hardened to full namespace, cache `v0.23.0`) and **device-confirmed working** by owner. Follow-up: **TopBar safe-area cutoff fixed** (`height: calc(48px + env(safe-area-inset-top))`) so the top of the PWA no longer hides under the Dynamic Island. 454/454. **Next: Phase 2 — vault reset + first authentic share-test prep.**
+
+> **(prior) MAIN = COMPLETE UNION:** carried `vault-reset` (reset script + first-share doc) + `design-polish` unique bits (celebration, EmptyState, --elev-card, 12_DESIGN) onto `main`. Deferred-only (preserved on `architecture-rnd`): Task Center notification fix + BoardroomView. 454/454.
 
 > **(prior) CONSOLIDATED:** `main` fast-forwarded to the full line (hardening P0–7 + live Claude + AURORA + AI Activity + ItemActions + Atlas canvas + Wave-6 Stage-1 media intake/SSRF). 35 merged branches pruned locally; dead `apps/scheduler` removed. Deferred for their own passes (preserved on `architecture-rnd`): the **Task Center notification fix** (known device bug — untouched) and **BoardroomView** (AURORA A5). Rollback: `git reset --hard f711706`. 454/454 green.
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: phase1-notify · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase1-topbar-fit · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

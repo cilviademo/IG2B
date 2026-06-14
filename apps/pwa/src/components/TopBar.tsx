@@ -32,7 +32,9 @@ export default function TopBar() {
     <div
       className="sticky top-0 z-40 flex items-center gap-1 px-2 safe-top"
       style={{
-        height: 48,
+        // Bar = 48px of content BELOW the notch/Dynamic-Island inset (not crushed into it).
+        // safe-top adds padding-top: env(safe-area-inset-top); height grows to match.
+        height: "calc(48px + env(safe-area-inset-top))",
         background: "color-mix(in srgb, var(--bg) 82%, transparent)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",

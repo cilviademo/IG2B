@@ -1,6 +1,6 @@
 # Debugging Log (institutional scar tissue)
 
-`Last updated: 2026-06-12 · Commit: 603527b · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase1-topbar-fit · By: claude (Claude Code)`
 
 Every significant bug: **symptom → root cause → fix → LESSON.** Append-only.
 
@@ -84,3 +84,9 @@ Every significant bug: **symptom → root cause → fix → LESSON.** Append-onl
 - **Fix:** CaptureDetail now reads its own AI task from the Task Center and shows a persistent lifecycle block (working… → done/fallback/failed) with Open-result + Retry, independent of the panel. Toast auto-tucks into the bell after 8s (badge persists). (`assist` job already fixed to return `{child}` so "Open result" links to the Playbook.)
 - **Verified:** headless — seeded a completed + a failed task; `/inbox` shows the toast (off-tab task), the bell badge (2), and tab badges on Atlas + Quests (`scripts/shots/notify-toast.png`). 409/409 verify; all builds green. Pending owner device confirmation.
 - **Note:** if the device still shows nothing, suspect a stale Service Worker serving the pre-fix bundle — quit-reopen ×2 to update.
+
+### 2026-06-14 — TopBar cut off under the Dynamic Island (safe-area subtraction)
+- **Symptom (device):** the top of the PWA was cut off on iPhone — the back/forward arrows, title and notification bell were crushed/hidden under the status bar / Dynamic Island.
+- **Root cause:** `TopBar` set a fixed `height: 48` while also carrying the `safe-top` class (`padding-top: env(safe-area-inset-top)`). Under the global `* { box-sizing: border-box }`, the notch inset was taken *out of* the 48px content box (padding eats into a fixed height) instead of being added above it, leaving only ~`48 − inset` px of usable bar.
+- **Fix:** `apps/pwa/src/components/TopBar.tsx` → `height: calc(48px + env(safe-area-inset-top))`, so the bar is a full 48px of content **below** the inset. This is the same pattern `Atlas.tsx` already uses for its top overlay.
+- **LESSON:** with `box-sizing: border-box`, a fixed-height element that also has `padding-top: env(safe-area-inset-top)` will *eat* its content; always fold the safe-area inset into the height (`calc(Hpx + env(...))`), never leave it as bare padding on a fixed-height box. Headless browsers report `env(safe-area-inset-*) = 0`, so this class of bug is invisible in screenshots — only the device shows it.

@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-13 · Commit: phase-0-hygiene · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: phase1-topbar-fit · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -59,6 +59,12 @@ commit(s) · what/why · live-test status).
 - Confirmed the **persistent Task Center is the survivor** on `main` (old version preserved on `architecture-rnd`); every worker handler reaches `repo.jobs.finish` on done/failed/skipped (no hung jobs); global toast fires on **any** route; CaptureDetail reflects the AI lifecycle inline.
 - **Fix:** `public/sw.js` API-bypass path list was missing `/radian`,`/llm`,`/events`,`/projects` → a same-origin job-poll could be cached and freeze the spine. Hardened the regex to the full API namespace + bumped SW cache `v0.22.0→v0.23.0` (forces device refresh; quit-reopen ×2). API still never cached.
 - **Verified:** pwa/api/worker typecheck+build green; matrix 454/454; live headless — `GET /radian/job/:id` returns `done` + `{child}` (the toast trigger); toast + bell badge render on an off-origin route. **Pushed to main; STOP for owner device confirmation before Phase 2.**
+- **Device-confirmed working** by owner. Follow-up fix below.
+
+### 2026-06-14 · claude (Claude Code) · `claude/phase1-topbar-fit` → main — Phase 1 polish: TopBar safe-area cutoff
+- **Bug (device):** top of the PWA was cut off on iPhone — the back/forward/title/bell controls were crushed under the status bar / Dynamic Island. **Root cause:** `TopBar` had a fixed `height: 48` while also carrying `safe-top` (`padding-top: env(safe-area-inset-top)`) under the global `* { box-sizing: border-box }` → the notch inset was subtracted *from* the 48px content box instead of added above it, leaving only ~48−inset px of usable bar.
+- **Fix:** `apps/pwa/src/components/TopBar.tsx` height → `calc(48px + env(safe-area-inset-top))`, so the bar is a full 48px of content **below** the inset. Matches the pattern already used in `Atlas.tsx` (`top: calc(48px + env(safe-area-inset-top))`). No double-padding in the shell (`<main>` is the single scroll container; `TabBar` keeps its independent `safe-bottom`). One-line CSS change; no engine/endpoint/job/SW touched (no cache bump needed).
+- **Verified:** matrix 454/454; pwa/api/worker typecheck + build green ×3. Headless can't simulate a non-zero `env(safe-area-inset-top)` (it resolves to 0, so the bar is identical to before there) — the fix is the standard safe-area pattern and resolves the device cutoff. **Pending owner on-device confirm.**
 
 
 ### 2026-06-14 · claude (Claude Code) · carry-forward — ALL remaining work consolidated onto main
