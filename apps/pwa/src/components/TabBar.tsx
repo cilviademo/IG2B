@@ -1,9 +1,9 @@
 import { useLocation, Link } from "wouter";
 import {
-  LayoutDashboard,
   Inbox,
   Sparkles,
   Clock,
+  FolderOpen,
   Menu,
 } from "lucide-react";
 import { useTasks } from "@/contexts/TaskCenter";
@@ -13,16 +13,16 @@ import { haptic } from "@/lib/haptics";
 // under More so the bar breathes (was eight; tap targets were cramped on small phones).
 // "More" badge aggregates unseen tasks whose home is one of the relocated routes.
 const tabs = [
-  { path: "/", icon: LayoutDashboard, label: "Home" },
+  { path: "/", icon: Sparkles, label: "Radian" },
   { path: "/inbox", icon: Inbox, label: "Inbox" },
-  { path: "/companion", icon: Sparkles, label: "Radian" },
   { path: "/timeline", icon: Clock, label: "Timeline" },
+  { path: "/library", icon: FolderOpen, label: "Library" },
   { path: "/more", icon: Menu, label: "More" },
 ] as const;
 
 // Routes that now live under More — their badges roll up into the More tab.
-// Atlas is now background memory (reachable from Radian + More), not a primary tab.
-const MORE_ROUTES = ["/atlas", "/library", "/quests", "/insights", "/context", "/brief", "/time-machine", "/settings", "/io", "/diagnostics"];
+// Atlas is background memory; Mission Control (/home) is the old dashboard, kept reachable.
+const MORE_ROUTES = ["/atlas", "/home", "/quests", "/insights", "/context", "/brief", "/time-machine", "/settings", "/io", "/diagnostics"];
 
 export default function TabBar() {
   const [location] = useLocation();
