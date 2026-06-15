@@ -44,3 +44,25 @@ export function normalizeImportCapture(c: Record<string, unknown>, userId: strin
     screenshot_ref: typeof c.screenshot_ref === "string" ? c.screenshot_ref : null,
   };
 }
+
+const TIMELINE_TYPES = new Set(["connection", "discovery", "insight", "project", "architecture", "milestone"]);
+const TIMELINE_SIG = new Set(["critical", "high", "medium"]);
+export interface NormalizedTimeline {
+  id: string; user_id: string; date: string; type: string; significance: string;
+  title: string; description: string; node_id: string | null;
+}
+/** Timeline event restore. `resolveNodeId` remaps the referenced node to its new id
+ *  (nodes are re-keyed on import); returns null if it no longer resolves. */
+export function normalizeImportTimeline(t: Record<string, unknown>, userId: string, resolveNodeId: (old: string) => string | null): NormalizedTimeline {
+  const rawNode = t.node_id != null ? String(t.node_id) : "";
+  return {
+    id: String(t.id ?? ""),
+    user_id: userId,
+    date: typeof t.date === "string" ? t.date : new Date().toISOString().slice(0, 10),
+    type: typeof t.type === "string" && TIMELINE_TYPES.has(t.type) ? t.type : "milestone",
+    significance: typeof t.significance === "string" && TIMELINE_SIG.has(t.significance) ? t.significance : "medium",
+    title: String(t.title ?? "Untitled"),
+    description: String(t.description ?? ""),
+    node_id: rawNode ? resolveNodeId(rawNode) : null,
+  };
+}

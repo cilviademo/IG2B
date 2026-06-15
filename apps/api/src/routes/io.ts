@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as repo from "@indigold/db";
-import { contracts, id, normalizeImportNode, normalizeImportCapture } from "@indigold/shared";
+import { contracts, id, normalizeImportNode, normalizeImportCapture, normalizeImportTimeline } from "@indigold/shared";
 import { validate } from "../lib/validate";
 import type { Authed } from "../middleware/auth";
 
@@ -31,7 +31,7 @@ ioRouter.post("/import", validate(contracts.importBody), async (req: Authed, res
     captures?: Record<string, unknown>[];
     timeline?: Record<string, unknown>[];
   };
-  const counts = { nodes: 0, edges: 0, captures: 0 };
+  const counts = { nodes: 0, edges: 0, captures: 0, timeline: 0 };
   const idMap = new Map<string, string>();
 
   // Captures first (Truth Layer A — the raw vault). Preserve the original id so a
@@ -67,6 +67,14 @@ ioRouter.post("/import", validate(contracts.importBody), async (req: Authed, res
       counts.edges++;
     } catch {
       /* skip edges that reference unknown nodes */
+    }
+  }
+  for (const t of body.timeline ?? []) {
+    try {
+      await repo.timeline.create(normalizeImportTimeline(t, uid, (old) => idMap.get(old) ?? null) as never);
+      counts.timeline++;
+    } catch {
+      /* skip malformed/duplicate timeline rows */
     }
   }
   await repo.audit.log({ user_id: uid, actor: "api", action: "import", meta: counts });

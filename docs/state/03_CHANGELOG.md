@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: durable-sessions · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: backlog-sweep · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -521,3 +521,8 @@ commit(s) · what/why · live-test status).
 - **Durable sessions:** new `sessions` table (schema.sql + regenerated schema.ts) + `repo.sessions` (put/get/del). New `apps/api/src/lib/session.ts` wrappers — **Redis-first cache, Postgres backstop**: `putSession` writes both; `readSession` reads Redis then falls back to Postgres and re-warms; `dropSession` clears both. Auth routes (register/login/claim/logout) + `requireAuth` middleware now use these. Fixes **BUG-003** (free-tier Redis LRU evicting sessions → silent logouts / sync failures) and is **step 1 of the secure token-only auth re-do** (durable tokens make password-free auth safe).
 - **No PWA change** (login flow untouched → no regression). The PWA token-only flip (drop the stored password) is step 2, after device-confirming session durability. `reset-vault` preserves `sessions` (stay logged in after a reset); comment corrected.
 - **Shipped as a PR so CI runs** (the new gate) before merge — auth is a critical path. **Verified (sandbox):** typecheck:all + build:all green; matrix 479/479; schema.sql↔schema.ts in sync.
+
+### 2026-06-15 · claude (Claude Code) · `main` — Backlog sweep: complete vault restore (timeline) + CI merged green
+- **PR #12 (durable sessions) merged green** — the new CI gate caught a real reproducibility bug first (root-only `npm ci` missed apps/api's `@aws-sdk/*`/`busboy`); fixed CI to install per-package deps; `verify` + `changelog-touched` green → squash-merged (`d4a9c60`).
+- **Vault restore completed:** `/io/import` now also restores **timeline** events (`normalizeImportTimeline` — enum-validated defaults, id preserved, `node_id` remapped to the re-keyed node or dropped). Restore now covers captures + nodes + edges + timeline. `import-verify` 15 checks → matrix **484/484**.
+- **Checked but intentionally NOT changed:** retiring `/activity` — it's load-bearing (Task Center "open result" navigates to `/activity?task=`), so it stays.
