@@ -7,7 +7,28 @@ import { PERSONAS, boardroom } from "../src/boardroom";
 let pass = 0, fail = 0;
 const ok = (n: string, c: boolean, d = "") => { c ? (pass++, console.log(`PASS  ${n}`)) : (fail++, console.log(`FAIL  ${n}${d ? " — " + d : ""}`)); };
 
-ok("six personas", PERSONAS.length === 6 && PERSONAS.map((p) => p.key).join() === "strategist,skeptic,operator,creative,historian,teacher");
+ok("classic six personas (default council)", PERSONAS.filter((p) => !p.extended).map((p) => p.key).join() === "strategist,skeptic,operator,creative,historian,teacher");
+ok("five extended personas (opt-in)", PERSONAS.filter((p) => p.extended).map((p) => p.key).join() === "security_auditor,reality_checker,synthesizer,architect,pm");
+ok("no duplicate persona keys", new Set(PERSONAS.map((p) => p.key)).size === PERSONAS.length);
+
+// Extended council is opt-in + deterministic (works with no key).
+{
+  const def = boardroom({ title: "Thing", type: "concept" }, { degree: 2 });
+  ok("default council stays 6 lines", def.lines.length === 6);
+  const ext = boardroom({ title: "Thing", type: "concept" }, { degree: 2 }, { extended: true });
+  ok("extended council = 11 lines", ext.lines.length === 11);
+  ok("extended adds the new lenses", ["security_auditor", "reality_checker", "synthesizer", "architect", "pm"].every((k) => ext.lines.some((l) => l.persona === k)));
+  ok("every extended line is non-empty", ext.lines.every((l) => l.line.length > 10));
+  // Security auditor reacts to sensitive content deterministically.
+  const sens = boardroom({ title: "Bank password vault", tags: ["financial"], type: "note" }, {}, { extended: true });
+  ok("security auditor flags sensitive subject", /vault-only|never send/i.test(sens.lines.find((l) => l.persona === "security_auditor")!.line));
+  const plain = boardroom({ title: "Sourdough recipe", type: "note" }, {}, { extended: true });
+  ok("security auditor calm on non-sensitive", /no obvious exposure/i.test(plain.lines.find((l) => l.persona === "security_auditor")!.line));
+  // Determinism: same input → same lines.
+  const a = boardroom({ title: "X", type: "concept" }, { degree: 3 }, { extended: true });
+  const b2 = boardroom({ title: "X", type: "concept" }, { degree: 3 }, { extended: true });
+  ok("extended council is deterministic", JSON.stringify(a.lines) === JSON.stringify(b2.lines));
+}
 
 // A rich subject → all six speak + a resolved action with a deadline.
 const s = boardroom(

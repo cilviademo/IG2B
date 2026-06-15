@@ -4,15 +4,25 @@
 // Boardroom works TODAY with no provider key (stub mode). When a live model is wired in,
 // each persona's reasoning can be upgraded in place — the structure + contract stay.
 
-export type PersonaKey = "strategist" | "skeptic" | "operator" | "creative" | "historian" | "teacher";
+export type PersonaKey =
+  | "strategist" | "skeptic" | "operator" | "creative" | "historian" | "teacher"
+  // Extended council (opt-in via `extended`) — lenses that mirror Indigold's own layers:
+  // privacy/security, evidence/claims, research synthesis, systems design, product. Persona
+  // ideas adapted in spirit from agency-agents (MIT); no external code imported.
+  | "security_auditor" | "reality_checker" | "synthesizer" | "architect" | "pm";
 
-export const PERSONAS: { key: PersonaKey; name: string; role: string; color: string }[] = [
+export const PERSONAS: { key: PersonaKey; name: string; role: string; color: string; extended?: boolean }[] = [
   { key: "strategist", name: "Strategist", role: "Long-term leverage, opportunity, allocation", color: "#C9A45C" },
   { key: "skeptic", name: "Skeptic", role: "Risks, blind spots, counterarguments", color: "#C25450" },
   { key: "operator", name: "Operator", role: "Execution, next steps, timelines", color: "#4FA08B" },
   { key: "creative", name: "Creative", role: "Novel combinations, new products", color: "#C98BB9" },
   { key: "historian", name: "Historian", role: "Pattern recognition, lessons learned", color: "#6B7DB3" },
   { key: "teacher", name: "Teacher", role: "Explain simply, learning plan", color: "#5BA8C4" },
+  { key: "security_auditor", name: "Security & Privacy Auditor", role: "Exposure, what must stay in the vault", color: "#9B8AE6", extended: true },
+  { key: "reality_checker", name: "Reality Checker", role: "Evidence vs assumption, what would verify it", color: "#D08A4F", extended: true },
+  { key: "synthesizer", name: "Research Synthesizer", role: "Through-line across sources, open questions", color: "#7FB069", extended: true },
+  { key: "architect", name: "Systems Architect", role: "Structure, boundaries, dependencies", color: "#8896A6", extended: true },
+  { key: "pm", name: "Product Manager", role: "Who it's for, the smallest shippable slice", color: "#D98AA8", extended: true },
 ];
 const personaMeta = (k: PersonaKey) => PERSONAS.find((p) => p.key === k)!;
 
@@ -69,8 +79,9 @@ function learningStep(s: BoardroomSubject): string {
   return "write a one-paragraph explainer in your own words";
 }
 
-/** Run the council. Pure + deterministic. */
-export function boardroom(subject: BoardroomSubject, sig: BoardroomSignals = {}): BoardroomSynthesis {
+/** Run the council. Pure + deterministic. `extended` adds 5 enrichment personas (privacy,
+ *  evidence, synthesis, systems, product) — opt-in so the classic 6 stay the default. */
+export function boardroom(subject: BoardroomSubject, sig: BoardroomSignals = {}, opts: { extended?: boolean } = {}): BoardroomSynthesis {
   const mvs = subject.mvs ?? 50;
   const degree = sig.degree ?? 0;
   const recencyDays = sig.recencyDays ?? 0;
@@ -117,16 +128,42 @@ export function boardroom(subject: BoardroomSubject, sig: BoardroomSignals = {})
   const plain = subject.summary ? clip(subject.summary, 90) : `a ${subject.type || "node"} in your vault`;
   const teacherLine = `In plain terms: ${title} is ${plain}. To go deeper, ${learningStep(subject)}.`;
 
-  const lines: BoardroomLine[] = (
-    [
-      ["strategist", strategistLine],
-      ["skeptic", skepticLine],
-      ["operator", operatorLine],
-      ["creative", creativeLine],
-      ["historian", historianLine],
-      ["teacher", teacherLine],
-    ] as [PersonaKey, string][]
-  ).map(([k, line]) => { const m = personaMeta(k); return { persona: k, name: m.name, role: m.role, color: m.color, line }; });
+  // Extended council — deterministic enrichment lenses (opt-in).
+  const hay = `${title} ${(subject.tags || []).join(" ")} ${subject.summary || ""}`.toLowerCase();
+  const sensitive = /password|secret|key|token|ssn|financial|bank|salary|medical|health|private|personal|legal/.test(hay);
+  const securityLine = sensitive
+    ? `Sensitive signals here — keep ${title} vault-only; never send it to an external tool/model without per-action approval.`
+    : `No obvious exposure, but confirm nothing here should leave the device before sharing or syncing it outward.`;
+  const realityLine = (mvs < 40 || degree === 0)
+    ? `Treat this as assumption, not evidence (MVS ${mvs}, ${degree} link${degree === 1 ? "" : "s"}). What single source or test would verify it?`
+    : `Supported by ${degree} link${degree === 1 ? "" : "s"} — now name what would FALSIFY it, so it stays a claim you can defend.`;
+  const synthLine = related.length >= 2
+    ? `Synthesize across ${related[0]} + ${related[1]}: the through-line is shared with ${title}. Open question worth a claim: what changes if that link breaks?`
+    : related.length === 1
+      ? `Only ${related[0]} connects so far — gather one or two more sources before synthesizing.`
+      : `Too little gathered to synthesize. Pull 2–3 external sources into the Research Inbox first.`;
+  const architectLine = degree >= 6
+    ? `High coupling (${degree} links) — design the boundary: isolate the volatile part behind one stable contract.`
+    : `Structurally simple — define the single interface/contract ${title} must honor, then build to it.`;
+  const pmLine = `Who is ${title} for, and what's the smallest shippable slice? Cut to one outcome you can ship this week and learn from.`;
+
+  const base: [PersonaKey, string][] = [
+    ["strategist", strategistLine],
+    ["skeptic", skepticLine],
+    ["operator", operatorLine],
+    ["creative", creativeLine],
+    ["historian", historianLine],
+    ["teacher", teacherLine],
+  ];
+  const extra: [PersonaKey, string][] = [
+    ["security_auditor", securityLine],
+    ["reality_checker", realityLine],
+    ["synthesizer", synthLine],
+    ["architect", architectLine],
+    ["pm", pmLine],
+  ];
+  const lines: BoardroomLine[] = (opts.extended ? [...base, ...extra] : base)
+    .map(([k, line]) => { const m = personaMeta(k); return { persona: k, name: m.name, role: m.role, color: m.color, line }; });
 
   // Resolved — converge on the Operator's move with a concrete deadline, tempered by
   // the Skeptic when risk is high.

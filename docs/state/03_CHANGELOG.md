@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: mcp-seam · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: persona-library · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -701,3 +701,9 @@ commit(s) · what/why · live-test status).
 - **Safety model:** connector + every tool disabled by default; reads need explicit enable + `mcp:read`; **writes need enable + `mcp:write` + per-action confirmation**; MCP results are untrusted (fenced before synthesis); secret/internal vault never sent without per-action approval; **no MCP call bypasses `governedComplete`**; no secrets to PWA/logs; every call emits provenance.
 - `20_MCP_CONNECTOR_SEAM.md`: architecture, contract, safety model, Zapier activation path (owner-approved, separate PR), future Render env handles, suggested first read-only tools.
 - **No schema change, no endpoint/worker wiring (truly dormant).** **Verified (sandbox):** typecheck:all + build:all green; matrix **730/730** (+19). Live connection requires explicit owner approval.
+
+### 2026-06-15 · claude (Claude Code) · `claude/persona-library` (PR) — Boardroom persona enrichment (Part 2)
+- **Enriched the deterministic Boardroom council** (didn't duplicate it). Added 5 opt-in lenses that mirror Indigold's own layers: **Security & Privacy Auditor · Reality Checker (evidence) · Research Synthesizer · Systems Architect · Product Manager** — each with transparent rule-based lines derived from the subject + graph signals (e.g. the auditor flags sensitive content → "keep vault-only, never send to an external tool without per-action approval"; the reality checker demands what would verify/falsify a claim).
+- **Feature-flagged:** `boardroom(subject, sig, { extended: true })` → 11 lines; **default stays the classic 6** (no behavior change). Persona ideas adapted in spirit from agency-agents (MIT); **no external code imported**.
+- **Deterministic-first preserved:** every new line works with **no provider key**; a future live upgrade still routes only through `governedComplete` (no persona calls a provider directly). Each line carries persona/role attribution = provenance; callers emit events as before.
+- `boardroom-verify` extended (24): classic-6 default, 5 extended keys, no duplicate keys, opt-in adds them, sensitive-content branch, determinism. **No schema/API change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **739/739**. (Before/after council screenshots are an owner device step.)
