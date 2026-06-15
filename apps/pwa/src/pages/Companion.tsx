@@ -4,6 +4,7 @@ import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
 import EvidenceDrawer from "@/components/EvidenceDrawer";
+import { allIntents, intentToMode, type OwnerIntent } from "@/lib/intent";
 import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, radianFeedback, getBriefing, createConversation, listConversations, getConversation, archiveConversation, getAttention, type BackendCapture, type ChatMode, type CompanionBriefing, type Conversation, type AttentionItem } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
 import { speak, stopSpeaking, canSpeak, canListen, listenOnce } from "@/lib/speech";
@@ -93,7 +94,8 @@ export default function Companion() {
   const [listening, setListening] = useState(false);
   const [voice, setVoice] = useState(false); // speak Radian's replies aloud
   const [briefing, setBriefing] = useState(false);
-  const [mode, setMode] = useState<ChatMode>("auto"); // brain mode
+  const [mode, setMode] = useState<ChatMode>("auto"); // brain mode (derived from intent)
+  const [intent, setIntent] = useState<OwnerIntent | null>(null); // owner intent — the primary frame
   const [convoId, setConvoId] = useState<string | null>(null); // current durable thread
   const [convos, setConvos] = useState<Conversation[]>([]); // durable thread list
   const [convoQuery, setConvoQuery] = useState(""); // thread search (Sprint 3b)
@@ -159,7 +161,7 @@ export default function Companion() {
       // Lazily start a durable thread so the conversation persists + is resumable.
       let cid = convoId;
       if (!cid) { const c = await createConversation(q.slice(0, 60)); cid = c?.id ?? null; if (cid) setConvoId(cid); }
-      const r = await chatRadian(q, mode, history, cid);
+      const r = await chatRadian(q, mode, history, cid, intent ?? undefined);
       const text = r ? r.answer : "I couldn't reach the model (offline, or the API is waking — try again in ~30s).";
       setChat((c) => [...c, r
         ? { role: "radian", text, q, sources: r.sources, deterministic: r.deterministic, mode: r.mode, grounding: r.grounding, webNote: r.webNote, usedWeb: r.usedWeb }
@@ -354,12 +356,15 @@ export default function Companion() {
           {chatBusy ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <ArrowUp size={18} strokeWidth={2} />}
         </button>
       </div>
-      {/* Brain mode — how Radian should answer (Auto infers from the question). */}
+      {/* Owner intent — WHAT you want from Radian (Auto infers). Each intent picks the brain mode. */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <div className="flex gap-1.5 overflow-x-auto">
-          {(["auto", "vault", "general", "web", "research"] as ChatMode[]).map((mk) => (
-            <button key={mk} onClick={() => setMode(mk)} className="press shrink-0 px-2.5 py-1 text-[11px] font-semibold" style={{ borderRadius: 999, border: `1px solid ${mode === mk ? "var(--gold-line)" : "var(--line)"}`, color: mode === mk ? "var(--gold)" : "var(--text-dim)" }}>
-              {MODE_LABEL[mk]}
+          <button onClick={() => { setIntent(null); setMode("auto"); }} title="Let Radian infer" className="press shrink-0 px-2.5 py-1 text-[11px] font-semibold" style={{ borderRadius: 999, border: `1px solid ${intent === null ? "var(--gold-line)" : "var(--line)"}`, color: intent === null ? "var(--gold)" : "var(--text-dim)" }}>
+            Auto
+          </button>
+          {allIntents().map((it) => (
+            <button key={it.intent} onClick={() => { setIntent(it.intent); setMode(intentToMode(it.intent)); }} title={it.blurb} className="press shrink-0 px-2.5 py-1 text-[11px] font-semibold" style={{ borderRadius: 999, border: `1px solid ${intent === it.intent ? "var(--gold-line)" : "var(--line)"}`, color: intent === it.intent ? "var(--gold)" : "var(--text-dim)" }}>
+              {it.label}
             </button>
           ))}
         </div>

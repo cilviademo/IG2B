@@ -237,14 +237,14 @@ export interface ChatReply {
 }
 /** Ask Radian anything with a brain mode + short history. Pass `conversationId` to
  *  persist both turns to a durable thread (and use that thread's history). */
-export async function chatRadian(question: string, mode: ChatMode = "auto", history: { role: string; text: string }[] = [], conversationId?: string | null): Promise<ChatReply | null> {
+export async function chatRadian(question: string, mode: ChatMode = "auto", history: { role: string; text: string }[] = [], conversationId?: string | null, intent?: string): Promise<ChatReply | null> {
   if (!apiEnabled()) return null;
   if (!getToken() && !(await ensureSession())) return null;
   try {
     const res = await fetch(`${BASE}/radian/chat`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
-      body: JSON.stringify({ question, mode, history, conversationId }),
+      body: JSON.stringify({ question, mode, history, conversationId, intent }),
     });
     if (!res.ok) return null;
     return (await res.json()) as ChatReply;

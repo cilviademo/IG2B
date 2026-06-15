@@ -15,6 +15,7 @@ import { normalizeCaptureScopes } from "@indigold/shared";
 import { normalizeClaim, normalizeClaimEvidence, aggregateConfidence, isContested, claimStale, detectTensions, type Claim, type ClaimEvidenceLink } from "@indigold/shared";
 import { worldLens, type ExternalEvidence } from "@indigold/shared";
 import { normalizeCadence, watchlistDue } from "@indigold/shared";
+import { isOwnerIntent, intentGuidance } from "@indigold/shared";
 import { randomBytes } from "crypto";
 import { sha256 } from "../middleware/auth";
 import { getEmbedder } from "@indigold/shared";
@@ -249,6 +250,10 @@ radianRouter.post("/chat", async (req: Authed, res) => {
     system = `You are Radian, the owner's personal intelligence OS — a sharp, candid companion.${webClause} Answer the question directly and usefully with your general reasoning first. Then, if the vault context is relevant, add a short "In your Indigold context:" paragraph connecting it to their work. Never refuse for lack of vault context. Never invent sources.`;
   }
   if (webResults.length) system += " " + UNTRUSTED_GUARD;
+  // Owner intent (My memory / Explain / Check / Research / Decide) — shapes HOW Radian answers,
+  // on top of the retrieval mode the intent already selected client-side. Backward compatible.
+  const intent = String(req.body?.intent || "");
+  if (isOwnerIntent(intent)) system += " " + intentGuidance(intent);
   const prompt = `${convo}VAULT CONTEXT${resolvedMode === "vault" ? "" : " (may be empty — use only if relevant)"}:\n${ctx || "(none)"}${webBlock}\n\nQUESTION: ${question}`;
 
   let answer = "";
@@ -272,7 +277,7 @@ radianRouter.post("/chat", async (req: Authed, res) => {
   if (conversationId) {
     try {
       await repo.messages.add({ id: id("msg"), conversation_id: conversationId, user_id: uid, role: "you", text: question });
-      await repo.messages.add({ id: id("msg"), conversation_id: conversationId, user_id: uid, role: "radian", text: finalAnswer, sources: [...vaultSources, ...webSources], meta: { mode: resolvedMode, grounding, deterministic: provider === "deterministic", usedWeb: webResults.length > 0 } });
+      await repo.messages.add({ id: id("msg"), conversation_id: conversationId, user_id: uid, role: "radian", text: finalAnswer, sources: [...vaultSources, ...webSources], meta: { mode: resolvedMode, grounding, deterministic: provider === "deterministic", usedWeb: webResults.length > 0, intent: isOwnerIntent(intent) ? intent : undefined } });
       await repo.conversations.touch(conversationId);
     } catch { /* thread persistence is best-effort */ }
   }
@@ -287,6 +292,7 @@ radianRouter.post("/chat", async (req: Authed, res) => {
     usedWeb: webResults.length > 0,
     webNote: wantWeb && !webConfigured ? "Web research isn't configured — answered with general reasoning. Save it as a research task to queue for later." : undefined,
     sources: [...vaultSources, ...webSources],
+    intent: isOwnerIntent(intent) ? intent : undefined,
   });
 });
 
