@@ -82,3 +82,27 @@ export const NODE_STATE_STYLE: Record<NodeState, NodeStateStyle> = {
 // G8 overlays (derived flags, not primary states).
 export const isForgottenGem = (mvs: number, recencyDays: number) => mvs >= 70 && recencyDays >= 45;
 export const isResurfaced = (createdDays: number, recencyDays: number) => createdDays >= 60 && recencyDays <= 10;
+
+// ---- Sprint 6: Atlas evolution — memory matures with age (derived overlay, NOT a state) ----
+// Memory has a lifecycle independent of value/momentum: fresh ideas, ideas that have settled,
+// and long-held memories that have proven durable. This rides ON TOP of NodeState as a subtle
+// patina the renderer draws after the rings, so it never disturbs the state machine (or its
+// pulse-set tests). The Atlas thus visibly *evolves* as the vault ages.
+export type MemoryAgeTier = "fresh" | "forming" | "established" | "enduring";
+export function memoryTier(createdDays: number): MemoryAgeTier {
+  if (createdDays < 14) return "fresh";
+  if (createdDays < 60) return "forming";
+  if (createdDays < 180) return "established";
+  return "enduring";
+}
+// A crystallized memory: enduring AND still valuable AND woven into the graph — a memory that
+// has stood the test of time (distinct from Legendary, which is value+degree regardless of age).
+export const isCrystallized = (i: { createdDays: number; mvs: number; degree: number }) =>
+  i.createdDays >= 180 && i.mvs >= 70 && i.degree >= 3;
+// Patina ring colour per tier (deepens as memory matures); undefined = no patina drawn.
+export const MEMORY_TIER_PATINA: Record<MemoryAgeTier, string | undefined> = {
+  fresh: undefined,
+  forming: undefined,
+  established: "rgba(201,164,92,0.28)", // faint aged gold
+  enduring: "rgba(230,199,110,0.5)",    // deeper crystalline gold
+};

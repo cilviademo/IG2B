@@ -35,10 +35,11 @@ function turnText(c: AtlasNode): string {
   return (c.meta?.ask?.answer || c.summary || "").trim();
 }
 import { Loading, ErrorState } from "@/components/State";
-import { Share2, X, Plus, Minus, Locate, Sparkles, ArrowLeft, Swords, Copy, Trash2, ExternalLink } from "lucide-react";
+import { Share2, X, Plus, Minus, Locate, Sparkles, ArrowLeft, Swords, Copy, Trash2, ExternalLink, MessageCircle } from "lucide-react";
+import { useLocation } from "wouter";
 import { haptic } from "@/lib/haptics";
 import CompanionPanel from "@/components/CompanionPanel";
-import { deriveNodeState, NODE_STATE_STYLE, LEGEND, isForgottenGem, isResurfaced, type NodeState } from "@/lib/nodeState";
+import { deriveNodeState, deriveMemory, NODE_STATE_STYLE, LEGEND, isForgottenGem, isResurfaced, type NodeState } from "@/lib/nodeState";
 import { inferTracks, trackColor, type Track } from "@/lib/progression";
 import { getQuestNodeStatus, getProgression, getLiveNodes, getLiveEdges, createQuest, deleteNode, apiEnabled } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
@@ -231,6 +232,9 @@ export default function Atlas() {
     const now = Date.now();
     const stateById = new Map<string, NodeState>();
     nodes.forEach((n) => stateById.set(n.id, deriveNodeState(n, edges, now)));
+    // Sprint 6 — Atlas evolution: memory-age overlay (tier patina + crystallized) per node.
+    const memById = new Map<string, ReturnType<typeof deriveMemory>>();
+    nodes.forEach((n) => memById.set(n.id, deriveMemory(n, edges, now)));
     // G8 Memory Palace overlays (render-time, deterministic):
     //  · cluster = dominant skill track → "galaxy" tint + constellation edges
     //  · forgotten gems (high value gone quiet) glow gold
@@ -687,6 +691,23 @@ export default function Atlas() {
           ctx!.arc(sx, sy, sr + 3, 0, Math.PI * 2);
           ctx!.stroke();
         }
+        // Sprint 6 — memory-age patina: a faint outer ring that deepens as a memory matures
+        // (established → enduring); crystallized memories get a second, wider ring. Static
+        // (reduced-motion safe), drawn after the state ring so the state machine is untouched.
+        const mem = memById.get(s.node.id);
+        if (mem?.patina && lit && scale >= 0.7) {
+          ctx!.lineWidth = mem.crystallized ? 1.5 : 1;
+          ctx!.strokeStyle = mem.patina;
+          ctx!.beginPath();
+          ctx!.arc(sx, sy, sr + 5.5, 0, Math.PI * 2);
+          ctx!.stroke();
+          if (mem.crystallized) {
+            ctx!.lineWidth = 0.75;
+            ctx!.beginPath();
+            ctx!.arc(sx, sy, sr + 8, 0, Math.PI * 2);
+            ctx!.stroke();
+          }
+        }
         // badge — a small marker for blocked (⊘) / critical (!) nodes.
         if (st.badge && lit && scale >= 0.85) {
           const bx = sx + sr + 4;
@@ -936,6 +957,7 @@ function StateLegend() {
             </div>
           </div>
           <div className="mt-1.5 text-[11px]" style={{ color: "#8E929C" }}>Galaxies = skill clusters · constellation lines link a domain</div>
+          <div className="mt-1 text-[11px]" style={{ color: "#8E929C" }}>Outer gold ring = memory maturing (deeper = enduring; double ring = crystallized)</div>
         </div>
       ) : (
         <button
@@ -985,6 +1007,7 @@ function RadianThread({ turns }: { turns: RadianTurn[] }) {
 
 function NodeSheet({ node, turns = [], sourceUrl, onClose, onAsk, onDeleted }: { node: GraphNode; turns?: RadianTurn[]; sourceUrl?: string; onClose: () => void; onAsk: () => void; onDeleted?: () => void }) {
   const color = NODE_COLOR[node.type] || FALLBACK_COLOR;
+  const [, navigate] = useLocation();
   const actions: ItemAction[] = apiEnabled() ? [
     { label: "Delete permanently", icon: Trash2, tone: "danger", confirm: "Delete this node? Its edges are removed too. This cannot be undone.", onClick: async () => { const ok = await deleteNode(node.id); if (ok) { toast.success("Node deleted"); onDeleted?.(); } else toast.error("Delete failed"); } },
   ] : [];
@@ -1020,6 +1043,18 @@ function NodeSheet({ node, turns = [], sourceUrl, onClose, onAsk, onDeleted }: {
         >
           <Sparkles size={13} strokeWidth={1.5} /> {turns.length > 0 ? "Continue with Radian" : "Ask Radian"}
         </button>
+        {apiEnabled() && (
+          // Sprint 3b workstream tail: jump from the graph INTO a persistent conversation
+          // anchored to this node (a project node → its workstream thread). The inversion in
+          // action — Atlas is memory; the conversation is the experience.
+          <button
+            onClick={() => navigate(`/?anchor=node:${encodeURIComponent(node.id)}&title=${encodeURIComponent(node.title)}`)}
+            className="press w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold mb-2.5"
+            style={{ borderRadius: 6, border: "1px solid #22252D", color: "#8E929C" }}
+          >
+            <MessageCircle size={13} strokeWidth={1.5} /> {node.type === "project" ? "Discuss workstream" : "Discuss in Radian"}
+          </button>
+        )}
         {sourceUrl && (
           // Re-access the original link this node came from.
           <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="press w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold mb-2.5" style={{ borderRadius: 6, border: "1px solid #22252D", color: "#8E929C" }}>

@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: sprint-5-narrative-timeline · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: sprint-6-atlas-evolution · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -573,3 +573,9 @@ commit(s) · what/why · live-test status).
 - **Timeline page rewritten** to render live chapters (header + summary + per-chapter moment spine) when signed in; **empty state** when the vault is new; the original static sample is kept only as the **offline/not-signed-in demo**.
 - **No schema change.** New `narrative-verify` (13 checks: bucketing, summary phrasing/pluralization, theme annotation scoping, caps + significance, bad-date skip, determinism) → matrix **510/510**.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix 510/510. Live chapters need Postgres data → owner sees their real timeline on device.
+
+### 2026-06-15 · claude (Claude Code) · `claude/sprint-6-atlas-evolution` (PR) — Sprint 6: Atlas evolution + Sprint 3b workstream tail
+- **Sprint 6 — Atlas evolution (memory matures with age).** New pure overlay in `living-os.ts` (mirrored in PWA `nodeState.ts`): `memoryTier(createdDays)` → fresh/forming/established/enduring; `isCrystallized` (enduring **and** valuable **and** connected — distinct from Legendary, which ignores age); `MEMORY_TIER_PATINA`. It rides **on top of** `NodeState` as a subtle **patina ring** the Atlas renderer draws *after* the state ring (deeper gold as a memory matures; a second wider ring for crystallized) — so the constellation visibly **evolves as the vault ages** without touching the state machine, the 60fps energy loop, or hit-testing. Legend extended. Static (reduced-motion safe).
+- **Sprint 3b workstream tail — workstream threads + Atlas→Radian bridge.** Conversations can now anchor to a **`decision`** (added to allowed anchor types; project already allowed) and the list resolves **project/decision anchor titles** too. The Companion supports a **deep-link** `/?anchor=<type>:<id>&title=…` that opens/resumes that anchored thread (`openAnchored`, generalizing `discuss`). The **Atlas node sheet** gains a **"Discuss in Radian" / "Discuss workstream"** (for project nodes) button that jumps from the graph INTO the node's persistent conversation — the inversion made literal (Atlas = memory; conversation = experience).
+- **No schema change.** `living-os-verify` +4 (memory tiers, crystallized gate, patina only on mature tiers, state machine unperturbed) → matrix **514/514**.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix 514/514; SW untouched (no cache bump needed). Canvas patina + the workstream bridge are **device-gated** (per constraint #5) — owner confirms the evolving rings + Atlas→Radian jump on iPhone.

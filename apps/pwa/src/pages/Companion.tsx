@@ -119,15 +119,16 @@ export default function Companion() {
   }
   function newConvo() { setConvoId(null); setChat([]); setInput(""); }
 
-  // Sprint 3b: route a finding / source-chip into a NODE-ANCHORED thread (not Atlas).
-  // The backend dedupes per anchor, so a node has one ongoing conversation that resumes
-  // its full history here.
-  async function discuss(nodeId: string, title: string) {
-    const c = await createConversation(`On: ${title}`.slice(0, 60), "node", nodeId);
+  // Sprint 3b: route a finding / source-chip / project / decision into an ANCHORED thread
+  // (not Atlas). The backend dedupes per anchor, so each subject has one ongoing conversation
+  // (its "workstream thread") that resumes its full history here.
+  async function openAnchored(anchorType: string, anchorId: string, title: string) {
+    const c = await createConversation(`On: ${title}`.slice(0, 60), anchorType, anchorId);
     if (!c) { toast.error("Couldn't open thread", { description: "offline or API asleep" }); return; }
     await openConvo(c.id);
     void loadConvos();
   }
+  const discuss = (nodeId: string, title: string) => openAnchored("node", nodeId, title);
 
   // Act on an attention item. "revisit" opens the node's thread (Sprint 3b tie-in); the
   // rest route to the surface that resolves them (triage→Inbox, quests→Quests, review→Quests).
@@ -273,6 +274,25 @@ export default function Companion() {
   }, [loadFound, loadConvos, loadAttention]);
 
   useEffect(() => () => stopSpeaking(), []); // stop any speech when leaving Radian
+
+  // Deep-link into an anchored thread (Sprint 3b workstream tail): `/?anchor=<type>:<id>&title=…`
+  // — e.g. from the Atlas node sheet ("Discuss with Radian"). Opens/resumes that thread, then
+  // clears the param so a refresh doesn't reopen it.
+  useEffect(() => {
+    if (!apiEnabled()) return;
+    const params = new URLSearchParams(window.location.search);
+    const anchor = params.get("anchor");
+    if (!anchor) return;
+    const sep = anchor.indexOf(":");
+    const type = sep > 0 ? anchor.slice(0, sep) : "";
+    const aid = sep > 0 ? anchor.slice(sep + 1) : "";
+    if (["node", "project", "decision", "capture"].includes(type) && aid) {
+      void openAnchored(type, aid, params.get("title") || "this");
+    }
+    params.delete("anchor"); params.delete("title");
+    window.history.replaceState({}, "", window.location.pathname + (params.toString() ? `?${params}` : ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Daily orientation — a deterministic "Chief of Staff" opener (momentum, resurfaced,
   // overdue, focus) from /radian/briefing. Falls back to the simple greeting if absent.
