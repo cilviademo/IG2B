@@ -75,6 +75,20 @@ export const conversations = {
     const r = await query<ConversationRow>(`SELECT * FROM conversations WHERE user_id=$1 AND status<>'archived' ORDER BY updated_at DESC LIMIT $2`, [userId, limit]);
     return r.rows;
   },
+  // Thread search (Sprint 3b): match the title OR any message text in the thread.
+  // Case-insensitive substring; archived threads excluded; most-recent first.
+  async search(userId: string, q: string, limit = 50) {
+    const like = `%${q.replace(/[%_]/g, (m) => "\\" + m)}%`;
+    const r = await query<ConversationRow>(
+      `SELECT c.* FROM conversations c
+         WHERE c.user_id=$1 AND c.status<>'archived'
+           AND (c.title ILIKE $2 OR EXISTS (
+             SELECT 1 FROM messages m WHERE m.conversation_id=c.id AND m.text ILIKE $2))
+         ORDER BY c.updated_at DESC LIMIT $3`,
+      [userId, like, limit],
+    );
+    return r.rows;
+  },
   async get(userId: string, id: string) {
     const r = await query<ConversationRow>(`SELECT * FROM conversations WHERE user_id=$1 AND id=$2`, [userId, id]);
     return r.rows[0] || null;

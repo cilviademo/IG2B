@@ -254,7 +254,7 @@ export async function chatRadian(question: string, mode: ChatMode = "auto", hist
 }
 
 // ---- Durable conversation threads (Sprint 3) ----
-export interface Conversation { id: string; title: string; anchor_type: string; anchor_id: string | null; status: string; updated_at: string }
+export interface Conversation { id: string; title: string; anchor_type: string; anchor_id: string | null; anchor_title?: string | null; status: string; updated_at: string }
 export interface ConvMessage { id: string; role: string; text: string; sources?: { id?: string; title: string; url?: string }[]; meta?: { mode?: string; grounding?: string; deterministic?: boolean } }
 
 async function radianGet<T>(path: string): Promise<T | null> {
@@ -276,8 +276,8 @@ export async function createConversation(title: string, anchorType = "open", anc
   const r = await radianPost<{ conversation: Conversation }>(`/radian/conversations`, { title, anchorType, anchorId });
   return r?.conversation ?? null;
 }
-export async function listConversations(): Promise<Conversation[]> {
-  const r = await radianGet<{ conversations: Conversation[] }>(`/radian/conversations`);
+export async function listConversations(q?: string): Promise<Conversation[]> {
+  const r = await radianGet<{ conversations: Conversation[] }>(`/radian/conversations${q ? `?q=${encodeURIComponent(q)}` : ""}`);
   return r?.conversations ?? [];
 }
 export async function getConversation(id: string): Promise<{ conversation: Conversation; messages: ConvMessage[] } | null> {

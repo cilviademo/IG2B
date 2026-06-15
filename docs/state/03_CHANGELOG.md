@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: conversation-threads · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: sprint-3b-anchored-threads · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -551,3 +551,10 @@ commit(s) · what/why · live-test status).
 - **Chat persists:** `/radian/chat` takes optional `conversationId` — uses the **stored thread** as history (server-authoritative) and **persists both turns**, so a conversation survives a browser restart (fixes the "this-session only" limitation).
 - **Companion home:** the "Conversations" section now lists **durable threads** (was an in-memory Task-Center list), with **+ New** and **tap-to-resume** (reloads full message history into the chat); chat lazily creates a thread on first message.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix 484/484; schema.sql↔schema.ts in sync. DB calls need live Postgres → owner verifies on device (ask → restart → thread still there + resumable). **Sprint 3b:** route findings/source-chips → node-anchored threads (not Atlas) + remember/forget + search.
+
+### 2026-06-15 · claude (Claude Code) · `claude/sprint-3b-anchored-threads` (PR) — Sprint 3b: anchored threads + thread search
+- **Findings & source-chips → node-anchored threads (not Atlas).** The "What I found" cards gain a primary **Discuss** pill, and vault **source chips** under a Radian reply now open a **node-anchored conversation** in place instead of bouncing out to the Atlas graph. Reuses the existing anchor substrate (`createConversation(title,"node",nodeId)` → server dedupes per anchor via `findAnchored`), so each node has **one ongoing thread** that resumes its full history.
+- **Thread search.** `GET /radian/conversations?q=` matches the **title OR any message text** in a thread (`conversations.search`: ILIKE + `EXISTS` over messages, archived excluded). The Companion "Conversations" list gains a live search box.
+- **Anchor-aware list + forget.** Listing enriches anchored threads with the **anchor's title** ("on: <node title>"); each thread has an **Archive (forget)** action (soft `status=archived` — never deletes vault data).
+- **No schema change** (anchor columns already shipped in Sprint 3) → no migration risk.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix 484/484; schema unchanged. Live dedupe/search need Postgres → owner verifies on device (tap a source chip → lands in that node's thread; search finds it by content).

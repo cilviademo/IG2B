@@ -1,3 +1,5 @@
+> **SPRINT 3b — ANCHORED THREADS + SEARCH (PR `claude/sprint-3b-anchored-threads`, latest):** findings & vault **source-chips now open a node-anchored conversation** (not the Atlas graph) — `createConversation(title,"node",nodeId)`, server-deduped per anchor so each node has one ongoing thread that resumes in place. **Thread search** (`GET /radian/conversations?q=` → title OR any message text; live search box on the Companion). Listing returns each thread's **anchor title** ("on: <node>") + an **Archive (forget)** action (soft, never deletes). **No schema change** (anchor columns shipped in Sprint 3). matrix 484/484; typecheck+build:all green. Live dedupe/search → owner verifies on device.
+
 > **DURABLE SESSIONS — IN PR `claude/durable-sessions` (latest):** sessions are now **Postgres-backed** (new `sessions` table + `repo.sessions`; `apps/api/src/lib/session.ts` = Redis-first cache + Postgres backstop, used by auth routes + `requireAuth`). Fixes **BUG-003** (free-tier Redis LRU evicting sessions → silent logouts/sync-fails) and is **step 1 of the secure auth re-do** (durable tokens make password-free auth safe; PWA token-only flip = step 2 after device-confirm). **No PWA/login change → no regression.** Opened as a **PR so CI runs** before merge (auth is critical). matrix 479/479; typecheck+build:all green; schema.sql↔schema.ts in sync; `reset-vault` preserves sessions.
 
 > **TESTED VAULT RESTORE:** `/io/import` previously dropped **captures** (Truth Layer A — your raw vault) on restore, only doing nodes+edges. Now it restores **captures too** — id-preserving (faithful round-trip) + dupe-tolerant (idempotent) — via pure `normalizeImportNode`/`normalizeImportCapture` (`importmap.ts`), covered by `import-verify` (10 checks). matrix **479/479**; builds green. Full DB round-trip needs live Postgres (owner/CI); the mapping is unit-covered. Anthropic key is live → Radian reasoning is genuine; web search stays "not configured" until a key is added.
@@ -40,7 +42,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: conversation-threads · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: sprint-3b-anchored-threads · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 
