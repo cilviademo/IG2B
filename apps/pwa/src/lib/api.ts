@@ -198,6 +198,24 @@ export const lastSyncError = () => lastSyncErr;
 
 /** Push one capture to the backend (creates a capture -> enqueues worker pipeline).
  *  Auto-recovers a stale/evicted session (401 -> re-mint -> retry once). */
+export interface ChatReply { answer: string; deterministic: boolean; sources: { id: string; title: string }[] }
+/** Ask Radian anything across the vault (grounded, synchronous). */
+export async function chatRadian(question: string): Promise<ChatReply | null> {
+  if (!apiEnabled()) return null;
+  if (!getToken() && !(await ensureSession())) return null;
+  try {
+    const res = await fetch(`${BASE}/radian/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ question }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as ChatReply;
+  } catch {
+    return null;
+  }
+}
+
 export async function syncCaptureToApi(cap: SyncableCapture): Promise<boolean> {
   lastSyncErr = null;
   if (!apiEnabled()) {

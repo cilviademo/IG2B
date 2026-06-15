@@ -1,6 +1,6 @@
 # Companion Inversion — from graph-app to AI companion
 
-`Last updated: 2026-06-14 · Commit: companion-arrival · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: radian-chat · By: claude (Claude Code)`
 
 > Owner directive: Indigold still behaves like "a graph database with AI attached." Invert it:
 > **You → Radian (companion) → conversation memory → Situation Room → Atlas (hidden memory) →
@@ -50,6 +50,16 @@ new Atlas dot).
   "Radian analyzing…"); optionally retire the standalone `/activity` route now that the
   Companion home covers it.
 
-## Phase C — "the boardroom is real"
+## Phase C — conversational Radian (DONE: vault chat)
+
+- **Ask Radian anything.** New `POST /radian/chat` retrieves the most relevant **research-safe**
+  nodes for the question (`semanticNeighbors` → fallback top-MVS), answers via the governed path
+  (budget + provider; secret/internal excluded from context so they never reach the model), and
+  returns the **sources** it used. The Companion home has a prominent chat box + this-session
+  transcript with tappable source chips → the node. Honest "deterministic" tag when no key.
+- One-tap **deepen** (Research / Explain / Convene) on the "What I found" cards fires the verb on
+  that node (Task Center → node thread).
+
+## Phase C (orig) — "the boardroom is real"
 - Situation Room is already functional; Phase C is richer advisor output + tighter synthesis UI
   if the owner wants more after using it live.

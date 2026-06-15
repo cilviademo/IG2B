@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
-import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, type BackendCapture } from "@/lib/api";
+import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, type BackendCapture } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
 import { toast } from "sonner";
 
@@ -51,6 +51,26 @@ export default function Companion() {
   const [, navigate] = useLocation();
   const [found, setFound] = useState<Found[]>([]);
   const [asking, setAsking] = useState<string | null>(null);
+  // Free-form conversation with Radian, grounded in the vault (this-session transcript).
+  const [chat, setChat] = useState<{ role: "you" | "radian"; text: string; sources?: { id: string; title: string }[]; deterministic?: boolean }[]>([]);
+  const [input, setInput] = useState("");
+  const [chatBusy, setChatBusy] = useState(false);
+
+  async function sendChat() {
+    const q = input.trim();
+    if (!q || chatBusy) return;
+    setInput("");
+    setChat((c) => [...c, { role: "you", text: q }]);
+    setChatBusy(true);
+    try {
+      const r = await chatRadian(q);
+      setChat((c) => [...c, r
+        ? { role: "radian", text: r.answer, sources: r.sources, deterministic: r.deterministic }
+        : { role: "radian", text: "I couldn't reach the model (offline, or the API is waking — try again in ~30s)." }]);
+    } finally {
+      setChatBusy(false);
+    }
+  }
 
   // One-tap deepen from the arrival feed: fire a Radian verb on the node and hand it
   // to the Task Center (shows under "Running now", result lands in the node thread).
@@ -116,6 +136,43 @@ export default function Companion() {
       <p className="mb-5" style={{ fontSize: 14, color: "var(--text-dim)" }}>
         {greeting}. {running.length ? `I'm working on ${running.length} thing${running.length > 1 ? "s" : ""}.` : "Share or ask, and I'll dig in."}
       </p>
+
+      {/* Ask Radian anything — grounded in your vault. */}
+      <div className="flex gap-2 items-end mb-3">
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendChat(); } }}
+          placeholder="Ask Radian anything — “what have I been thinking about BTZ?”, “summarize this week”"
+          rows={2}
+          className="flex-1 px-3 py-2.5 text-sm min-w-0 resize-none"
+          style={{ background: "var(--bg)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 8 }}
+        />
+        <button onClick={() => void sendChat()} disabled={chatBusy || !input.trim()} aria-label="Ask" className="press flex items-center justify-center shrink-0" style={{ width: 44, height: 44, borderRadius: 999, background: input.trim() && !chatBusy ? "var(--gold)" : "var(--surface-2)", color: input.trim() && !chatBusy ? "#161118" : "var(--text-dim)", border: "1px solid var(--gold-line)" }}>
+          {chatBusy ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <ArrowUp size={18} strokeWidth={2} />}
+        </button>
+      </div>
+
+      {chat.length > 0 && (
+        <div className="space-y-2 mb-5">
+          {chat.map((m, i) => (
+            <div key={i} className={m.role === "you" ? "flex justify-end" : ""}>
+              <div className="p-3" style={{ borderRadius: 12, maxWidth: "92%", background: m.role === "you" ? "var(--surface-2)" : "var(--surface)", border: `1px solid ${m.role === "you" ? "var(--line)" : "var(--gold-line)"}` }}>
+                {m.role === "radian" && <div className="cap-data mb-1 inline-flex items-center gap-1" style={{ color: "var(--gold)" }}><Sparkles size={10} strokeWidth={1.5} /> Radian{m.deterministic ? " · deterministic" : ""}</div>}
+                <p style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text)", whiteSpace: "pre-wrap" }}>{m.text}</p>
+                {m.sources && m.sources.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {m.sources.map((s) => (
+                      <Link key={s.id} href={`/atlas?focus=${encodeURIComponent(s.id)}`} className="press text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)", maxWidth: 180 }}>{s.title}</Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          {chatBusy && <div className="flex items-center gap-2 cap-data" style={{ color: "var(--text-dim)" }}><Loader2 size={12} strokeWidth={1.5} className="animate-spin" /> Radian is thinking…</div>}
+        </div>
+      )}
 
       {/* Entry points — capture, or open the memory graph. */}
       <div className="flex gap-2 mb-6">

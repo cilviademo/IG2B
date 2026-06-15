@@ -8,6 +8,7 @@ import { providersStatus, providerConfigured, resolveTask, PROVIDER_ENV, ALL_PRO
 import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
 import { getEmbedder } from "@indigold/shared";
+import { isResearchSafe, BudgetExceededError } from "@indigold/shared";
 import { findVerb, verbsFor } from "@indigold/shared";
 import { timeMachine, type RangeKey, type TimeMachineInput } from "@indigold/shared";
 import { applyAction, suggestQuests, type QuestAction, type QuestSeed } from "@indigold/shared";
@@ -167,6 +168,44 @@ radianRouter.post("/context", async (req: Authed, res) => {
   await repo.emitEvent({ user_id: uid, actor: "agent:Encompass", event_type: "review_generated", subject_type: "context_pack", subject_id: cid, correlation_id: cid, payload: { goal, tokensUsed: plan.tokensUsed, included: plan.included.length } });
 
   res.json({ pack: cid, plan: { ...plan, included: plan.included.map((c) => ({ id: c.id, kind: c.kind, title: c.title, score: Number(c.score.toFixed(2)), reasons: c.reasons, tokens: c.tokens })) }, semantic_provider: sem.matches.length ? (sem as { provider?: string }).provider : "none" });
+});
+
+// ---- Conversational Radian: ask anything across the vault (grounded, synchronous) ----
+// Retrieves the most relevant (research-safe) nodes for the question, answers via the
+// governed path (budget + provider), and returns the sources it used. secret/internal
+// nodes are excluded from context, so they never reach the model.
+radianRouter.post("/chat", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const question = String(req.body?.question || "").trim().slice(0, 1000);
+  if (!question) return res.status(400).json({ error: "question_required" });
+
+  const sem = await semanticNeighbors(uid, question, 12).catch(() => ({ matches: [] as { subject_id: string; score: number }[] }));
+  const nodes = await repo.nodes.list(uid); // mvs DESC
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const safe = (n: typeof nodes[number]) => isResearchSafe(String((n as { meta?: { sensitivity?: string } }).meta?.sensitivity || "private"));
+  let picked = sem.matches.map((m) => byId.get(m.subject_id)).filter((n): n is typeof nodes[number] => !!n).filter(safe).slice(0, 8);
+  if (picked.length === 0) picked = nodes.filter(safe).slice(0, 8); // fallback: top by mvs
+  const context = picked.map((n) => `- ${n.title}: ${(n.summary || "").slice(0, 280)}`).join("\n") || "(the vault is empty)";
+
+  let answer = "";
+  let provider = "deterministic";
+  try {
+    const r = await repo.governedComplete({
+      userId: uid, tier: "strong", task: "synthesis", purpose: "chat",
+      system: "You are Radian, the owner's personal intelligence OS. Answer the question using ONLY the vault context provided; be concise and direct; if the context doesn't cover it, say so plainly. Never invent facts or sources.",
+      prompt: `VAULT CONTEXT:\n${context}\n\nQUESTION: ${question}`,
+    });
+    provider = r.provider;
+    answer = r.text || "";
+  } catch (e) {
+    answer = e instanceof BudgetExceededError ? "Budget governor reached — I've paused model calls to avoid overspending. Try again next cycle." : "";
+  }
+  res.json({
+    answer: answer || "I don't have enough in your vault to answer that yet — capture more and ask again.",
+    provider,
+    deterministic: provider === "deterministic",
+    sources: picked.slice(0, 5).map((n) => ({ id: n.id, title: n.title })),
+  });
 });
 
 // ---- Living OS G10: Companion — the spoken commander's briefing (deterministic) ----

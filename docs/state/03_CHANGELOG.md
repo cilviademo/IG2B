@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: companion-deepen · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: radian-chat · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -465,3 +465,8 @@ commit(s) · what/why · live-test status).
 ### 2026-06-14 · claude (Claude Code) · `main` — Companion arrival: one-tap deepen (Research/Explain/Convene)
 - The Radian home "What I found" cards now carry **inline actions** on a ready item — **Research**, **Explain**, and **Convene** (Situation Room) fire the Radian verb on that node via `askRadian` + Task Center `trackJob` (shows under "Running now"; result lands in the node's thread). This completes the proactive-arrival loop (summary → connections → questions/actions) from the front door — reasoning without digging into the graph.
 - **Verified (sandbox):** typecheck:all + pwa build green; matrix 459/459. Live verbs need the deployed worker + provider key.
+
+### 2026-06-14 · claude (Claude Code) · `main` — Conversational Radian: ask-anything vault chat
+- **New `POST /radian/chat`** — the missing "ask Radian anything" (the prior `/radian/ask` required a node subject). Retrieves the most relevant **research-safe** nodes (`semanticNeighbors`, fallback top-MVS), answers via `governedComplete` (budget + provider), returns the **sources** used. secret/internal nodes are excluded from context → never sent to the model. Honest `deterministic` flag.
+- **Companion home chat:** a prominent "Ask Radian anything" input + this-session transcript (your/Radian bubbles, source chips link to the node). The ChatGPT/Perplexity-over-your-vault surface, on the front door. `chatRadian()` in `api.ts`.
+- **Verified (sandbox):** typecheck:all + api + pwa builds green; matrix 459/459; headless `/companion` shows the chat box. Live answers need the deployed worker + provider key.
