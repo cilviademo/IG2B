@@ -301,6 +301,17 @@ export async function getAttention(): Promise<{ queue: AttentionItem[]; counts?:
   return radianGet(`/radian/attention`);
 }
 
+// ---- Narrative Timeline (Sprint 5) ----
+export type MomentKind = "capture" | "idea" | "decision" | "connection" | "milestone" | "research";
+export interface NarrativeMoment { id: string; date: string; kind: MomentKind; title: string; significance: "critical" | "high" | "medium" }
+export interface NarrativeChapter {
+  key: string; label: string; startISO: string; endISO: string;
+  summary: string; counts: Record<MomentKind, number>; moments: NarrativeMoment[];
+}
+export async function getNarrative(): Promise<{ chapters: NarrativeChapter[]; total_moments: number } | null> {
+  return radianGet(`/radian/narrative`);
+}
+
 /** Record owner feedback on a finding (useful | not_useful | wrong_connection | dismiss). */
 export async function radianFeedback(nodeId: string, kind: string): Promise<boolean> {
   if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return false;
