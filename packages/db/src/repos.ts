@@ -186,6 +186,36 @@ export const evidence = {
   },
 };
 
+// ---- claims (Intelligence review) — epistemic layer above nodes/evidence ----
+export const claims = {
+  async create(c: {
+    id: string; user_id: string; statement: string; claim_type: string; subject: string; subject_kind: string;
+    confidence: number; observed_at: string | null; valid_from: string | null; valid_until: string | null;
+    owner_status: string; evidence: unknown;
+  }) {
+    await query(
+      `INSERT INTO claims (id,user_id,statement,claim_type,subject,subject_kind,confidence,observed_at,valid_from,valid_until,owner_status,evidence)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [c.id, c.user_id, c.statement, c.claim_type, c.subject, c.subject_kind, c.confidence, c.observed_at, c.valid_from, c.valid_until, c.owner_status, JSON.stringify(c.evidence ?? [])],
+    );
+  },
+  async list(userId: string, subject?: string) {
+    const where = subject ? ` AND subject=$2` : "";
+    const r = await query(`SELECT * FROM claims WHERE user_id=$1${where} ORDER BY updated_at DESC`, subject ? [userId, subject] : [userId]);
+    return r.rows;
+  },
+  async get(userId: string, id: string) {
+    const r = await query(`SELECT * FROM claims WHERE user_id=$1 AND id=$2`, [userId, id]);
+    return r.rows[0] || null;
+  },
+  async setOwnerStatus(userId: string, id: string, status: string) {
+    await query(`UPDATE claims SET owner_status=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, status]);
+  },
+  async setEvidenceAndConfidence(userId: string, id: string, evidence: unknown, confidence: number) {
+    await query(`UPDATE claims SET evidence=$3, confidence=$4, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, JSON.stringify(evidence ?? []), confidence]);
+  },
+};
+
 // ---- captures ----
 export const captures = {
   async create(c: Capture & { raw?: object }) {
