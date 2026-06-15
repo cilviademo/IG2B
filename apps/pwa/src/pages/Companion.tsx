@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
-import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, type BackendCapture } from "@/lib/api";
+import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, getBriefing, type BackendCapture } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
+import { speak, stopSpeaking, canSpeak, canListen, listenOnce } from "@/lib/speech";
 import { toast } from "sonner";
 
 // "What I found" — the proactive arrival. Radian surfaces what it learned from your
@@ -55,21 +56,41 @@ export default function Companion() {
   const [chat, setChat] = useState<{ role: "you" | "radian"; text: string; sources?: { id: string; title: string }[]; deterministic?: boolean }[]>([]);
   const [input, setInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voice, setVoice] = useState(false); // speak Radian's replies aloud
+  const [briefing, setBriefing] = useState(false);
 
-  async function sendChat() {
-    const q = input.trim();
+  async function sendChat(override?: string, speakBack?: boolean) {
+    const q = (override ?? input).trim();
     if (!q || chatBusy) return;
     setInput("");
     setChat((c) => [...c, { role: "you", text: q }]);
     setChatBusy(true);
     try {
       const r = await chatRadian(q);
-      setChat((c) => [...c, r
-        ? { role: "radian", text: r.answer, sources: r.sources, deterministic: r.deterministic }
-        : { role: "radian", text: "I couldn't reach the model (offline, or the API is waking — try again in ~30s)." }]);
+      const text = r ? r.answer : "I couldn't reach the model (offline, or the API is waking — try again in ~30s).";
+      setChat((c) => [...c, r ? { role: "radian", text, sources: r.sources, deterministic: r.deterministic } : { role: "radian", text }]);
+      if ((speakBack || voice) && canSpeak()) speak(text);
     } finally {
       setChatBusy(false);
     }
+  }
+
+  // Voice question → transcribe → ask → speak the answer back (hands-free).
+  function micTap() {
+    if (listening) { stopSpeaking(); setListening(false); return; }
+    listenOnce((t) => { setInput(t); void sendChat(t, true); }, setListening);
+  }
+
+  // JARVIS morning briefing — speak the live (or local) commander's brief.
+  async function briefMe() {
+    if (!canSpeak()) return;
+    if (briefing) { stopSpeaking(); setBriefing(false); return; }
+    setBriefing(true);
+    let text = "";
+    try { const r = await getBriefing(); text = r?.briefing?.speech || ""; } catch { /* offline */ }
+    if (!text) { setBriefing(false); toast("Briefing unavailable", { description: "offline or API asleep" }); return; }
+    speak(text, () => setBriefing(false));
   }
 
   // One-tap deepen from the arrival feed: fire a Radian verb on the node and hand it
@@ -121,6 +142,8 @@ export default function Companion() {
     return off;
   }, [loadFound]);
 
+  useEffect(() => () => stopSpeaking(), []); // stop any speech when leaving Radian
+
   const running = useMemo(() => tasks.filter((t) => isRunning(t.status)).sort((a, b) => b.updatedAt - a.updatedAt), [tasks]);
   const recent = useMemo(() => tasks.filter((t) => !isRunning(t.status)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 30), [tasks]);
 
@@ -132,26 +155,41 @@ export default function Companion() {
       <div className="flex items-center gap-2 mb-1">
         <Sparkles size={18} strokeWidth={1.5} style={{ color: "var(--gold)" }} />
         <h1 className="text-xl font-display">Radian</h1>
+        {canSpeak() && (
+          <button onClick={() => void briefMe()} className="press ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold" style={{ borderRadius: 999, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
+            {briefing ? <VolumeX size={13} strokeWidth={1.5} /> : <Volume2 size={13} strokeWidth={1.5} />} {briefing ? "Stop" : "Brief me"}
+          </button>
+        )}
       </div>
       <p className="mb-5" style={{ fontSize: 14, color: "var(--text-dim)" }}>
         {greeting}. {running.length ? `I'm working on ${running.length} thing${running.length > 1 ? "s" : ""}.` : "Share or ask, and I'll dig in."}
       </p>
 
-      {/* Ask Radian anything — grounded in your vault. */}
-      <div className="flex gap-2 items-end mb-3">
+      {/* Ask Radian anything — by text or voice, grounded in your vault. */}
+      <div className="flex gap-2 items-end mb-2">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendChat(); } }}
-          placeholder="Ask Radian anything — “what have I been thinking about BTZ?”, “summarize this week”"
+          placeholder={listening ? "Listening…" : "Ask Radian anything — “what have I been thinking about BTZ?”, “summarize this week”"}
           rows={2}
           className="flex-1 px-3 py-2.5 text-sm min-w-0 resize-none"
-          style={{ background: "var(--bg)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 8 }}
+          style={{ background: "var(--bg)", border: `1px solid ${listening ? "var(--gold)" : "var(--line)"}`, color: "var(--text)", borderRadius: 8 }}
         />
+        {canListen() && (
+          <button onClick={micTap} aria-label="Speak" className="press flex items-center justify-center shrink-0" style={{ width: 44, height: 44, borderRadius: 999, background: listening ? "var(--gold)" : "var(--surface-2)", color: listening ? "#161118" : "var(--text-dim)", border: "1px solid var(--line)" }}>
+            <Mic size={18} strokeWidth={1.5} className={listening ? "animate-pulse" : ""} />
+          </button>
+        )}
         <button onClick={() => void sendChat()} disabled={chatBusy || !input.trim()} aria-label="Ask" className="press flex items-center justify-center shrink-0" style={{ width: 44, height: 44, borderRadius: 999, background: input.trim() && !chatBusy ? "var(--gold)" : "var(--surface-2)", color: input.trim() && !chatBusy ? "#161118" : "var(--text-dim)", border: "1px solid var(--gold-line)" }}>
           {chatBusy ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <ArrowUp size={18} strokeWidth={2} />}
         </button>
       </div>
+      {canSpeak() && (
+        <button onClick={() => { setVoice((v) => { if (v) stopSpeaking(); return !v; }); }} className="press inline-flex items-center gap-1.5 mb-4 cap-data" style={{ color: voice ? "var(--gold)" : "var(--text-dim)" }}>
+          {voice ? <Volume2 size={12} strokeWidth={1.5} /> : <VolumeX size={12} strokeWidth={1.5} />} {voice ? "Radian speaks replies" : "Replies are silent"}
+        </button>
+      )}
 
       {chat.length > 0 && (
         <div className="space-y-2 mb-5">

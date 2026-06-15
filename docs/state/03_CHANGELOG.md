@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: radian-chat · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: radian-voice · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -470,3 +470,8 @@ commit(s) · what/why · live-test status).
 - **New `POST /radian/chat`** — the missing "ask Radian anything" (the prior `/radian/ask` required a node subject). Retrieves the most relevant **research-safe** nodes (`semanticNeighbors`, fallback top-MVS), answers via `governedComplete` (budget + provider), returns the **sources** used. secret/internal nodes are excluded from context → never sent to the model. Honest `deterministic` flag.
 - **Companion home chat:** a prominent "Ask Radian anything" input + this-session transcript (your/Radian bubbles, source chips link to the node). The ChatGPT/Perplexity-over-your-vault surface, on the front door. `chatRadian()` in `api.ts`.
 - **Verified (sandbox):** typecheck:all + api + pwa builds green; matrix 459/459; headless `/companion` shows the chat box. Live answers need the deployed worker + provider key.
+
+### 2026-06-15 · claude (Claude Code) · `main` — Hands-free Radian: voice in, spoken out, spoken briefing
+- **Voice + speech** (`lib/speech.ts`, browser-native, no backend/cost): the Radian chat gains a **mic** (SpeechRecognition → transcribe → ask → speak the answer back), a **"Radian speaks replies"** toggle (SpeechSynthesis), and a header **"Brief me"** that speaks the live `/radian/briefing` (the JARVIS morning brief). Speech stops on leave. All best-effort: `canListen()`/`canSpeak()` gate the controls, silent degrade where unsupported.
+- This makes the front door a true conversational OS — talk to Radian, it answers aloud with vault-grounded sources.
+- **Verified (sandbox):** typecheck:all + pwa build green; matrix 459/459; headless `/companion` shows mic + Brief me + speak toggle. Voice/speech are device features → owner confirms on iPhone.

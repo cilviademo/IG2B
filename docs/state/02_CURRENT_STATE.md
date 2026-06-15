@@ -1,4 +1,6 @@
-> **CONVERSATIONAL RADIAN (latest):** new `POST /radian/chat` = ask-anything over the vault — retrieves relevant research-safe nodes (`semanticNeighbors` → top-MVS fallback), answers via `governedComplete` (budget+provider; secret/internal excluded from context), returns cited **sources**. Companion home now has a prominent **"Ask Radian anything"** chat (transcript + source chips → node) — the ChatGPT/Perplexity-over-your-vault surface. Plus one-tap **deepen** (Research/Explain/Convene) on "What I found" cards. matrix 459/459; builds green; headless-verified. Live answers need the deployed worker + provider key.
+> **HANDS-FREE RADIAN (latest):** JARVIS-style voice — the Radian chat has a **mic** (speech-to-text → ask → speak the answer), a **"Radian speaks replies"** toggle, and a header **"Brief me"** that speaks the live `/radian/briefing`. Browser-native (`lib/speech.ts`), no backend/cost; gated by `canListen()`/`canSpeak()`, silent degrade. matrix 459/459; builds green. Device features → owner confirms on iPhone.
+
+> **CONVERSATIONAL RADIAN:** new `POST /radian/chat` = ask-anything over the vault — retrieves relevant research-safe nodes (`semanticNeighbors` → top-MVS fallback), answers via `governedComplete` (budget+provider; secret/internal excluded from context), returns cited **sources**. Companion home now has a prominent **"Ask Radian anything"** chat (transcript + source chips → node) — the ChatGPT/Perplexity-over-your-vault surface. Plus one-tap **deepen** (Research/Explain/Convene) on "What I found" cards. matrix 459/459; builds green; headless-verified. Live answers need the deployed worker + provider key.
 
 > **SHARES: SOURCE LINK + HONEST AI STATUS:** (1) `ingest_capture` now ALWAYS stores `meta.source_url` on the node → "Open source" (Atlas) / "Open link" (Companion feed) / "Open original" (capture) work for any shared link. (2) The AI path is wired (share → /captures → ingest → `governedComplete`); thin results = the **deterministic floor** (no provider key/budget). Nodes now record `meta.reasoned`+`provider`, and the "What I found" card shows **"Analyzed by Radian"** vs **"Deterministic — add a model key in Settings → API."** → if it reads Deterministic, owner sets `ANTHROPIC_API_KEY` in Render to unlock real reasoning (URL scrape already feeds real page text into it). matrix 459/459; builds green.
 
@@ -22,7 +24,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: radian-chat · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: radian-voice · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 
