@@ -4,6 +4,7 @@ import { forecast, assemble } from "@indigold/shared/intelligence";
 import {
   getPrompt, BudgetExceededError, getTools, isResearchSafe, fenceUntrusted, UNTRUSTED_GUARD,
   parseFeed, feedItemToEvidence, normalizeEvidence, evidenceGate,
+  buildCrossrefUrl, parseCrossref,
   deterministicIngest, parseIngest, kindToNodeType,
   deterministicContextualize, parseContext,
   parseGithubUrl, deterministicAssist, parseAssist,
@@ -22,7 +23,7 @@ import {
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
 } from "@indigold/shared";
 import { model } from "../lib/model";
-import { fetchReadable, fetchFeedText } from "../lib/fetchPage";
+import { fetchReadable, fetchFeedText, fetchJson } from "../lib/fetchPage";
 
 type Handler = (job: Job) => Promise<void>;
 
@@ -866,7 +867,31 @@ export const handlers: Partial<Record<Job["type"], Handler>> = {
   simulation,
   meta_review: metaReview,
   poll_feed: pollFeed,
+  run_watchlist: runWatchlist,
 };
+
+// Phase 3 — run a watchlist: gather new scholarly evidence (Crossref) for the topic into the
+// Research Inbox (deduped). Best-effort; evidence stays untrusted, never auto-promoted.
+async function runWatchlist(job: Job) {
+  const p = (job.payload || {}) as { watchlistId?: string };
+  const wl = p.watchlistId ? await repo.watchlists.get(job.user_id, p.watchlistId) : null;
+  if (!wl) { await repo.jobs.finish(job.id, "skipped", undefined, "watchlist_not_found"); return; }
+  const kinds: string[] = Array.isArray(wl.kinds) ? wl.kinds : [];
+  const seen = await repo.evidence.seenHashes(job.user_id);
+  let added = 0;
+  if (kinds.includes("scholarly")) {
+    const json = await fetchJson(buildCrossrefUrl(wl.topic, 15));
+    if (json) {
+      for (const raw of parseCrossref(json)) {
+        const ev = normalizeEvidence(raw, { id: id("ev"), connector: "crossref" });
+        if (!evidenceGate(ev, { seenHashes: seen }).accept) continue;
+        if (await repo.evidence.upsert({ ...ev, user_id: job.user_id })) { added++; seen.add(ev.content_hash); }
+      }
+    }
+  }
+  await repo.watchlists.markRun(job.user_id, wl.id, `ok:${added}`);
+  await repo.jobs.finish(job.id, "done", { added, topic: wl.topic });
+}
 
 // Phase 2 — poll one RSS/Atom feed → normalized evidence → Research Inbox (deduped). Best-effort.
 async function pollFeed(job: Job) {

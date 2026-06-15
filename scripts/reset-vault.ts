@@ -20,7 +20,7 @@ import { db, query } from "../packages/db/src/index";
 const WIPE = [
   "events", "jobs", "xp_ledger", "quests", "embeddings", "decisions", "opportunities", "constraints",
   "ai_calls", "api_usage", "audit_logs", "assets", "briefs", "context_packs", "timeline_events",
-  "feeds", "claims", "external_evidence", "messages", "conversations", "edges", "nodes", "captures", "agents", "projects",
+  "watchlists", "feeds", "claims", "external_evidence", "messages", "conversations", "edges", "nodes", "captures", "agents", "projects",
 ] as const;
 
 const args = process.argv.slice(2);

@@ -241,6 +241,33 @@ export const feeds = {
   },
 };
 
+// ---- watchlists (Phase 3 — monitor topics on a cadence) ----
+export const watchlists = {
+  async create(w: { id: string; user_id: string; topic: string; kinds: string[]; cadence: string }) {
+    await query(`INSERT INTO watchlists (id, user_id, topic, kinds, cadence) VALUES ($1,$2,$3,$4,$5)`,
+      [w.id, w.user_id, w.topic, w.kinds, w.cadence]);
+  },
+  async list(userId: string) {
+    const r = await query(`SELECT * FROM watchlists WHERE user_id=$1 ORDER BY created_at DESC`, [userId]);
+    return r.rows;
+  },
+  async get(userId: string, id: string) {
+    const r = await query<{ id: string; user_id: string; topic: string; kinds: string[]; cadence: string; last_run: string | null }>(`SELECT * FROM watchlists WHERE user_id=$1 AND id=$2`, [userId, id]);
+    return r.rows[0] || null;
+  },
+  async listAllDue() {
+    // every non-manual watchlist + its last_run; cadence math is applied by the caller (pure).
+    const r = await query<{ id: string; user_id: string; topic: string; kinds: string[]; cadence: string; last_run: string | null }>(`SELECT id, user_id, topic, kinds, cadence, last_run FROM watchlists WHERE cadence <> 'manual'`);
+    return r.rows;
+  },
+  async remove(userId: string, id: string) {
+    await query(`DELETE FROM watchlists WHERE user_id=$1 AND id=$2`, [userId, id]);
+  },
+  async markRun(userId: string, id: string, status: string) {
+    await query(`UPDATE watchlists SET last_run=now(), last_status=$3 WHERE user_id=$1 AND id=$2`, [userId, id, status.slice(0, 120)]);
+  },
+};
+
 // ---- captures ----
 export const captures = {
   async create(c: Capture & { raw?: object }) {

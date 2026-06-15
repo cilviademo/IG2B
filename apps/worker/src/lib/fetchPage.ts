@@ -77,6 +77,28 @@ export async function fetchFeedText(url: string): Promise<string | null> {
   }
 }
 
+/** Fetch a public JSON API (SSRF-guarded). Returns parsed JSON, or null on any failure. */
+export async function fetchJson(url: string): Promise<unknown | null> {
+  if (!(await safeHost(url))) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: { "user-agent": "IndigoldBot/1.0 (+https://indigold.app; mailto:owner@indigold.app)", accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength === 0) return null;
+    return JSON.parse(new TextDecoder("utf-8").decode(buf.slice(0, MAX_BYTES)));
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Fetch a public web page and return readable text. null on any failure/guard. */
 export async function fetchReadable(url: string): Promise<ReadablePage | null> {
   if (!(await safeHost(url))) return null;

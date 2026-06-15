@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Swords, Activity, FileText, Compass, BarChart3, Clock, Settings, ShieldCheck, Globe2, LayoutDashboard, ChevronRight, Inbox as InboxIcon, GitFork, Globe } from "lucide-react";
+import { Swords, Activity, FileText, Compass, BarChart3, Clock, Settings, ShieldCheck, Globe2, LayoutDashboard, ChevronRight, Inbox as InboxIcon, GitFork, Globe, Radar } from "lucide-react";
 
 // The "More" hub. Primary tabs are Radian · Inbox · Timeline · Library · More; everything
 // else is one calm tap away here. No capability removed — just relocated.
@@ -11,6 +11,7 @@ const ITEMS: { href: string; icon: typeof Swords; label: string; sub: string }[]
   { href: "/research", icon: InboxIcon, label: "Research Inbox", sub: "External evidence + feeds — triage what the world knows" },
   { href: "/tensions", icon: GitFork, label: "Tensions", sub: "Where your beliefs and the evidence disagree" },
   { href: "/world-lens", icon: Globe, label: "World Lens", sub: "What changed outside your vault (open from a node)" },
+  { href: "/watchlists", icon: Radar, label: "Watchlists", sub: "Monitor topics — new scholarship & feeds, on a cadence" },
   { href: "/insights", icon: BarChart3, label: "Insights", sub: "Progress, simulations, research" },
   { href: "/context", icon: FileText, label: "Context", sub: "Goal-scoped packs" },
   { href: "/brief", icon: Compass, label: "Weekly Brief", sub: "The editorial digest" },

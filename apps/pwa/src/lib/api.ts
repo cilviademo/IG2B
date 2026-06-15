@@ -375,6 +375,27 @@ export async function getWorldLens(subject: string, kind = "topic", title?: stri
   return r?.lens ?? null;
 }
 
+// ---- Watchlists (Phase 3 — monitor topics on a cadence) ----
+export interface Watchlist { id: string; topic: string; kinds: string[]; cadence: string; last_run?: string | null; last_status?: string | null }
+export async function listWatchlists(): Promise<Watchlist[]> {
+  const r = await radianGet<{ items: Watchlist[] }>(`/radian/watchlists`);
+  return r?.items ?? [];
+}
+export async function addWatchlist(topic: string, kinds: string[], cadence: string): Promise<boolean> {
+  return !!(await radianPost(`/radian/watchlists`, { topic, kinds, cadence }));
+}
+export async function removeWatchlist(id: string): Promise<boolean> {
+  return delAt(`/radian/watchlists/${encodeURIComponent(id)}`);
+}
+export async function runWatchlist(id: string): Promise<boolean> {
+  return !!(await radianPost(`/radian/watchlists/${encodeURIComponent(id)}/run`, {}));
+}
+/** Idempotent: enqueue runs for any watchlists whose cadence is due. Pinged on app launch. */
+export async function runDueWatchlists(): Promise<number> {
+  const r = await radianPost<{ queued: number }>(`/radian/watchlists/run-due`, {});
+  return r?.queued ?? 0;
+}
+
 /** Record owner feedback on a finding (useful | not_useful | wrong_connection | dismiss). */
 export async function radianFeedback(nodeId: string, kind: string): Promise<boolean> {
   if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return false;
