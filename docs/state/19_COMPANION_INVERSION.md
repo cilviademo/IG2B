@@ -1,6 +1,6 @@
 # Companion Inversion — from graph-app to AI companion
 
-`Last updated: 2026-06-15 · Commit: sprint-5-narrative-timeline · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: sprint-6-atlas-evolution · By: claude (Claude Code)`
 
 > Owner directive: Indigold still behaves like "a graph database with AI attached." Invert it:
 > **You → Radian (companion) → conversation memory → Situation Room → Atlas (hidden memory) →
@@ -127,4 +127,29 @@ a project or decision and surface it from those surfaces (Mission Control / deci
 - **`GET /radian/narrative`** assembles real moments (real connections only — `derived_from`
   excluded) + live themes/resurfaced. **Timeline page rewritten**: live chapters + empty state;
   static sample kept only as the offline/not-signed-in demo. `narrative-verify` (13) → matrix 510.
-**Next:** Sprint 6 (Atlas evolution) + the Sprint 3b workstream-threads tail.
+## Sprint 3b workstream tail — workstream threads + Atlas→Radian bridge (done)
+- Conversations can anchor to a **`decision`** (project already supported); the list resolves
+  **project/decision** anchor titles. The Companion supports a deep-link
+  `/?anchor=<type>:<id>&title=…` (`openAnchored`, generalizing `discuss`) that opens/resumes that
+  thread. The **Atlas node sheet** gains a **"Discuss in Radian"** button (project node →
+  "Discuss workstream") that jumps from the graph into the node's persistent conversation.
+
+## Sprint 6 — Atlas evolution (done)
+- The Atlas now **evolves with memory age**. Pure overlay (`living-os.ts` + PWA `nodeState.ts`):
+  `memoryTier(createdDays)` → fresh/forming/established/enduring; `isCrystallized` (enduring **and**
+  valuable **and** connected — distinct from Legendary); `MEMORY_TIER_PATINA`. The renderer draws a
+  **patina ring** *after* the state ring (deeper gold as memory matures; a second wider ring for
+  crystallized), so the state machine, the 60fps energy loop, and hit-testing are **untouched**.
+  Legend extended. `living-os-verify` +4 → matrix 514. Canvas is **device-gated** (constraint #5).
+
+---
+
+## Roadmap status — the inversion sprint plan is COMPLETE
+Stage 0 (owner-device trust gate, done earlier) + **Sprints 1–6** all shipped (PRs #15–#20 + the
+Sprint-6 PR). Indigold is now companion-first: **You → Radian (home, conversation, attention,
+narrative) → anchored/workstream threads → Atlas (evolving hidden memory) → Storage.**
+
+**Remaining work is owner/infra-gated, not codeable in the sandbox** (tracked in `07_ROADMAP.md`):
+device phone-gates for every sprint (constraint #5), `TAVILY_API_KEY`/`BRAVE_API_KEY` to unlock
+live Research citations, media-worker deploy, `CORS_ALLOW_ONRENDER=false` once `PWA_ORIGIN` is set,
+true SSE token streaming, and a live e2e suite (needs the deployed stack).

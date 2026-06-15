@@ -4,7 +4,7 @@
 
 import {
   VERBS, verbsFor, findVerb, computeNodeState, NODE_STATE_STYLE, NODE_STATES,
-  isForgottenGem, isResurfaced,
+  isForgottenGem, isResurfaced, memoryTier, isCrystallized, MEMORY_TIER_PATINA,
   type NodeState,
 } from "../src/living-os";
 
@@ -42,6 +42,12 @@ ok("forgotten gem = high value, gone quiet", isForgottenGem(80, 60) && !isForgot
 ok("resurfaced = old idea freshly touched", isResurfaced(120, 5) && !isResurfaced(120, 30) && !isResurfaced(10, 5));
 ok("dim is in [0,1]", NODE_STATES.every((s) => NODE_STATE_STYLE[s].dim >= 0 && NODE_STATE_STYLE[s].dim <= 1));
 ok("blocked + critical carry a badge", !!NODE_STATE_STYLE.blocked.badge && !!NODE_STATE_STYLE.critical.badge);
+
+// ---- Sprint 6: memory-age evolution (overlay, must not perturb the state machine) ----
+ok("memoryTier bands by age", memoryTier(3) === "fresh" && memoryTier(30) === "forming" && memoryTier(120) === "established" && memoryTier(400) === "enduring");
+ok("crystallized = enduring + valuable + connected", isCrystallized({ createdDays: 200, mvs: 75, degree: 4 }) && !isCrystallized({ createdDays: 200, mvs: 60, degree: 4 }) && !isCrystallized({ createdDays: 100, mvs: 90, degree: 9 }));
+ok("only mature tiers get a patina", !MEMORY_TIER_PATINA.fresh && !MEMORY_TIER_PATINA.forming && !!MEMORY_TIER_PATINA.established && !!MEMORY_TIER_PATINA.enduring);
+ok("memory overlay leaves the state machine intact", NODE_STATES.length === 8 && computeNodeState({ mvs: 80, recencyDays: 18, inboundBlocked: false, recentEdges: 0, degree: 8, createdDays: 400 }) === "stable");
 
 console.log(`\n${fail === 0 ? "ALL PASS ✓" : "SOME FAILED ✗"} — ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

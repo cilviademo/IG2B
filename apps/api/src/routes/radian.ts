@@ -318,9 +318,10 @@ radianRouter.post("/feedback", async (req: Authed, res) => {
 radianRouter.post("/conversations", async (req: Authed, res) => {
   const uid = req.userId!;
   const title = String(req.body?.title || "Conversation").trim().slice(0, 120) || "Conversation";
-  const anchorType = ["open", "node", "capture", "project"].includes(String(req.body?.anchorType)) ? String(req.body.anchorType) : "open";
+  const anchorType = ["open", "node", "capture", "project", "decision"].includes(String(req.body?.anchorType)) ? String(req.body.anchorType) : "open";
   const anchorId = req.body?.anchorId ? String(req.body.anchorId) : null;
-  // Reuse an existing thread for the same anchor (so a node has one ongoing conversation).
+  // Reuse an existing thread for the same anchor (so a node/project/decision has one ongoing
+  // conversation — the "workstream thread").
   if (anchorType !== "open" && anchorId) {
     const existing = await repo.conversations.findAnchored(uid, anchorType, anchorId);
     if (existing) return res.json({ conversation: existing, reused: true });
@@ -333,14 +334,19 @@ radianRouter.get("/conversations", async (req: Authed, res) => {
   const q = String(req.query.q || "").trim().slice(0, 120);
   const list = q ? await repo.conversations.search(uid, q) : await repo.conversations.list(uid);
   // Enrich anchored threads with the anchor's title so the UI can show "on: <title>"
-  // (Sprint 3b: node/capture-anchored threads are recognizable in the list).
-  const nodeIds = list.filter((c) => c.anchor_type === "node" && c.anchor_id).map((c) => c.anchor_id as string);
-  const capIds = list.filter((c) => c.anchor_type === "capture" && c.anchor_id).map((c) => c.anchor_id as string);
+  // (Sprint 3b: node/capture/project/decision-anchored threads are recognizable in the list).
+  const idsOf = (t: string) => list.filter((c) => c.anchor_type === t && c.anchor_id).map((c) => c.anchor_id as string);
   const titles = new Map<string, string>();
+  const projById = list.some((c) => c.anchor_type === "project") ? new Map((await repo.projects.list(uid)).map((p) => [p.id, p.name] as const)) : new Map<string, string>();
+  const decById = list.some((c) => c.anchor_type === "decision") ? new Map((await repo.decisions.list(uid) as { id: string; decision: string }[]).map((d) => [d.id, d.decision] as const)) : new Map<string, string>();
   await Promise.all([
-    ...[...new Set(nodeIds)].map(async (n) => { const x = await repo.nodes.get(uid, n).catch(() => null); if (x) titles.set(n, x.title); }),
-    ...[...new Set(capIds)].map(async (c) => { const x = await repo.captures.get(uid, c).catch(() => null); if (x) titles.set(c, x.title); }),
+    ...[...new Set(idsOf("node"))].map(async (n) => { const x = await repo.nodes.get(uid, n).catch(() => null); if (x) titles.set(n, x.title); }),
+    ...[...new Set(idsOf("capture"))].map(async (c) => { const x = await repo.captures.get(uid, c).catch(() => null); if (x) titles.set(c, x.title); }),
   ]);
+  for (const c of list) {
+    if (c.anchor_id && c.anchor_type === "project" && projById.get(c.anchor_id)) titles.set(c.anchor_id, projById.get(c.anchor_id)!);
+    if (c.anchor_id && c.anchor_type === "decision" && decById.get(c.anchor_id)) titles.set(c.anchor_id, decById.get(c.anchor_id)!);
+  }
   const conversations = list.map((c) => ({ ...c, anchor_title: c.anchor_id ? (titles.get(c.anchor_id) || null) : null }));
   res.json({ conversations });
 });

@@ -48,7 +48,37 @@ export const LEGEND: NodeState[] = ["legendary", "growing", "emerging", "blocked
 export const isForgottenGem = (mvs: number, recencyDays: number) => mvs >= 70 && recencyDays >= 45;
 export const isResurfaced = (createdDays: number, recencyDays: number) => createdDays >= 60 && recencyDays <= 10;
 
+// Sprint 6 — Atlas evolution: memory matures with age (overlay, NOT a state). Mirrors
+// packages/shared/src/living-os.ts. The renderer draws a subtle patina AFTER the rings, so
+// the constellation visibly evolves as the vault ages — without touching the state machine.
+export type MemoryTier = "fresh" | "forming" | "established" | "enduring";
+export function memoryTier(createdDays: number): MemoryTier {
+  if (createdDays < 14) return "fresh";
+  if (createdDays < 60) return "forming";
+  if (createdDays < 180) return "established";
+  return "enduring";
+}
+export const isCrystallized = (i: { createdDays: number; mvs: number; degree: number }) =>
+  i.createdDays >= 180 && i.mvs >= 70 && i.degree >= 3;
+export const MEMORY_TIER_PATINA: Record<MemoryTier, string | undefined> = {
+  fresh: undefined, forming: undefined,
+  established: "rgba(201,164,92,0.28)", enduring: "rgba(230,199,110,0.5)",
+};
+
 const days = (iso?: string, now = Date.now()) => (iso ? (now - new Date(iso).getTime()) / 86400000 : 999);
+
+/** Derive the memory-age overlay (tier + crystallized + patina ring colour) for a node. */
+export function deriveMemory(
+  node: { id: string; mvs: number; created_at?: string },
+  edges: { source_id: string; target_id: string }[],
+  now = Date.now(),
+): { tier: MemoryTier; crystallized: boolean; patina?: string } {
+  let degree = 0;
+  for (const e of edges) if (e.source_id === node.id || e.target_id === node.id) degree++;
+  const createdDays = days(node.created_at, now);
+  const tier = memoryTier(createdDays);
+  return { tier, crystallized: isCrystallized({ createdDays, mvs: node.mvs, degree }), patina: MEMORY_TIER_PATINA[tier] };
+}
 
 /** Derive a node's state from the graph the Atlas already holds (nodes + edges). */
 export function deriveNodeState(
