@@ -76,13 +76,6 @@ export async function ensureSession(): Promise<boolean> {
     return false;
   }
   if (getToken()) return true;
-  // Claimed (real-login) accounts are TOKEN-ONLY — we never persist their password.
-  // If the token is gone (Redis session eviction), require an explicit re-login
-  // (iCloud Keychain autofills) rather than silently minting/forking a new vault.
-  if (localStorage.getItem(CLAIMED_KEY)) {
-    lastSessionErr = "session expired — please log in again";
-    return false;
-  }
   let creds: { email: string; password: string } | null = null;
   try {
     creds = JSON.parse(localStorage.getItem(DEVICE_KEY) || "null");
@@ -119,6 +112,16 @@ export async function ensureSession(): Promise<boolean> {
 
 export interface AccountResult { ok: boolean; email?: string; error?: string }
 
+/** Best-effort read of a response body for auth debugging (server error code/message). */
+async function bodyText(res: Response): Promise<string> {
+  try {
+    const t = (await res.clone().text()).slice(0, 200);
+    return t ? `· ${t}` : "";
+  } catch {
+    return "";
+  }
+}
+
 /** Claim the CURRENT vault: set a real email+password on this account so its data
  *  is preserved AND it's recoverable by login on any surface / after a reinstall.
  *  TOKEN-ONLY: the password is NOT persisted (security) — re-login restores after a
@@ -132,13 +135,15 @@ export async function claimAccount(email: string, password: string): Promise<Acc
       headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
       body: JSON.stringify({ email, password }),
     });
-    if (res.status === 409) return { ok: false, error: "That email is already in use." };
+    if (res.status === 409) return { ok: false, error: "That email is already in use by another account. Use “Log in” to sign into it instead." };
     if (res.status === 400) return { ok: false, error: "Use a valid email + a password of at least 8 characters." };
-    if (!res.ok) return { ok: false, error: `claim failed (HTTP ${res.status})` };
+    if (!res.ok) return { ok: false, error: `claim failed — HTTP ${res.status} ${await bodyText(res)}` };
     const j = (await res.json()) as { token?: string };
     if (j.token) setToken(j.token);
+    // Persist creds so the silent session can re-auth to THIS account (restores the
+    // working login flow; the anonymous fallback also relies on this).
+    localStorage.setItem(DEVICE_KEY, JSON.stringify({ email, password }));
     localStorage.setItem(CLAIMED_KEY, email);
-    localStorage.removeItem(DEVICE_KEY); // never persist the real password
     return { ok: true, email };
   } catch (e) {
     return { ok: false, error: `network/CORS: ${e instanceof Error ? e.message : "fetch failed"}` };
@@ -155,13 +160,14 @@ export async function loginAccount(email: string, password: string): Promise<Acc
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    if (res.status === 401) return { ok: false, error: "Wrong email or password." };
-    if (!res.ok) return { ok: false, error: `login failed (HTTP ${res.status})` };
+    if (res.status === 401) return { ok: false, error: "Wrong email or password (server: invalid_credentials). Check caps/spaces; if you never set a password, use “Secure this vault” instead." };
+    if (!res.ok) return { ok: false, error: `login failed — HTTP ${res.status} ${await bodyText(res)}` };
     const j = (await res.json()) as { token?: string };
     if (!j.token) return { ok: false, error: "login response had no token" };
     setToken(j.token);
+    // Persist creds so the silent session re-auths to this account after a token loss.
+    localStorage.setItem(DEVICE_KEY, JSON.stringify({ email, password }));
     localStorage.setItem(CLAIMED_KEY, email);
-    localStorage.removeItem(DEVICE_KEY); // never persist the real password
     return { ok: true, email };
   } catch (e) {
     return { ok: false, error: `network/CORS: ${e instanceof Error ? e.message : "fetch failed"}` };

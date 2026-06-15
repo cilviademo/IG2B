@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: security-tokenonly · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: fix-login · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -500,3 +500,9 @@ commit(s) · what/why · live-test status).
 - **Plaintext password P0 fixed:** claimed/logged-in accounts are now **token-only** — `claimAccount`/`loginAccount` set the token + `indigold_account_email` and **remove `indigold_device`** (the real password is never written to localStorage). `ensureSession` gains a **claimed-guard**: token gone + claimed → returns "session expired" (no silent mint) so an evicted token re-prompts login instead of **forking a new vault**; `logoutAccount` clears the flag. New `needsLogin()` + a **"Session expired — tap to log back in"** banner (AppBanners; iCloud Keychain autofills). The anonymous device account keeps its random password (not a human secret); pairing (secondary) still carries a password by design.
 - **CORS P0:** `CORS_ALLOW_ONRENDER=false` drops the blanket `*.onrender.com` trust → only configured origins. Default unchanged (keeps PR previews working); owner flips it once `PWA_ORIGIN` is set.
 - **Verified (sandbox):** typecheck:all + api + pwa builds green; matrix 465/465. **Owner on-device:** log in, then force a token loss → confirm the re-login banner restores the SAME vault (no fork) — auth is a critical path, please verify.
+
+### 2026-06-15 · claude (Claude Code) · `main` — Fix login regression (revert token-only) + auth debugging
+- **Regression:** the prior token-only security change broke sign-in/re-auth — `ensureSession` had a "claimed-guard" that refused silent re-auth (and creds were no longer stored), so after sign-out / token loss a claimed user couldn't get back in. **Reverted to the working login flow** per owner: `ensureSession` re-auths from stored `indigold_device` creds again; `claimAccount`/`loginAccount` persist creds (restores silent re-auth → "vault was the same"); the claimed-guard is removed. `needsLogin()` now requires `!deviceCreds()` so the "session expired" banner only shows when re-auth is truly impossible.
+- **Auth debugging (owner asked):** login/claim now surface the **exact** failure — HTTP status + server body (`bodyText`) + actionable hints ("invalid_credentials … if you never set a password, use Secure this vault"; 409 → "already in use by another account — use Log in"). AccountPanel shows a **persistent error line** (not just a toast) for on-device diagnosis. The Debug/Sync panel already shows the current device-account email + token presence.
+- **Security note:** this re-persists the password in localStorage (the plaintext-password P0 returns) — a deliberate revert to restore working login per owner. A safer re-implementation (token-only + reliable re-login, verified on device) is re-queued in the reliability gate.
+- **Verified (sandbox):** typecheck:all + pwa build green; matrix 465/465. **Owner on-device:** sign out → log in with the same email+password → should sign in; if it still fails, the on-screen error now states exactly why (status + server code).

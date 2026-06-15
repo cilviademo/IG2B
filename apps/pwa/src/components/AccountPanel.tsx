@@ -16,13 +16,15 @@ export default function AccountPanel() {
   const [mode, setMode] = useState<"secure" | "login">("secure");
   const [busy, setBusy] = useState(false);
   const [claimed, setClaimed] = useState(isClaimed());
+  const [err, setErr] = useState<string | null>(null); // persistent auth-debug line
 
   if (!apiEnabled()) return null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setErr(null);
     if (!/^\S+@\S+\.\S+$/.test(email.trim()) || password.length < 8) {
-      toast.error("Check your details", { description: "A valid email and a password of at least 8 characters." });
+      setErr("Enter a valid email and a password of at least 8 characters.");
       return;
     }
     setBusy(true);
@@ -32,7 +34,9 @@ export default function AccountPanel() {
         toast.success(mode === "secure" ? "Vault secured" : "Signed in", { description: `Recoverable on any device as ${r.email}.` });
         setClaimed(true);
         setPassword("");
+        setErr(null);
       } else {
+        setErr(r.error || "auth failed");
         toast.error(mode === "secure" ? "Couldn't secure vault" : "Couldn't sign in", { description: r.error });
       }
     } finally {
@@ -87,6 +91,11 @@ export default function AccountPanel() {
               {busy ? "…" : mode === "secure" ? "Secure vault" : "Log in"}
             </Button>
           </form>
+          {err && (
+            <p className="text-xs leading-relaxed mt-2 p-2" style={{ borderRadius: 6, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--risk)" }}>
+              {err}
+            </p>
+          )}
         </>
       )}
     </div>
