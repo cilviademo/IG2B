@@ -29,6 +29,7 @@ export type EventType =
   | "system_improvement_generated"
   | "constraint_updated"
   | "state_transition"
+  | "feedback"
   | "archived"
   | "deleted";
 
@@ -37,7 +38,7 @@ export const EVENT_TYPES: EventType[] = [
   "edge_reverted", "brief_generated", "research_run", "suggestion_accepted",
   "suggestion_rejected", "decision_recorded", "outcome_recorded", "hypothesis_updated",
   "simulation_completed", "review_generated", "consolidation_run", "opportunity_created",
-  "system_improvement_generated", "constraint_updated", "state_transition",
+  "system_improvement_generated", "constraint_updated", "state_transition", "feedback",
   "archived", "deleted",
 ];
 

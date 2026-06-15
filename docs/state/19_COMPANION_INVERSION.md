@@ -1,6 +1,6 @@
 # Companion Inversion — from graph-app to AI companion
 
-`Last updated: 2026-06-14 · Commit: rich-arrival · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: finding-feedback · By: claude (Claude Code)`
 
 > Owner directive: Indigold still behaves like "a graph database with AI attached." Invert it:
 > **You → Radian (companion) → conversation memory → Situation Room → Atlas (hidden memory) →
@@ -79,5 +79,8 @@ it"), the synthesis, **named + openable connections** (real graph neighbours, no
 **content-aware suggested prompts** (Key takeaway / Connect to my work / Skeptic's view → open
 a grounded conversation), softened AI-status copy ("Quick analysis · deeper reasoning
 unavailable"), with precise Research/Explain/Convene as secondary actions.
-**Still to do (Sprint 2b):** useful/not-useful/wrong-connection feedback (needs storage) +
-the media lifecycle (Transcribing→Synthesizing→Ready) once the media worker is live.
+**Sprint 2b (done — feedback):** arrival cards have **Useful / Not useful / Dismiss**
+(`POST /radian/feedback` → `node.meta.feedback` via `nodes.setFeedback`; emits a `feedback`
+event). Dismissed findings persist as dismissed (filtered from the feed on reload) — a real
+ranking signal, proposal-only (never deletes). **Still to do:** media lifecycle stages once the
+media worker is live; use the feedback signal in proactive ranking (Sprint 4 Attention Queue).

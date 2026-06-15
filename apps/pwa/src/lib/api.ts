@@ -251,6 +251,21 @@ export async function chatRadian(question: string, mode: ChatMode = "auto", hist
   }
 }
 
+/** Record owner feedback on a finding (useful | not_useful | wrong_connection | dismiss). */
+export async function radianFeedback(nodeId: string, kind: string): Promise<boolean> {
+  if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return false;
+  try {
+    const res = await fetch(`${BASE}/radian/feedback`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ nodeId, kind }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Persist a Radian answer to the vault (capture → ingest pipeline). */
 export async function rememberRadian(question: string, answer: string): Promise<boolean> {
   if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return false;
