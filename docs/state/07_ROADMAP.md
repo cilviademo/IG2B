@@ -11,7 +11,8 @@ source directive and the gate that unblocks/closes it.
 - **DONE:** queue **bounded retries** (re-queue to head until cap=3, then dead-letter) + **crash recovery** (`recoverStale` requeues orphaned `:processing` jobs at worker startup).
 - **DONE:** tested **vault restore** (`/io/import` now restores captures (Truth Layer A, id-preserving + idempotent) + nodes + edges via pure `normalizeImport*`; `import-verify`).
 - **IN PR (`claude/durable-sessions`):** durable **Postgres-backed sessions** (Redis-first cache + Postgres backstop) — fixes BUG-003 (Redis LRU eviction → silent logouts) and is **step 1 of the secure auth re-do**; step 2 (PWA token-only, no stored password) follows after device-confirming durability.
-- **NEXT from the audit:** e2e integration test, structured observability, dependency hygiene; auth re-do step 2. Tracked in `docs/REPOSITORY_AUDIT_2026-06-15.md` (Codex branch).
+- **DONE:** **auth re-do complete** — claimed accounts are now **token-only** (password never stored in localStorage); durable Postgres sessions keep the token valid, `ensureSession` re-prompts login (no fork) if it's lost, "session expired" banner restores via Keychain.
+- **NEXT from the audit:** e2e integration test, structured observability, dependency hygiene. Tracked in `docs/REPOSITORY_AUDIT_2026-06-15.md` (Codex branch).
 
 ## In-progress (open PRs — merge gate = owner live-test)
 - **File upload (PR #1 `claude/indigold-file-upload`)** — *in-progress.* PWA file picker +

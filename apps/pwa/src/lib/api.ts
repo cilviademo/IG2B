@@ -76,6 +76,14 @@ export async function ensureSession(): Promise<boolean> {
     return false;
   }
   if (getToken()) return true;
+  // Claimed (real-login) accounts are TOKEN-ONLY — the password is never stored. The
+  // token is durable (Postgres-backed sessions survive Redis eviction), so a missing
+  // token here means a genuine logout/wipe → require explicit re-login (Keychain
+  // autofills) rather than silently minting a NEW anonymous account (which would fork).
+  if (localStorage.getItem(CLAIMED_KEY)) {
+    lastSessionErr = "session expired — please log in again";
+    return false;
+  }
   let creds: { email: string; password: string } | null = null;
   try {
     creds = JSON.parse(localStorage.getItem(DEVICE_KEY) || "null");
@@ -140,10 +148,10 @@ export async function claimAccount(email: string, password: string): Promise<Acc
     if (!res.ok) return { ok: false, error: `claim failed — HTTP ${res.status} ${await bodyText(res)}` };
     const j = (await res.json()) as { token?: string };
     if (j.token) setToken(j.token);
-    // Persist creds so the silent session can re-auth to THIS account (restores the
-    // working login flow; the anonymous fallback also relies on this).
-    localStorage.setItem(DEVICE_KEY, JSON.stringify({ email, password }));
+    // TOKEN-ONLY: never persist the real password. The durable (Postgres-backed)
+    // session keeps the token valid; if it's ever lost, re-login restores it.
     localStorage.setItem(CLAIMED_KEY, email);
+    localStorage.removeItem(DEVICE_KEY);
     return { ok: true, email };
   } catch (e) {
     return { ok: false, error: `network/CORS: ${e instanceof Error ? e.message : "fetch failed"}` };
@@ -165,9 +173,9 @@ export async function loginAccount(email: string, password: string): Promise<Acc
     const j = (await res.json()) as { token?: string };
     if (!j.token) return { ok: false, error: "login response had no token" };
     setToken(j.token);
-    // Persist creds so the silent session re-auths to this account after a token loss.
-    localStorage.setItem(DEVICE_KEY, JSON.stringify({ email, password }));
+    // TOKEN-ONLY: never persist the real password (durable session keeps the token).
     localStorage.setItem(CLAIMED_KEY, email);
+    localStorage.removeItem(DEVICE_KEY);
     return { ok: true, email };
   } catch (e) {
     return { ok: false, error: `network/CORS: ${e instanceof Error ? e.message : "fetch failed"}` };
