@@ -32,3 +32,4 @@ export * from "./companion";
 export * from "./context-engine";
 export * from "./url-safety";
 export * from "./intake-router";
+export * from "./importmap";

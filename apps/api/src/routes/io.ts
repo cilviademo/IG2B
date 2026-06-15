@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as repo from "@indigold/db";
-import { contracts, id } from "@indigold/shared";
+import { contracts, id, normalizeImportNode, normalizeImportCapture } from "@indigold/shared";
 import { validate } from "../lib/validate";
 import type { Authed } from "../middleware/auth";
 
@@ -31,22 +31,26 @@ ioRouter.post("/import", validate(contracts.importBody), async (req: Authed, res
     captures?: Record<string, unknown>[];
     timeline?: Record<string, unknown>[];
   };
-  let counts = { nodes: 0, edges: 0, captures: 0, timeline: 0 };
+  const counts = { nodes: 0, edges: 0, captures: 0 };
   const idMap = new Map<string, string>();
+
+  // Captures first (Truth Layer A — the raw vault). Preserve the original id so a
+  // restore round-trips exactly; skip dupes so re-import is idempotent.
+  for (const c of body.captures ?? []) {
+    const cap = normalizeImportCapture(c, uid);
+    if (!cap.id) continue;
+    try {
+      await repo.captures.create(cap as never);
+      counts.captures++;
+    } catch {
+      /* duplicate id (already restored) — skip */
+    }
+  }
 
   for (const n of body.nodes ?? []) {
     const newId = id("node");
     if (n.id) idMap.set(String(n.id), newId);
-    await repo.nodes.create({
-      id: newId, user_id: uid,
-      type: (n.type as never) ?? "concept",
-      title: String(n.title ?? "Untitled"),
-      summary: String(n.summary ?? ""),
-      truth_layer: (n.truth_layer as never) ?? "C",
-      truth_label: String(n.truth_label ?? "Knowledge"),
-      mvs: Number(n.mvs ?? 50),
-      tags: Array.isArray(n.tags) ? (n.tags as string[]) : [],
-    });
+    await repo.nodes.create(normalizeImportNode(n, newId, uid) as never);
     counts.nodes++;
   }
   for (const e of body.edges ?? []) {

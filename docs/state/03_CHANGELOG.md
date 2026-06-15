@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: queue-durability · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: vault-restore · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -511,3 +511,8 @@ commit(s) · what/why · live-test status).
 - **Bounded retries:** a failing handler is now re-queued (to the head, so other jobs run first = natural backoff) with an incremented `Job.attempts`, until `MAX_ATTEMPTS=3`, then dead-lettered — previously a single failure went straight to the dead list.
 - **Crash recovery:** new `recoverStale(queue)` (RPOPLPUSH `:processing` → main until empty) runs ONCE at worker startup (embedded API worker, standalone worker, and media worker) to requeue jobs orphaned by a crash mid-handler (single consumer per queue, so nothing legit is in-flight at boot). Returns the count; logged.
 - **Verified (sandbox):** `queue-verify` extended (12 checks: retry re-queues to main w/ attempts=1; cap → dead-letter; recoverStale drains processing) → matrix **469/469**; typecheck:all + build:all green. The dedicated-connection perf guard is untouched.
+
+### 2026-06-15 · claude (Claude Code) · `main` — Tested vault restore (captures + nodes + edges)
+- **Restore gap fixed:** `POST /io/import` previously restored only nodes + edges and **silently dropped captures** (Truth Layer A — the raw vault) and timeline. It now **restores captures** too — id-preserving (faithful round-trip) + dupe-tolerant (idempotent re-import) — alongside nodes (id-remapped) + edges (remapped, skips dangling).
+- **Pure + tested:** new `packages/shared/src/importmap.ts` (`normalizeImportNode`/`normalizeImportCapture`) does loosely-typed → safe-defaulted mapping (bad mvs→50, tags→strings, captures always Layer A, null assets when absent); `import-verify` (10 checks). Keeps the route thin.
+- **Verified (sandbox):** `import-verify` 10/10 → matrix **479/479**; typecheck:all + build:all green. Full DB round-trip (export→reset→restore) needs a live Postgres → owner/CI runs it; the mapping it depends on is unit-covered.

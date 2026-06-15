@@ -1,4 +1,6 @@
-> **QUEUE DURABILITY (latest):** reliability-gate item — job queue now has **bounded retries** (failing handler re-queues to head with `attempts++` until cap=3, then dead-letters; was straight-to-dead) + **crash recovery** (`recoverStale` requeues orphaned `:processing` jobs at startup for the embedded/standalone/media workers). `queue-verify` extended to 12 checks → matrix **469/469**; builds green. Perf guard (dedicated Redis connection) untouched.
+> **TESTED VAULT RESTORE (latest):** `/io/import` previously dropped **captures** (Truth Layer A — your raw vault) on restore, only doing nodes+edges. Now it restores **captures too** — id-preserving (faithful round-trip) + dupe-tolerant (idempotent) — via pure `normalizeImportNode`/`normalizeImportCapture` (`importmap.ts`), covered by `import-verify` (10 checks). matrix **479/479**; builds green. Full DB round-trip needs live Postgres (owner/CI); the mapping is unit-covered. Anthropic key is live → Radian reasoning is genuine; web search stays "not configured" until a key is added.
+
+> **QUEUE DURABILITY:** reliability-gate item — job queue now has **bounded retries** (failing handler re-queues to head with `attempts++` until cap=3, then dead-letters; was straight-to-dead) + **crash recovery** (`recoverStale` requeues orphaned `:processing` jobs at startup for the embedded/standalone/media workers). `queue-verify` extended to 12 checks → matrix **469/469**; builds green. Perf guard (dedicated Redis connection) untouched.
 
 > **LOGIN FIX:** the token-only security change **broke sign-in/re-auth** (claimed-guard refused silent re-auth + creds no longer stored), so a claimed user couldn't get back in after sign-out/token-loss. **Reverted to the working login flow** per owner: `ensureSession` re-auths from stored `indigold_device` creds; `claim`/`login` persist creds again; claimed-guard removed. **Auth debugging added:** login/claim surface the exact HTTP status + server body + hints; AccountPanel shows a persistent error line. Tradeoff: the plaintext-password P0 returns (deliberate, to restore working login) — safer token-only re-do is re-queued in the reliability gate. matrix 465/465; builds green. CORS toggle (`CORS_ALLOW_ONRENDER=false`) + CI + fatal-migrations from the security pass stay.
 
@@ -36,7 +38,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: queue-durability · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: vault-restore · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 
