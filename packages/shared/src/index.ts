@@ -38,3 +38,4 @@ export * from "./narrative";
 export * from "./opportunity-scoring";
 export * from "./sanitize";
 export * from "./capture-scopes";
+export * from "./evidence";

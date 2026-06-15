@@ -146,6 +146,46 @@ export const captureTokens = {
   },
 };
 
+// ---- external evidence (Phase 1) — the Research Inbox; public-world facts, never auto-promoted ----
+export const evidence = {
+  // Insert if new (dedupe by content_hash). Returns true when a row was actually inserted.
+  async upsert(e: {
+    id: string; user_id: string; connector: string; external_id: string; canonical_url: string;
+    title: string; summary: string; authors: string[]; source_name: string; source_kind: string;
+    observed_at: string | null; retrieved_at: string; valid_until: string | null; refresh_after: string | null;
+    license: string | null; attribution: string; content_hash: string; claim_candidates: string[]; status: string;
+  }): Promise<boolean> {
+    const r = await query(
+      `INSERT INTO external_evidence
+         (id,user_id,connector,external_id,canonical_url,title,summary,authors,source_name,source_kind,
+          observed_at,retrieved_at,valid_until,refresh_after,license,attribution,content_hash,claim_candidates,status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+       ON CONFLICT (user_id, content_hash) DO NOTHING`,
+      [e.id, e.user_id, e.connector, e.external_id, e.canonical_url, e.title, e.summary, JSON.stringify(e.authors),
+       e.source_name, e.source_kind, e.observed_at, e.retrieved_at, e.valid_until, e.refresh_after, e.license,
+       e.attribution, e.content_hash, JSON.stringify(e.claim_candidates), e.status],
+    );
+    return (r.rowCount ?? 0) > 0;
+  },
+  async listInbox(userId: string, status?: string, limit = 100) {
+    const where = status ? ` AND status=$2` : "";
+    const params = status ? [userId, status, limit] : [userId, limit];
+    const r = await query(`SELECT * FROM external_evidence WHERE user_id=$1${where} ORDER BY retrieved_at DESC LIMIT $${status ? 3 : 2}`, params);
+    return r.rows;
+  },
+  async get(userId: string, id: string) {
+    const r = await query(`SELECT * FROM external_evidence WHERE user_id=$1 AND id=$2`, [userId, id]);
+    return r.rows[0] || null;
+  },
+  async setStatus(userId: string, id: string, status: string) {
+    await query(`UPDATE external_evidence SET status=$3 WHERE user_id=$1 AND id=$2`, [userId, id, status]);
+  },
+  async seenHashes(userId: string, limit = 1000): Promise<Set<string>> {
+    const r = await query<{ content_hash: string }>(`SELECT content_hash FROM external_evidence WHERE user_id=$1 ORDER BY retrieved_at DESC LIMIT $2`, [userId, limit]);
+    return new Set(r.rows.map((x) => x.content_hash));
+  },
+};
+
 // ---- captures ----
 export const captures = {
   async create(c: Capture & { raw?: object }) {

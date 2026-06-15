@@ -322,6 +322,23 @@ radianRouter.post("/feedback", async (req: Authed, res) => {
   res.json({ ok: true });
 });
 
+// ---- Research Inbox (Phase 1 — evidence foundation) ----
+// Public-world facts live here as untrusted evidence with provenance + freshness. Triage only —
+// nothing is auto-promoted to a memory node. Connectors (RSS, Crossref, …) populate it (Phase 2).
+const EVIDENCE_STATUSES = ["new", "relevant", "contradictory", "corrected", "dismissed", "accepted"];
+radianRouter.get("/evidence", async (req: Authed, res) => {
+  const status = EVIDENCE_STATUSES.includes(String(req.query.status)) ? String(req.query.status) : undefined;
+  res.json({ items: await repo.evidence.listInbox(req.userId!, status) });
+});
+radianRouter.post("/evidence/:id/status", async (req: Authed, res) => {
+  const status = String(req.body?.status || "");
+  if (!EVIDENCE_STATUSES.includes(status)) return res.status(400).json({ error: "bad_status" });
+  const e = await repo.evidence.get(req.userId!, req.params.id);
+  if (!e) return res.status(404).json({ error: "not_found" });
+  await repo.evidence.setStatus(req.userId!, req.params.id, status);
+  res.json({ ok: true });
+});
+
 // ---- Capture-only tokens (Security review, Finding A) — session-gated management ----
 // Mint a SCOPED token for the iOS Shortcut so a leaked credential can only create captures.
 // The raw token is returned ONCE (only its sha256 hash is stored).

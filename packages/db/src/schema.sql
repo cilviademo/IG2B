@@ -383,3 +383,30 @@ CREATE TABLE IF NOT EXISTS capture_tokens (
 );
 CREATE INDEX IF NOT EXISTS capture_tokens_hash_idx ON capture_tokens(token_hash) WHERE revoked_at IS NULL;
 CREATE INDEX IF NOT EXISTS capture_tokens_user_idx ON capture_tokens(user_id);
+
+-- External evidence (Phase 1 — Intelligence review): public-world facts as untrusted, provenance-
+-- carrying evidence in a Research Inbox. NEVER auto-promoted to a memory node.
+CREATE TABLE IF NOT EXISTS external_evidence (
+  id               TEXT PRIMARY KEY,
+  user_id          TEXT NOT NULL REFERENCES users(id),
+  connector        TEXT NOT NULL,
+  external_id      TEXT NOT NULL,
+  canonical_url    TEXT NOT NULL DEFAULT '',
+  title            TEXT NOT NULL DEFAULT '',
+  summary          TEXT NOT NULL DEFAULT '',
+  authors          JSONB NOT NULL DEFAULT '[]'::jsonb,
+  source_name      TEXT NOT NULL DEFAULT '',
+  source_kind      TEXT NOT NULL DEFAULT 'web',
+  observed_at      TIMESTAMPTZ,
+  retrieved_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  valid_until      TIMESTAMPTZ,
+  refresh_after    TIMESTAMPTZ,
+  license          TEXT,
+  attribution      TEXT NOT NULL DEFAULT '',
+  content_hash     TEXT NOT NULL,
+  claim_candidates JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status           TEXT NOT NULL DEFAULT 'new',
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS external_evidence_dedupe ON external_evidence(user_id, content_hash);
+CREATE INDEX IF NOT EXISTS external_evidence_status_idx ON external_evidence(user_id, status, retrieved_at DESC);
