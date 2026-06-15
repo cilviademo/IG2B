@@ -1,6 +1,6 @@
 # Companion Inversion — from graph-app to AI companion
 
-`Last updated: 2026-06-14 · Commit: radian-home · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: rich-arrival · By: claude (Claude Code)`
 
 > Owner directive: Indigold still behaves like "a graph database with AI attached." Invert it:
 > **You → Radian (companion) → conversation memory → Situation Room → Atlas (hidden memory) →
@@ -73,5 +73,11 @@ More). Added a **deterministic daily orientation** at the top of Radian (greetin
 lines from `/radian/briefing` — the "Chief of Staff" opener; falls back to the simple
 greeting if unavailable). `/companion` still resolves (renders Radian) for old links.
 
-**Next (Sprint 2):** rich arrival cards — "why it matters", explained connections,
-2–3 suggested questions, suggested actions, useful/wrong feedback, media lifecycle.
+## Sprint 2 — rich arrival cards (in progress)
+The "What I found" cards now answer more of the five questions: **Your note** ("why you saved
+it"), the synthesis, **named + openable connections** (real graph neighbours, not a count),
+**content-aware suggested prompts** (Key takeaway / Connect to my work / Skeptic's view → open
+a grounded conversation), softened AI-status copy ("Quick analysis · deeper reasoning
+unavailable"), with precise Research/Explain/Convene as secondary actions.
+**Still to do (Sprint 2b):** useful/not-useful/wrong-connection feedback (needs storage) +
+the media lifecycle (Transcribing→Synthesizing→Ready) once the media worker is live.

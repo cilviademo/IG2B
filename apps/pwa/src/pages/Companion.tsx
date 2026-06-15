@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX, MessageCircle } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
 import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, getBriefing, type BackendCapture, type ChatMode, type CompanionBriefing } from "@/lib/api";
@@ -11,8 +11,8 @@ import { toast } from "sonner";
 // "What I found" — the proactive arrival. Radian surfaces what it learned from your
 // recent shares (capture → enriched node), so the front door is "here's what I found,"
 // not a database you go dig through.
-interface Found { id: string; title: string; platform?: string; status: "reading" | "ready"; summary?: string; nodeId?: string; connections: number; at: string; url?: string; reasoned?: boolean }
-type NodeRow = { id: string; summary?: string; source_capture_id?: string; meta?: { reasoned?: boolean; web?: { url?: string }; media?: { url?: string } } };
+interface Found { id: string; title: string; platform?: string; status: "reading" | "ready"; summary?: string; nodeId?: string; connectedNodes: { id: string; title: string }[]; note?: string; at: string; url?: string; reasoned?: boolean }
+type NodeRow = { id: string; title?: string; summary?: string; source_capture_id?: string; meta?: { reasoned?: boolean; web?: { url?: string }; media?: { url?: string } } };
 type EdgeRow = { source_id: string; target_id: string; relationship?: string };
 
 const PLATFORM: { test: RegExp; name: string }[] = [
@@ -32,6 +32,17 @@ function platformOf(url?: string | null): string | undefined {
 // across "AI Activity", the queue, and Atlas dots). Atlas is now background memory.
 function isRunning(s: string) { return s === "queued" || s === "running" || s === "budget-limited"; }
 function isOk(s: string) { return s === "completed" || s === "fallback"; }
+
+// Content-aware next questions for a finding → open a grounded conversation. Deterministic
+// templates (the title is interpolated so retrieval finds the node) — no per-item LLM cost.
+function suggestedPrompts(f: Found): { label: string; prompt: string }[] {
+  const t = f.title.slice(0, 70);
+  return [
+    { label: "Key takeaway", prompt: `What's the key takeaway from "${t}", and why might it matter to me?` },
+    { label: "Connect to my work", prompt: `How does "${t}" connect to my current projects and recent notes?` },
+    { label: "Skeptic's view", prompt: `What would a sharp skeptic challenge about "${t}"?` },
+  ];
+}
 
 function resultHref(t: Task): string {
   // Results live as a thread inside their source node now → focus the parent.
@@ -158,7 +169,17 @@ export default function Companion() {
     const edges = (er?.edges ?? []) as EdgeRow[];
     const nodeByCapture = new Map<string, NodeRow>();
     for (const n of nodes) if (n.source_capture_id) nodeByCapture.set(n.source_capture_id, n);
-    const realDegree = (nid: string) => edges.filter((e) => e.relationship !== "derived_from" && (e.source_id === nid || e.target_id === nid)).length;
+    const titleById = new Map(nodes.map((n) => [n.id, n.title || "Untitled"]));
+    // Named neighbors (real graph links, not AI-derived) → "where it connects", openable.
+    const neighbors = (nid: string) => {
+      const ids: string[] = [];
+      for (const e of edges) {
+        if (e.relationship === "derived_from") continue;
+        if (e.source_id === nid) ids.push(e.target_id);
+        else if (e.target_id === nid) ids.push(e.source_id);
+      }
+      return [...new Set(ids)].slice(0, 4).map((id) => ({ id, title: titleById.get(id) || "Untitled" }));
+    };
     const items: Found[] = (caps as BackendCapture[]).slice(0, 8).map((c) => {
       const node = nodeByCapture.get(c.id);
       const ready = c.processing_status === "processed" && !!node;
@@ -166,7 +187,8 @@ export default function Companion() {
         id: c.id, title: c.title, platform: platformOf(c.url),
         status: ready ? "ready" : "reading",
         summary: node?.summary, nodeId: node?.id,
-        connections: node ? realDegree(node.id) : 0,
+        connectedNodes: node ? neighbors(node.id) : [],
+        note: (c.note || "").trim() || undefined,
         at: c.captured_at, url: c.url ?? undefined, reasoned: node?.meta?.reasoned,
       };
     });
@@ -324,17 +346,34 @@ export default function Companion() {
                   <p className="cap-data" style={{ color: "var(--text-dim)" }}>Radian is reading this…</p>
                 ) : (
                   <>
+                    {f.note && <p className="cap-data mb-1" style={{ color: "var(--text-dim)" }}>Your note: <span style={{ color: "var(--text)" }}>{f.note}</span></p>}
                     {f.summary && <p className="line-clamp-3" style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--text-dim)" }}>{f.summary}</p>}
-                    {/* Honest AI status — real reasoning vs the deterministic floor. */}
-                    <div className="cap-data mt-1.5 inline-flex items-center gap-1" style={{ color: f.reasoned ? "var(--good)" : "var(--gold)" }}>
-                      <Sparkles size={10} strokeWidth={1.5} /> {f.reasoned ? "Analyzed by Radian" : "Deterministic — add a model key in Settings → API for deep reasoning"}
+                    {/* Honest AI status — softened copy; setup lives in Settings/Diagnostics. */}
+                    <div className="cap-data mt-1.5 inline-flex items-center gap-1" style={{ color: f.reasoned ? "var(--good)" : "var(--text-dim)" }}>
+                      <Sparkles size={10} strokeWidth={1.5} /> {f.reasoned ? "Analyzed by Radian" : "Quick analysis · deeper reasoning unavailable"}
                     </div>
+                    {/* Where it connects — named + openable (not just a count) */}
+                    {f.connectedNodes.length > 0 && (
+                      <div className="mt-2">
+                        <span className="cap-data inline-flex items-center gap-1" style={{ color: "var(--text-dim)" }}><Link2 size={11} strokeWidth={1.5} /> connects to</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {f.connectedNodes.map((cn) => (
+                            <Link key={cn.id} href={`/atlas?focus=${encodeURIComponent(cn.id)}`} className="press text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)", maxWidth: 160 }}>{cn.title}</Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Content-aware next questions → open a conversation */}
+                    {f.nodeId && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {suggestedPrompts(f).map((sp, i) => (
+                          <button key={i} onClick={() => void sendChat(sp.prompt)} disabled={chatBusy} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 999, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
+                            <MessageCircle size={11} strokeWidth={1.5} /> {sp.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      {f.connections > 0 && (
-                        <span className="cap-data inline-flex items-center gap-1" style={{ color: "var(--text-dim)" }}>
-                          <Link2 size={11} strokeWidth={1.5} /> {f.connections} connection{f.connections > 1 ? "s" : ""}
-                        </span>
-                      )}
                       {f.url && (
                         <a href={f.url} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
                           <ExternalLink size={12} strokeWidth={1.5} /> Open link
@@ -344,7 +383,7 @@ export default function Companion() {
                         See what I found <ArrowRight size={12} strokeWidth={1.5} />
                       </Link>
                     </div>
-                    {/* Deepen right here — Radian reasoning from the front door. */}
+                    {/* Secondary deepen actions (precise verbs) */}
                     {f.nodeId && (
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                         {([["research", "Research", Search], ["explain", "Explain", BookOpen]] as const).map(([verb, label, Icon]) => (
