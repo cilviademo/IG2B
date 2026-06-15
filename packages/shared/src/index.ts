@@ -42,5 +42,7 @@ export * from "./evidence";
 export * from "./claims";
 export * from "./rss";
 export * from "./crossref";
+export * from "./openalex";
+export * from "./wikipedia";
 export * from "./watchlists";
 export * from "./world-lens";

@@ -4,7 +4,7 @@ import { forecast, assemble } from "@indigold/shared/intelligence";
 import {
   getPrompt, BudgetExceededError, getTools, isResearchSafe, fenceUntrusted, UNTRUSTED_GUARD,
   parseFeed, feedItemToEvidence, normalizeEvidence, evidenceGate,
-  buildCrossrefUrl, parseCrossref,
+  buildCrossrefUrl, parseCrossref, buildOpenAlexUrl, parseOpenAlex, buildWikipediaUrl, parseWikipedia,
   deterministicIngest, parseIngest, kindToNodeType,
   deterministicContextualize, parseContext,
   parseGithubUrl, deterministicAssist, parseAssist,
@@ -870,8 +870,9 @@ export const handlers: Partial<Record<Job["type"], Handler>> = {
   run_watchlist: runWatchlist,
 };
 
-// Phase 3 — run a watchlist: gather new scholarly evidence (Crossref) for the topic into the
-// Research Inbox (deduped). Best-effort; evidence stays untrusted, never auto-promoted.
+// Phase 3 — run a watchlist: gather new evidence for the topic from the requested connectors
+// (Crossref + OpenAlex scholarly · Wikipedia encyclopedia) into the Research Inbox (deduped).
+// Best-effort; evidence stays untrusted, never auto-promoted to a memory node.
 async function runWatchlist(job: Job) {
   const p = (job.payload || {}) as { watchlistId?: string };
   const wl = p.watchlistId ? await repo.watchlists.get(job.user_id, p.watchlistId) : null;
@@ -879,15 +880,24 @@ async function runWatchlist(job: Job) {
   const kinds: string[] = Array.isArray(wl.kinds) ? wl.kinds : [];
   const seen = await repo.evidence.seenHashes(job.user_id);
   let added = 0;
-  if (kinds.includes("scholarly")) {
-    const json = await fetchJson(buildCrossrefUrl(wl.topic, 15));
-    if (json) {
-      for (const raw of parseCrossref(json)) {
-        const ev = normalizeEvidence(raw, { id: id("ev"), connector: "crossref" });
-        if (!evidenceGate(ev, { seenHashes: seen }).accept) continue;
-        if (await repo.evidence.upsert({ ...ev, user_id: job.user_id })) { added++; seen.add(ev.content_hash); }
-      }
+
+  // Fetch one source's JSON, parse, gate (dedup) and upsert each item into the inbox.
+  const gather = async (url: string, connector: string, parse: (j: unknown) => Record<string, unknown>[]) => {
+    const json = await fetchJson(url);
+    if (!json) return;
+    for (const raw of parse(json)) {
+      const ev = normalizeEvidence(raw, { id: id("ev"), connector });
+      if (!evidenceGate(ev, { seenHashes: seen }).accept) continue;
+      if (await repo.evidence.upsert({ ...ev, user_id: job.user_id })) { added++; seen.add(ev.content_hash); }
     }
+  };
+
+  if (kinds.includes("scholarly")) {
+    await gather(buildCrossrefUrl(wl.topic, 15), "crossref", parseCrossref);
+    await gather(buildOpenAlexUrl(wl.topic, 15), "openalex", parseOpenAlex);
+  }
+  if (kinds.includes("encyclopedia")) {
+    await gather(buildWikipediaUrl(wl.topic, 10), "wikipedia", parseWikipedia);
   }
   await repo.watchlists.markRun(job.user_id, wl.id, `ok:${added}`);
   await repo.jobs.finish(job.id, "done", { added, topic: wl.topic });

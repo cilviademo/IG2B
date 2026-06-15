@@ -1,4 +1,6 @@
-> **PROACTIVE INTELLIGENCE — WATCHLISTS + CROSSREF (PR `claude/watchlists-crossref`, latest):** the system now monitors topics on a cadence. **Crossref** connector (pure `crossref.ts`: `buildCrossrefUrl`/`parseCrossref`/`crossrefItemToEvidence` → scholarly evidence; `crossref-verify` 16). **Watchlists** (pure `watchlists.ts` cadence math; `watchlists-verify` 11) — `watchlists` table + `repo.watchlists`; `run_watchlist` worker job (SSRF-safe `fetchJson` → Crossref → gate → Research Inbox); endpoints CRUD + `/run` + idempotent **`/run-due`** (PWA pings on launch → proactive without cron). New `/watchlists` screen in More. matrix **646/646**; schema in sync. Next: OpenAlex + Wikimedia connectors; owner-intent labels.
+> **CONNECTORS — OPENALEX + WIKIPEDIA (PR `claude/openalex-wikipedia`, latest):** two more evidence connectors on the existing contract/gate (no schema change). **OpenAlex** (`openalex.ts` — `buildOpenAlexUrl`/`parseOpenAlex` + `reconstructAbstract` from the inverted index; `openalex-verify` 17). **Wikipedia** (`wikipedia.ts` — `buildWikipediaUrl`/`parseWikipedia`, snippet stripped, CC BY-SA carried, `source_kind: "encyclopedia"`; `wikipedia-verify` 13). `run_watchlist` generalized to a `gather()` helper: `scholarly` → Crossref + OpenAlex, new `encyclopedia` → Wikipedia; PWA adds an Encyclopedia toggle. matrix **676/676**. Connector set: RSS · Crossref · OpenAlex · Wikipedia.
+
+> **PROACTIVE INTELLIGENCE — WATCHLISTS + CROSSREF (PR `claude/watchlists-crossref`):** the system now monitors topics on a cadence. **Crossref** connector (pure `crossref.ts`: `buildCrossrefUrl`/`parseCrossref`/`crossrefItemToEvidence` → scholarly evidence; `crossref-verify` 16). **Watchlists** (pure `watchlists.ts` cadence math; `watchlists-verify` 11) — `watchlists` table + `repo.watchlists`; `run_watchlist` worker job (SSRF-safe `fetchJson` → Crossref → gate → Research Inbox); endpoints CRUD + `/run` + idempotent **`/run-due`** (PWA pings on launch → proactive without cron). New `/watchlists` screen in More. matrix **646/646**; schema in sync. Next: OpenAlex + Wikimedia connectors; owner-intent labels.
 
 > **WORLD LENS + EVIDENCE DRAWER (PR `claude/world-lens-evidence-drawer`):** **World Lens** ("what changed outside your vault" per subject) — pure `world-lens.ts` (`worldLens` + lexical relevance) composing claims + relevant evidence + tensions into sections; `GET /radian/world-lens?subject=&kind=&title=`; new `/world-lens` screen reached from the Atlas node sheet ("World Lens") + More. **Evidence Drawer** — `EvidenceDrawer` component exposing each Radian answer's provenance (vault vs web sources, deterministic-vs-reasoned, grounding), wired into the Companion chat. `world-lens-verify` (12) → matrix **619/619**; no schema change.
 
@@ -66,7 +68,7 @@
 
 # Current State
 
-`Last updated: 2026-06-15 · Commit: watchlists-crossref · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: openalex-wikipedia · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

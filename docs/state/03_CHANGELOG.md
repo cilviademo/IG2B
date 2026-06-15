@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: watchlists-crossref · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: openalex-wikipedia · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -639,3 +639,10 @@ commit(s) · what/why · live-test status).
 - **Endpoints.** `GET/POST/DELETE /radian/watchlists`, `POST /radian/watchlists/:id/run`, and **`POST /radian/watchlists/run-due`** — cadence-aware + idempotent (only enqueues elapsed-window watchlists). The PWA pings `run-due` **on launch**, so monitoring runs proactively without new cron infra.
 - **PWA.** New **`/watchlists`** screen (add topic · pick sources scholarly/feeds · cadence · run-now · last-run status; code-split), in the More hub; launch-time `runDueWatchlists()` fire-and-forget.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix **646/646**; schema in sync. Live Crossref fetch needs worker egress → owner sees results on device. **Next:** OpenAlex + Wikimedia connectors (same contract); owner-intent labels.
+
+### 2026-06-15 · claude (Claude Code) · `claude/openalex-wikipedia` (PR) — Connectors: OpenAlex + Wikipedia
+- **Two more evidence connectors, drop-in on the existing contract + gate — no schema change.**
+- **OpenAlex** (open scholarly graph, ~250M works, no key). Pure `packages/shared/src/openalex.ts`: `buildOpenAlexUrl` (search, newest-first, polite mailto), `parseOpenAlex`/`openAlexItemToEvidence`, and **`reconstructAbstract`** (rebuilds text from OpenAlex's word→positions inverted index). DOI/OpenAlex-id as `external_id`; complements Crossref. `openalex-verify` (17).
+- **Wikipedia** (MediaWiki search API, no key). Pure `packages/shared/src/wikipedia.ts`: `buildWikipediaUrl`, `parseWikipedia`/`wikiItemToEvidence` (snippet HTML+entities stripped, `pageid` dedupe, article URL, **CC BY-SA attribution + license** carried), `source_kind: "encyclopedia"`. `wikipedia-verify` (13).
+- **Worker.** `run_watchlist` generalized to a `gather(url, connector, parse)` helper and now runs **Crossref + OpenAlex** for `scholarly` and **Wikipedia** for the new **`encyclopedia`** kind (all via SSRF-safe `fetchJson`, deduped). API accepts `encyclopedia` in watchlist `kinds`; PWA `/watchlists` adds an **Encyclopedia** source toggle.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix **676/676** (+30); schema unchanged (in sync). Live fetches need worker egress → owner sees results on device. Phase-2 connector set is now RSS · Crossref · OpenAlex · Wikipedia. **Next:** owner-intent labels; negative knowledge.
