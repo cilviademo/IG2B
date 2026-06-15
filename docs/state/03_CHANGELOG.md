@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: rss-connector · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: research-tensions-screens · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -619,3 +619,9 @@ commit(s) · what/why · live-test status).
 - **Feed sources:** additive `feeds` table (+ regenerated schema.ts; unique `(user_id,url)`) + `repo.feeds`; `reset-vault` wipes it. Endpoints `GET/POST/DELETE /radian/feeds` + `POST /radian/feeds/:id/poll`.
 - **Polling job:** new `poll_feed` worker handler — SSRF-safe `fetchFeedText` (reuses the existing host guard) → `parseFeed` → `normalizeEvidence` → `evidenceGate` (dedup by content hash vs the user's seen hashes) → `repo.evidence.upsert` → Research Inbox. Best-effort + honest (`feed.last_status`); new entries are **evidence, never auto-promoted** to a node.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix **607/607**; schema in sync. Live polling needs egress + a real feed → owner adds a feed + polls on device. This completes the intelligence-program **core** (Phase 1 evidence + claims/Tensions + Phase 2 first connector); more connectors (Crossref/OpenAlex/Wikimedia) + UX surfaces (World Lens/Watchlists) are incremental follow-ons.
+
+### 2026-06-15 · claude (Claude Code) · `claude/research-tensions-screens` (PR) — Research Inbox + Tensions screens + full debug pass
+- **Research Inbox screen** (`/research`, in More): triages external evidence by status (New / Relevant / Contradictory / Accepted / Dismissed) with one-tap actions (`POST /radian/evidence/:id/status`), and manages **feeds** — add an RSS/Atom URL, poll it (`POST /radian/feeds/:id/poll`), see `last_status`, remove. Surfaces the Phase 1–2 backends; evidence opens its canonical source, never auto-enters the vault.
+- **Tensions screen** (`/tensions`, in More): lists open **tensions** (`GET /radian/tensions` — contested evidence / conflicting claims / stale-accepted) and the **claims** list with a confidence bar, contested/stale flags, and owner review (Accept / Reject / Supersede → `POST /radian/claims/:id/status`).
+- **Client + routing:** `listEvidence`/`setEvidenceStatus`/`listFeeds`/`addFeed`/`removeFeed`/`pollFeed`/`listClaims`/`setClaimStatus`/`getTensions` in `api.ts`; routes in `App.tsx`; two entries in the More hub. Both pages code-split.
+- **Full debug pass:** typecheck:all + build:all green; verify matrix **607/607**; `schema.sql` ↔ `schema.ts` in sync; no ESLint configured (project gate is typecheck+build+matrix). Correctness scan: `delAt` hoist OK, all CSS vars present, no stray console/debugger, no duplicate routes, no circular-import risk from the new `repo` import in `middleware/auth`. No issues found.
