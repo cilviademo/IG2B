@@ -1,6 +1,6 @@
 # Companion Inversion — from graph-app to AI companion
 
-`Last updated: 2026-06-14 · Commit: conversation-threads · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: sprint-3b-anchored-threads · By: claude (Claude Code)`
 
 > Owner directive: Indigold still behaves like "a graph database with AI attached." Invert it:
 > **You → Radian (companion) → conversation memory → Situation Room → Atlas (hidden memory) →
@@ -93,5 +93,17 @@ turns**, so a conversation survives a browser restart. Anchored threads (node/ca
 are deduped (one ongoing thread per anchor). The Companion home now lists **durable
 Conversations** (replacing the in-memory list), with **+ New** and tap-to-resume (loads the full
 message history back into the chat). `reset-vault` wipes both new tables.
-**Sprint 3b (next):** route findings / source-chips → a node-anchored thread (not Atlas);
-remember/forget + thread search; workstream (project/decision) threads.
+## Sprint 3b — anchored threads + thread search (done)
+- **Findings & source-chips → node-anchored threads (not Atlas).** The "What I found" cards
+  carry a primary **Discuss** action, and the **source chips** under a Radian reply now open a
+  **node-anchored conversation** in place rather than navigating to the Atlas graph. Built on the
+  existing anchor substrate (`createConversation(title,"node",nodeId)`; the server dedupes per
+  anchor via `findAnchored`), so a node has **one ongoing thread** that resumes its full history.
+- **Thread search:** `GET /radian/conversations?q=` matches the title OR any message text
+  (`conversations.search`); the Companion "Conversations" list has a live search box.
+- **Anchor-aware list + forget:** listing returns each thread's **anchor title** ("on: <node>")
+  and an **Archive (forget)** action (soft `status=archived` — never deletes vault data).
+- No schema change (the anchor columns shipped in Sprint 3).
+**Still to do:** workstream (project/decision) threads — auto-create/resume a thread anchored to
+a project or decision and surface it from those surfaces (Mission Control / decisions). Then
+**Sprint 4 (Attention Queue):** rank what needs the owner now (uses the Sprint 2b feedback signal).

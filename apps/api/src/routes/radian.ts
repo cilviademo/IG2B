@@ -327,7 +327,20 @@ radianRouter.post("/conversations", async (req: Authed, res) => {
   res.json({ conversation: c });
 });
 radianRouter.get("/conversations", async (req: Authed, res) => {
-  res.json({ conversations: await repo.conversations.list(req.userId!) });
+  const uid = req.userId!;
+  const q = String(req.query.q || "").trim().slice(0, 120);
+  const list = q ? await repo.conversations.search(uid, q) : await repo.conversations.list(uid);
+  // Enrich anchored threads with the anchor's title so the UI can show "on: <title>"
+  // (Sprint 3b: node/capture-anchored threads are recognizable in the list).
+  const nodeIds = list.filter((c) => c.anchor_type === "node" && c.anchor_id).map((c) => c.anchor_id as string);
+  const capIds = list.filter((c) => c.anchor_type === "capture" && c.anchor_id).map((c) => c.anchor_id as string);
+  const titles = new Map<string, string>();
+  await Promise.all([
+    ...[...new Set(nodeIds)].map(async (n) => { const x = await repo.nodes.get(uid, n).catch(() => null); if (x) titles.set(n, x.title); }),
+    ...[...new Set(capIds)].map(async (c) => { const x = await repo.captures.get(uid, c).catch(() => null); if (x) titles.set(c, x.title); }),
+  ]);
+  const conversations = list.map((c) => ({ ...c, anchor_title: c.anchor_id ? (titles.get(c.anchor_id) || null) : null }));
+  res.json({ conversations });
 });
 radianRouter.get("/conversations/:id", async (req: Authed, res) => {
   const conversation = await repo.conversations.get(req.userId!, req.params.id);

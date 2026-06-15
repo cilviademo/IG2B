@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX, MessageCircle, ThumbsUp, ThumbsDown, X } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX, MessageCircle, ThumbsUp, ThumbsDown, X, Archive } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
-import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, radianFeedback, getBriefing, createConversation, listConversations, getConversation, type BackendCapture, type ChatMode, type CompanionBriefing, type Conversation } from "@/lib/api";
+import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, radianFeedback, getBriefing, createConversation, listConversations, getConversation, archiveConversation, type BackendCapture, type ChatMode, type CompanionBriefing, type Conversation } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
 import { speak, stopSpeaking, canSpeak, canListen, listenOnce } from "@/lib/speech";
 import { toast } from "sonner";
@@ -95,10 +95,11 @@ export default function Companion() {
   const [mode, setMode] = useState<ChatMode>("auto"); // brain mode
   const [convoId, setConvoId] = useState<string | null>(null); // current durable thread
   const [convos, setConvos] = useState<Conversation[]>([]); // durable thread list
+  const [convoQuery, setConvoQuery] = useState(""); // thread search (Sprint 3b)
 
-  const loadConvos = useCallback(async () => {
-    if (apiEnabled()) setConvos(await listConversations());
-  }, []);
+  const loadConvos = useCallback(async (q?: string) => {
+    if (apiEnabled()) setConvos(await listConversations((q ?? convoQuery).trim() || undefined));
+  }, [convoQuery]);
 
   // Resume a durable thread into the chat.
   async function openConvo(id: string) {
@@ -109,6 +110,25 @@ export default function Companion() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function newConvo() { setConvoId(null); setChat([]); setInput(""); }
+
+  // Sprint 3b: route a finding / source-chip into a NODE-ANCHORED thread (not Atlas).
+  // The backend dedupes per anchor, so a node has one ongoing conversation that resumes
+  // its full history here.
+  async function discuss(nodeId: string, title: string) {
+    const c = await createConversation(`On: ${title}`.slice(0, 60), "node", nodeId);
+    if (!c) { toast.error("Couldn't open thread", { description: "offline or API asleep" }); return; }
+    await openConvo(c.id);
+    void loadConvos();
+  }
+
+  // Forget a thread (soft archive — never deletes the underlying vault data).
+  async function forgetConvo(id: string) {
+    if (await archiveConversation(id)) {
+      if (id === convoId) newConvo();
+      setConvos((cs) => cs.filter((c) => c.id !== id));
+      toast("Thread archived", { description: "It won't show in your conversations." });
+    } else toast.error("Couldn't archive");
+  }
 
   async function sendChat(override?: string, speakBack?: boolean) {
     const q = (override ?? input).trim();
@@ -337,7 +357,9 @@ export default function Companion() {
                     {m.sources.map((s, si) => (
                       s.url
                         ? <a key={si} href={s.url} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1 text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--info)", maxWidth: 200 }}><ExternalLink size={9} strokeWidth={1.5} /> {s.title}</a>
-                        : <Link key={si} href={`/atlas?focus=${encodeURIComponent(s.id || "")}`} className="press text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)", maxWidth: 180 }}>{s.title}</Link>
+                        // Vault source → open a node-anchored thread (Sprint 3b: keep the
+                        // conversation here instead of bouncing out to the Atlas graph).
+                        : <button key={si} onClick={() => s.id && void discuss(s.id, s.title)} disabled={!s.id} className="press inline-flex items-center gap-1 text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)", maxWidth: 180 }}><MessageCircle size={9} strokeWidth={1.5} /> {s.title}</button>
                     ))}
                   </div>
                 )}
@@ -400,6 +422,9 @@ export default function Companion() {
                     {/* Content-aware next questions → open a conversation */}
                     {f.nodeId && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
+                        <button onClick={() => void discuss(f.nodeId as string, f.title)} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold" style={{ borderRadius: 999, border: "1px solid var(--gold-line)", background: "var(--gold-soft)", color: "var(--gold)" }}>
+                          <MessageCircle size={11} strokeWidth={1.5} /> Discuss
+                        </button>
                         {suggestedPrompts(f).map((sp, i) => (
                           <button key={i} onClick={() => void sendChat(sp.prompt)} disabled={chatBusy} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 999, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
                             <MessageCircle size={11} strokeWidth={1.5} /> {sp.label}
@@ -475,23 +500,38 @@ export default function Companion() {
             <button onClick={newConvo} className="press cap-data ml-auto inline-flex items-center gap-1" style={{ color: "var(--gold)" }}>+ New</button>
           )}
         </div>
+        {/* Thread search — matches the title or anything said in the thread (Sprint 3b). */}
+        {(convos.length > 0 || convoQuery) && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-2" style={{ borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)" }}>
+            <Search size={13} strokeWidth={1.5} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
+            <input value={convoQuery} onChange={(e) => { const v = e.target.value; setConvoQuery(v); void loadConvos(v); }} placeholder="Search conversations" className="flex-1 bg-transparent outline-none" style={{ fontSize: 13.5, color: "var(--text)" }} />
+            {convoQuery && <button onClick={() => { setConvoQuery(""); void loadConvos(""); }} className="press" style={{ color: "var(--text-dim)" }}><X size={13} strokeWidth={1.5} /></button>}
+          </div>
+        )}
         {convos.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-12 gap-2">
             <Sparkles size={22} strokeWidth={1.5} style={{ color: "var(--text-dim)" }} />
-            <span style={{ fontSize: 14, color: "var(--text-dim)" }}>No conversations yet.</span>
-            <span style={{ fontSize: 12.5, color: "var(--text-dim)" }}>Ask Radian anything above — your threads are saved and resumable here.</span>
+            <span style={{ fontSize: 14, color: "var(--text-dim)" }}>{convoQuery ? "No threads match that search." : "No conversations yet."}</span>
+            {!convoQuery && <span style={{ fontSize: 12.5, color: "var(--text-dim)" }}>Ask Radian anything above — your threads are saved and resumable here.</span>}
           </div>
         ) : (
           <div className="space-y-2">
             {convos.map((c) => (
-              <button key={c.id} onClick={() => void openConvo(c.id)} className="press w-full text-left p-3" style={{ borderRadius: 10, border: `1px solid ${c.id === convoId ? "var(--gold-line)" : "var(--line)"}`, background: "var(--surface)" }}>
-                <div className="flex items-center gap-2">
+              <div key={c.id} className="press w-full p-3 flex items-center gap-2" style={{ borderRadius: 10, border: `1px solid ${c.id === convoId ? "var(--gold-line)" : "var(--line)"}`, background: "var(--surface)" }}>
+                <button onClick={() => void openConvo(c.id)} className="flex-1 min-w-0 text-left flex items-center gap-2">
                   <MessageCircle size={14} strokeWidth={1.5} style={{ color: "var(--gold)", flexShrink: 0 }} />
-                  <span className="flex-1 min-w-0 truncate" style={{ fontSize: 14, color: "var(--text)" }}>{c.title}</span>
-                  {c.anchor_type !== "open" && <span className="cap-data" style={{ color: "var(--text-dim)" }}>{c.anchor_type}</span>}
-                  <span className="cap-data flex items-center gap-1" style={{ color: "var(--text-dim)" }}><Clock size={10} strokeWidth={1.5} /> {relTime(new Date(c.updated_at).getTime())}</span>
-                </div>
-              </button>
+                  <span className="min-w-0">
+                    <span className="block truncate" style={{ fontSize: 14, color: "var(--text)" }}>{c.title}</span>
+                    {c.anchor_type !== "open" && (
+                      <span className="cap-data inline-flex items-center gap-1 truncate" style={{ color: "var(--text-dim)" }}>
+                        <Link2 size={9} strokeWidth={1.5} /> on {c.anchor_title || c.anchor_type}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                <span className="cap-data flex items-center gap-1 flex-shrink-0" style={{ color: "var(--text-dim)" }}><Clock size={10} strokeWidth={1.5} /> {relTime(new Date(c.updated_at).getTime())}</span>
+                <button onClick={() => void forgetConvo(c.id)} className="press flex-shrink-0" title="Archive thread" style={{ color: "var(--text-dim)" }}><Archive size={13} strokeWidth={1.5} /></button>
+              </div>
             ))}
           </div>
         )}
