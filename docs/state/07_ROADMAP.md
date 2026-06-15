@@ -1,6 +1,6 @@
 # Roadmap
 
-`Last updated: 2026-06-15 · Commit: security-prompt-injection · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: scoped-capture-token · By: claude (Claude Code)`
 
 Status keys: **done · owner-gated · infra-gated · planned.** "Done" = code on `main`, CI-green,
 matrix-tested. Owner/infra-gated work is *built or trivial* but needs an action only the owner
@@ -39,11 +39,10 @@ can take (a device check, a Render env var, a paid plan). Each item lists its ga
 - **Finding B — prompt injection: DONE.** External content (web results, scraped pages, transcripts,
   fetched source) is fenced via `fenceUntrusted` + `UNTRUSTED_GUARD` so it's treated as data, never
   instruction. `sanitize-verify`.
-- **Finding A — scoped capture token: OPEN (owner decision).** One bearer grants the whole vault; the
-  iOS Shortcut embeds it. Build a separate **hashed capture-only token** (`capture:text|file|status`,
-  denies reads/delete/export/account/chat/assets) — **additive, without changing the `/capture?raw=…`
-  path (constraint #1)**. Needs a small `capture_tokens` schema add + an issuance UI. **Gate:** owner
-  decides the token-issuance UX (where/how the Shortcut token is generated), then I build it.
+- **Finding A — scoped capture token: DONE.** Hashed, scoped `capture_tokens` + `requireAuthOrCapture`
+  on the ingest endpoints only (`capture:text|file`); a capture token authenticates nowhere else.
+  Generate/revoke in **Diagnostics → Capture tokens**; `/capture?raw=…` path untouched. **Owner:**
+  switch the Shortcut to a generated capture token (docs updated).
 
 ## 🧠 intelligence / open-information program (review proposals — owner prioritizes; Phase 0→5)
 - **Phase 1 — evidence foundation:** typed `ExternalEvidence` contract + connector registry + privacy/

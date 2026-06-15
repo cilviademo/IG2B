@@ -367,3 +367,19 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages(conversation_id, created_at);
+
+-- Capture-only tokens (Security review, Finding A): a SCOPED credential for the iOS Shortcut
+-- so a leaked token can ONLY create captures, never read/delete/export/chat/sign assets. The
+-- raw token is shown once; only its sha256 hash is stored.
+CREATE TABLE IF NOT EXISTS capture_tokens (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id),
+  token_hash   TEXT NOT NULL,
+  scopes       TEXT[] NOT NULL DEFAULT ARRAY['capture:text','capture:file']::text[],
+  label        TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_used_at TIMESTAMPTZ,
+  revoked_at   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS capture_tokens_hash_idx ON capture_tokens(token_hash) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS capture_tokens_user_idx ON capture_tokens(user_id);

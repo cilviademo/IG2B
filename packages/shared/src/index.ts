@@ -37,3 +37,4 @@ export * from "./attention-queue";
 export * from "./narrative";
 export * from "./opportunity-scoring";
 export * from "./sanitize";
+export * from "./capture-scopes";

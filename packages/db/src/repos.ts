@@ -121,6 +121,31 @@ export const messages = {
   },
 };
 
+// ---- capture-only tokens (Security review, Finding A) — scoped iOS Shortcut credential ----
+export const captureTokens = {
+  async create(t: { id: string; user_id: string; token_hash: string; scopes: string[]; label?: string | null }) {
+    await query(
+      `INSERT INTO capture_tokens (id, user_id, token_hash, scopes, label) VALUES ($1,$2,$3,$4,$5)`,
+      [t.id, t.user_id, t.token_hash, t.scopes, t.label ?? null],
+    );
+  },
+  async listForUser(userId: string) {
+    const r = await query(`SELECT id, user_id, scopes, label, created_at, last_used_at, revoked_at FROM capture_tokens WHERE user_id=$1 ORDER BY created_at DESC`, [userId]);
+    return r.rows;
+  },
+  async findActiveByHash(hash: string) {
+    const r = await query<{ id: string; user_id: string; scopes: string[] }>(
+      `SELECT id, user_id, scopes FROM capture_tokens WHERE token_hash=$1 AND revoked_at IS NULL LIMIT 1`, [hash]);
+    return r.rows[0] || null;
+  },
+  async touch(id: string) {
+    await query(`UPDATE capture_tokens SET last_used_at=now() WHERE id=$1`, [id]);
+  },
+  async revoke(userId: string, id: string) {
+    await query(`UPDATE capture_tokens SET revoked_at=now() WHERE user_id=$1 AND id=$2 AND revoked_at IS NULL`, [userId, id]);
+  },
+};
+
 // ---- captures ----
 export const captures = {
   async create(c: Capture & { raw?: object }) {

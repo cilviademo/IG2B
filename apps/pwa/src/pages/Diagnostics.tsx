@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, Activity, RefreshCw, AlertTriangle } from "lucide-react";
+import { ShieldCheck, Activity, RefreshCw, AlertTriangle, KeyRound, Copy, Trash2, Plus } from "lucide-react";
 import { useJson } from "@/hooks/useJson";
-import { fetchObservability, apiEnabled, type Observability } from "@/lib/api";
+import { fetchObservability, apiEnabled, createCaptureToken, listCaptureTokens, revokeCaptureToken, type Observability, type CaptureToken } from "@/lib/api";
 import { Button } from "@/components/primitives";
+import { toast } from "sonner";
 
 // Phase 5 — Verification Center + Debug Console (admin-gated, single-user owner).
 // Four states per subsystem: Stub · Build · Live · Phone.
@@ -105,6 +106,9 @@ export default function Diagnostics() {
         </div>
       )}
 
+      {/* Capture tokens (Security review, Finding A) */}
+      <CaptureTokens />
+
       {/* Debug Console */}
       <div className="flex items-center gap-2 mt-7 mb-2">
         <Activity size={16} strokeWidth={1.5} style={{ color: "var(--gold)" }} />
@@ -138,6 +142,72 @@ export default function Diagnostics() {
         </div>
       )}
     </div>
+  );
+}
+
+// Scoped capture-only tokens for the iOS Shortcut — a leaked one can ONLY create captures
+// (no vault reads, delete, export, chat, or asset URLs). Raw token shown once on creation.
+function CaptureTokens() {
+  const [tokens, setTokens] = useState<CaptureToken[]>([]);
+  const [fresh, setFresh] = useState<{ id: string; token: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function load() { if (apiEnabled()) setTokens(await listCaptureTokens()); }
+  useEffect(() => { void load(); }, []);
+
+  async function generate() {
+    setBusy(true);
+    try {
+      const r = await createCaptureToken("iOS Shortcut");
+      if (r?.token) { setFresh({ id: r.id, token: r.token }); await load(); }
+      else toast.error("Couldn't create token");
+    } finally { setBusy(false); }
+  }
+  async function revoke(id: string) {
+    if (await revokeCaptureToken(id)) { if (fresh?.id === id) setFresh(null); await load(); toast("Token revoked"); }
+    else toast.error("Couldn't revoke");
+  }
+  const active = tokens.filter((t) => !t.revoked_at);
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mt-7 mb-1">
+        <KeyRound size={16} strokeWidth={1.5} style={{ color: "var(--gold)" }} />
+        <h2 className="text-base font-display">Capture tokens</h2>
+        <button onClick={() => void generate()} disabled={busy} className="press ml-auto inline-flex items-center gap-1 cap-data" style={{ color: "var(--gold)" }}>
+          <Plus size={13} strokeWidth={1.5} /> Generate
+        </button>
+      </div>
+      <p className="cap-data mb-2" style={{ color: "var(--text-dim)" }}>
+        Scoped for the iOS Shortcut — can ONLY create captures (no reads, delete, export, chat, or asset access). Revoke anytime.
+      </p>
+      {fresh && (
+        <div className="p-3 mb-2" style={{ borderRadius: 8, border: "1px solid var(--gold-line)", background: "var(--surface)" }}>
+          <div className="cap-data mb-1" style={{ color: "var(--gold)" }}>Copy now — shown only once</div>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 min-w-0 truncate" style={{ fontSize: 12, color: "var(--text)" }}>{fresh.token}</code>
+            <button onClick={() => { void navigator.clipboard?.writeText(fresh.token).then(() => toast.success("Copied")); }} className="press" style={{ color: "var(--text-dim)" }}><Copy size={14} strokeWidth={1.5} /></button>
+          </div>
+        </div>
+      )}
+      {!apiEnabled() ? (
+        <p style={{ fontSize: 13, color: "var(--text-dim)" }}>API not configured on this device.</p>
+      ) : active.length === 0 ? (
+        <p style={{ fontSize: 13, color: "var(--text-dim)" }}>No capture tokens. Generate one for your Shortcut.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {active.map((t) => (
+            <div key={t.id} className="flex items-center gap-2 py-1.5" style={{ borderBottom: "1px solid var(--line)" }}>
+              <span className="flex-1 min-w-0">
+                <span className="block truncate" style={{ fontSize: 13, color: "var(--text)" }}>{t.label || "capture token"}</span>
+                <span className="cap-data" style={{ color: "var(--text-dim)" }}>{t.scopes.join(" · ")}{t.last_used_at ? ` · used ${new Date(t.last_used_at).toLocaleDateString()}` : " · never used"}</span>
+              </span>
+              <button onClick={() => void revoke(t.id)} className="press" aria-label="Revoke" style={{ color: "var(--text-dim)" }}><Trash2 size={14} strokeWidth={1.5} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

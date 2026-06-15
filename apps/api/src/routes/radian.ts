@@ -11,6 +11,9 @@ import { buildAttentionQueue, ageDays, inboxUrgency, type AttentionCandidate } f
 import { narrate, type Moment } from "@indigold/shared";
 import { scoreOpportunity, revenueSignal, capacityFit } from "@indigold/shared";
 import { fenceUntrusted, UNTRUSTED_GUARD } from "@indigold/shared";
+import { normalizeCaptureScopes } from "@indigold/shared";
+import { randomBytes } from "crypto";
+import { sha256 } from "../middleware/auth";
 import { getEmbedder } from "@indigold/shared";
 import { isResearchSafe, BudgetExceededError } from "@indigold/shared";
 import { findVerb, verbsFor } from "@indigold/shared";
@@ -316,6 +319,27 @@ radianRouter.post("/feedback", async (req: Authed, res) => {
   }
   await repo.nodes.setFeedback(uid, nodeId, { kind, at: new Date().toISOString() });
   await repo.emitEvent({ user_id: uid, actor: "user", event_type: "feedback", subject_type: "node", subject_id: nodeId, correlation_id: nodeId, payload: { kind } });
+  res.json({ ok: true });
+});
+
+// ---- Capture-only tokens (Security review, Finding A) — session-gated management ----
+// Mint a SCOPED token for the iOS Shortcut so a leaked credential can only create captures.
+// The raw token is returned ONCE (only its sha256 hash is stored).
+radianRouter.post("/capture-tokens", async (req: Authed, res) => {
+  const raw = "cap_" + randomBytes(24).toString("base64url");
+  const scopes = normalizeCaptureScopes(req.body?.scopes);
+  const tid = id("ctok");
+  await repo.captureTokens.create({
+    id: tid, user_id: req.userId!, token_hash: sha256(raw), scopes,
+    label: req.body?.label ? String(req.body.label).slice(0, 60) : null,
+  });
+  res.status(201).json({ id: tid, token: raw, scopes, note: "Copy this now — it is shown only once." });
+});
+radianRouter.get("/capture-tokens", async (req: Authed, res) => {
+  res.json({ items: await repo.captureTokens.listForUser(req.userId!) }); // never returns the hash
+});
+radianRouter.post("/capture-tokens/:id/revoke", async (req: Authed, res) => {
+  await repo.captureTokens.revoke(req.userId!, req.params.id);
   res.json({ ok: true });
 });
 

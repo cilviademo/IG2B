@@ -312,6 +312,19 @@ export async function getNarrative(): Promise<{ chapters: NarrativeChapter[]; to
   return radianGet(`/radian/narrative`);
 }
 
+// ---- Capture-only tokens (Security review, Finding A) ----
+export interface CaptureToken { id: string; scopes: string[]; label?: string | null; created_at: string; last_used_at?: string | null; revoked_at?: string | null }
+export async function createCaptureToken(label?: string, scopes?: string[]): Promise<{ id: string; token: string; scopes: string[] } | null> {
+  return radianPost(`/radian/capture-tokens`, { label, scopes });
+}
+export async function listCaptureTokens(): Promise<CaptureToken[]> {
+  const r = await radianGet<{ items: CaptureToken[] }>(`/radian/capture-tokens`);
+  return r?.items ?? [];
+}
+export async function revokeCaptureToken(id: string): Promise<boolean> {
+  return !!(await radianPost(`/radian/capture-tokens/${encodeURIComponent(id)}/revoke`, {}));
+}
+
 /** Record owner feedback on a finding (useful | not_useful | wrong_connection | dismiss). */
 export async function radianFeedback(nodeId: string, kind: string): Promise<boolean> {
   if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return false;

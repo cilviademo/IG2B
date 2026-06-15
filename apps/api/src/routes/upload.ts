@@ -6,7 +6,7 @@ import { Router } from "express";
 import Busboy from "busboy";
 import * as repo from "@indigold/db";
 import { id, enqueue } from "@indigold/shared";
-import type { Authed } from "../middleware/auth";
+import { type Authed, requireAuth, requireAuthOrCapture } from "../middleware/auth";
 import {
   storageConfigured,
   assertPrivateOrThrow,
@@ -20,9 +20,10 @@ export const uploadRouter = Router();
 
 const MAX_BYTES = Number(process.env.UPLOAD_MAX_BYTES || 50 * 1024 * 1024); // 50 MB
 
-// NOTE: requireAuth is applied where this router is mounted, so every handler
-// here already has req.userId. Unauthenticated requests are rejected upstream.
-uploadRouter.post("/capture/upload", (req: Authed, res) => {
+// Auth is applied PER ROUTE here (the router is mounted without a blanket gate): the capture
+// endpoints accept a session OR a scoped capture token; the signed-asset route is session-only,
+// so a capture token can never mint asset URLs (Security review, Finding A).
+uploadRouter.post("/capture/upload", requireAuthOrCapture("capture:file"), (req: Authed, res) => {
   if (!storageConfigured()) {
     return res.status(503).json({ error: "storage_not_configured" });
   }
@@ -137,8 +138,32 @@ uploadRouter.post("/capture/upload", (req: Authed, res) => {
   req.pipe(bb);
 });
 
-// Fresh signed URL for an asset the user owns. Never a public link.
-uploadRouter.get("/assets/:id/url", async (req: Authed, res) => {
+// Scoped text capture for the iOS Shortcut (Finding A): accepts a session OR a capture:text
+// token. Mirrors POST /captures' create→ingest, but a capture token can reach ONLY this.
+uploadRouter.post("/capture/text", requireAuthOrCapture("capture:text"), async (req: Authed, res) => {
+  const note = String(req.body?.note ?? req.body?.text ?? "").trim();
+  const title = String(req.body?.title ?? "").trim() || (note ? note.slice(0, 60) : "Capture");
+  const url = req.body?.url ? String(req.body.url) : null;
+  if (!note && !url) return res.status(400).json({ error: "note_or_url_required" });
+  const capId = id("cap");
+  await repo.captures.create({
+    id: capId, user_id: req.userId!, type: "manual_text", source: "ios_shortcut",
+    captured_at: new Date().toISOString(), truth_layer: "A", status: "inbox",
+    sensitivity: "private", processing_status: "unprocessed",
+    title, note, url, screenshot_ref: null,
+  });
+  await repo.emitEvent({ user_id: req.userId!, actor: "user", event_type: "capture_created", subject_type: "capture", subject_id: capId, correlation_id: capId, payload: { via: "capture_text", source: "ios_shortcut" } });
+  try {
+    const job = await enqueue("ingest_capture", req.userId!, { captureId: capId });
+    await repo.jobs.record({ id: job.id, user_id: req.userId!, type: job.type, status: "queued", payload: job.payload });
+    await repo.captures.setProcessing(capId, "queued");
+  } catch { /* queue offline → capture still stored; worker picks up later */ }
+  res.status(201).json({ capture: { id: capId, title, type: "manual_text" } });
+});
+
+// Fresh signed URL for an asset the user owns. Never a public link. SESSION-ONLY (a capture
+// token must not be able to read/sign assets).
+uploadRouter.get("/assets/:id/url", requireAuth, async (req: Authed, res) => {
   if (!storageConfigured()) return res.status(503).json({ error: "storage_not_configured" });
   const a = await repo.assets.get(req.userId!, req.params.id);
   if (!a) return res.status(404).json({ error: "not_found" });

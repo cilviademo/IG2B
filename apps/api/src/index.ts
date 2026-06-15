@@ -87,9 +87,10 @@ app.use("/projects", requireAuth, projectsRouter);
 app.use("/radian", requireAuth, radianRouter);
 app.use("/llm", requireAuth, llmRouter);
 app.use("/events", requireAuth, eventsRouter);
-// File upload (multipart) + signed asset URLs. requireAuth rejects anonymous
-// requests; busboy reads the raw stream (express.json ignores multipart bodies).
-app.use("/", requireAuth, uploadRouter);
+// File upload (multipart) + signed asset URLs + scoped text capture. Auth is applied
+// PER ROUTE inside uploadRouter (capture endpoints accept session OR a scoped capture
+// token; the asset route is session-only), so it is NOT gated by a blanket requireAuth here.
+app.use("/", uploadRouter);
 app.use("/", requireAuth, ioRouter);
 
 app.use((_req, res) => res.status(404).json({ error: "not_found" }));
