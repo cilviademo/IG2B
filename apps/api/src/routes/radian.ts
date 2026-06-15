@@ -12,6 +12,7 @@ import { narrate, type Moment } from "@indigold/shared";
 import { scoreOpportunity, revenueSignal, capacityFit } from "@indigold/shared";
 import { fenceUntrusted, UNTRUSTED_GUARD } from "@indigold/shared";
 import { normalizeCaptureScopes } from "@indigold/shared";
+import { normalizeClaim, normalizeClaimEvidence, aggregateConfidence, isContested, claimStale, detectTensions, type Claim, type ClaimEvidenceLink } from "@indigold/shared";
 import { randomBytes } from "crypto";
 import { sha256 } from "../middleware/auth";
 import { getEmbedder } from "@indigold/shared";
@@ -337,6 +338,56 @@ radianRouter.post("/evidence/:id/status", async (req: Authed, res) => {
   if (!e) return res.status(404).json({ error: "not_found" });
   await repo.evidence.setStatus(req.userId!, req.params.id, status);
   res.json({ ok: true });
+});
+
+// ---- Claims + Tensions (Intelligence review) — the epistemic layer ----
+// A claim is a statement with type/subject/confidence/validity + supporting/refuting evidence.
+// Tensions surface contradictions instead of flattening them. Deterministic; no auto-promotion.
+function rowToClaim(r: Record<string, unknown>): Claim {
+  return {
+    id: String(r.id), statement: String(r.statement || ""), claim_type: String(r.claim_type || "fact") as Claim["claim_type"],
+    subject: String(r.subject || ""), subject_kind: String(r.subject_kind || "topic") as Claim["subject_kind"],
+    confidence: Number(r.confidence) || 0.5,
+    observed_at: r.observed_at ? new Date(r.observed_at as string).toISOString() : null,
+    valid_from: r.valid_from ? new Date(r.valid_from as string).toISOString() : null,
+    valid_until: r.valid_until ? new Date(r.valid_until as string).toISOString() : null,
+    owner_status: String(r.owner_status || "unreviewed") as Claim["owner_status"],
+    evidence: normalizeClaimEvidence(r.evidence),
+  };
+}
+radianRouter.post("/claims", async (req: Authed, res) => {
+  const c = normalizeClaim((req.body || {}) as Record<string, unknown>, { id: id("claim") });
+  await repo.claims.create({ ...c, user_id: req.userId! });
+  res.status(201).json({ claim: c });
+});
+radianRouter.get("/claims", async (req: Authed, res) => {
+  const subject = req.query.subject ? String(req.query.subject) : undefined;
+  const rows = await repo.claims.list(req.userId!, subject);
+  const now = Date.now();
+  const items = rows.map((r) => { const c = rowToClaim(r as Record<string, unknown>); return { ...c, contested: isContested(c.evidence), stale: claimStale(c, now) }; });
+  res.json({ items });
+});
+radianRouter.post("/claims/:id/status", async (req: Authed, res) => {
+  const status = String(req.body?.owner_status || "");
+  if (!["unreviewed", "accepted", "rejected", "superseded"].includes(status)) return res.status(400).json({ error: "bad_status" });
+  if (!(await repo.claims.get(req.userId!, req.params.id))) return res.status(404).json({ error: "not_found" });
+  await repo.claims.setOwnerStatus(req.userId!, req.params.id, status);
+  res.json({ ok: true });
+});
+radianRouter.post("/claims/:id/evidence", async (req: Authed, res) => {
+  const row = await repo.claims.get(req.userId!, req.params.id);
+  if (!row) return res.status(404).json({ error: "not_found" });
+  const link = normalizeClaimEvidence([{ evidence_id: req.body?.evidence_id, stance: req.body?.stance, weight: req.body?.weight }])[0];
+  if (!link) return res.status(400).json({ error: "evidence_id_required" });
+  const c = rowToClaim(row as Record<string, unknown>);
+  const evidence: ClaimEvidenceLink[] = [...c.evidence.filter((l) => l.evidence_id !== link.evidence_id), link];
+  const confidence = aggregateConfidence(evidence, c.confidence);
+  await repo.claims.setEvidenceAndConfidence(req.userId!, req.params.id, evidence, confidence);
+  res.json({ ok: true, confidence, contested: isContested(evidence) });
+});
+radianRouter.get("/tensions", async (req: Authed, res) => {
+  const rows = await repo.claims.list(req.userId!);
+  res.json({ tensions: detectTensions(rows.map((r) => rowToClaim(r as Record<string, unknown>))) });
 });
 
 // ---- Capture-only tokens (Security review, Finding A) — session-gated management ----

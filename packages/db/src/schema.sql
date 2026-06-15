@@ -410,3 +410,25 @@ CREATE TABLE IF NOT EXISTS external_evidence (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS external_evidence_dedupe ON external_evidence(user_id, content_hash);
 CREATE INDEX IF NOT EXISTS external_evidence_status_idx ON external_evidence(user_id, status, retrieved_at DESC);
+
+-- Claims (Intelligence review) — the epistemic layer above nodes/evidence: a statement with a
+-- type, subject, confidence, validity window, owner status, and linked supporting/refuting
+-- evidence. Enables contradiction (Tensions) detection and "why did Radian believe this?".
+CREATE TABLE IF NOT EXISTS claims (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id),
+  statement    TEXT NOT NULL DEFAULT '',
+  claim_type   TEXT NOT NULL DEFAULT 'fact',
+  subject      TEXT NOT NULL DEFAULT '',
+  subject_kind TEXT NOT NULL DEFAULT 'topic',
+  confidence   REAL NOT NULL DEFAULT 0.5,
+  observed_at  TIMESTAMPTZ,
+  valid_from   TIMESTAMPTZ,
+  valid_until  TIMESTAMPTZ,
+  owner_status TEXT NOT NULL DEFAULT 'unreviewed',
+  evidence     JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS claims_user_idx ON claims(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS claims_subject_idx ON claims(user_id, subject);

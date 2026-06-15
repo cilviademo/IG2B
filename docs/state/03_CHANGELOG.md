@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: evidence-foundation · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: claims-tensions · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -607,3 +607,9 @@ commit(s) · what/why · live-test status).
 - **Schema (additive):** `external_evidence` table (+ regenerated schema.ts) with a unique `(user_id, content_hash)` dedupe index; `repo.evidence` (`upsert` returns whether newly inserted, `listInbox`, `get`, `setStatus`, `seenHashes`). `reset-vault` wipes it.
 - **Research Inbox endpoints:** `GET /radian/evidence?status=` + `POST /radian/evidence/:id/status` (new/relevant/contradictory/corrected/dismissed/accepted). **Evidence is NEVER auto-promoted to a memory node** — it's triaged here.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix **572/572**; schema in sync. Connectors that populate the inbox (RSS/Atom → Crossref → OpenAlex → Wikimedia) are Phase 2.
+
+### 2026-06-15 · claude (Claude Code) · `claude/claims-tensions` (PR) — Intelligence: claims + freshness + contradictions (Tensions)
+- **Claims layer (the epistemic object above nodes/evidence).** New pure `packages/shared/src/claims.ts`: a **`Claim`** = statement · type · subject · confidence · validity window (observed/valid_from/valid_until) · owner_status · linked **supporting/refuting evidence**. `aggregateConfidence` (deterministic, Laplace-smoothed from evidence weights), `isContested`, `claimStale` (freshness), `normalizeClaim`/`normalizeClaimEvidence`, and **`detectTensions`** — surfaces contradictions (contested evidence, stale-accepted, conflicting same-subject claims) instead of flattening them. `claims-verify` (16).
+- **Schema (additive):** `claims` table (+ regenerated schema.ts; evidence links as JSONB) + `repo.claims` (create/list/get/setOwnerStatus/setEvidenceAndConfidence). `reset-vault` wipes it.
+- **Endpoints:** `POST/GET /radian/claims` (list adds `contested`+`stale` flags), `POST /radian/claims/:id/status` (accept/reject/supersede), `POST /radian/claims/:id/evidence` (link evidence → **recomputes confidence**), and **`GET /radian/tensions`** (the contradiction view backend).
+- **Verified (sandbox):** typecheck:all + build:all green; matrix **588/588**; schema in sync. Covers the review's claims + freshness + contradictions proposals. **Next:** Phase 2 RSS/Atom connector feeding the Research Inbox.
