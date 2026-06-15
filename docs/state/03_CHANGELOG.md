@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: chat-history · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: model-timeout · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -681,3 +681,9 @@ commit(s) · what/why · live-test status).
 - **New `/history` screen** (ChatGPT/Claude-style): every conversation, searchable (title + message text), with an archived toggle; tap → reopens the **full transcript** in the Companion via a `?conversation=<id>` deep-link; archive/restore inline. In the More hub + an "All history →" link in the Companion.
 - **API/repo:** `conversations.list`/`search` gained `includeArchived`; `GET /radian/conversations?archived=1`; new **`POST /radian/conversations/:id/unarchive`**. Companion now honors `?conversation=` to open a saved thread.
 - **No schema change** (additive option + endpoint). **Verified (sandbox):** typecheck:all + build:all green; matrix **704/704** (unchanged). Logged BUG-008. NB: threads only persist when the API is reachable — if "couldn't reach Radian," fix `VITE_API_URL` first (PR #34 banner names it).
+
+### 2026-06-15 · claude (Claude Code) · `claude/model-timeout` (PR) — RADIAN latency: bound every model call (diagnosis + timeout guard)
+- **Diagnosed the "RADIAN feels slow under a live key" report** (full trace in `05_DEBUGGING_LOG.md` BUG-009): it's mostly **normal live-model latency** — `/radian/chat` awaits `governedComplete` inline (the reply must be in the response), so a 3–15s Sonnet generation blocks the request; stub was instant. **Verified NOT causes:** Redis dedicated-connection regression (intact + self-asserting, `queue.ts:55`), budget query (indexed range scan), retry stacking (single fetch, no retries). `/radian/ask` is correctly async.
+- **The one true bug class = an unbounded external call.** Fix: `resolveModelTimeoutMs` (env `LLM_TIMEOUT_MS`, default 30s, clamped 3–120s) + an `AbortController` on **all live adapters** (anthropic, openai-compatible, gemini) → a slow/hung provider **aborts** (`*_timeout`) and the caller falls back to the deterministic floor or queues, **never hangs the UI**. `model-timeout-verify` (7).
+- **Noted as owner/infra follow-ups (not built):** chat SSE streaming (biggest *felt* win), worker concurrency >1 for bursts, Render starter tier to kill cold starts.
+- **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **711/711** (+7). Deterministic floor intact.

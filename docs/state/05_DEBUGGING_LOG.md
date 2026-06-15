@@ -1,6 +1,6 @@
 # Debugging Log (institutional scar tissue)
 
-`Last updated: 2026-06-15 · Commit: chat-history · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: model-timeout · By: claude (Claude Code)`
 
 Every significant bug: **symptom → root cause → fix → LESSON.** Append-only.
 
@@ -67,6 +67,24 @@ Every significant bug: **symptom → root cause → fix → LESSON.** Append-onl
   unset on the PWA static site, or a free-tier cold start.)
 - **LESSON:** Never print a guessed cause. Surface the known error — the owner debugs from
   what's on screen (cf. BUG-005, BUG-006).
+
+## BUG-009 — RADIAN "slow" under a live key (diagnosis + timeout guard)
+- **Symptom:** RADIAN felt slow once a live provider key was connected (instant in stub mode).
+- **Diagnosis (end-to-end trace, code evidence):** mostly **normal live-model latency**, not a
+  plumbing bug. `/radian/chat` `await`s `governedComplete` **inline** (conversational reply must be
+  in the response) → blocks for the full Sonnet generation (3–15s); stub was instant. `/radian/ask`
+  is correctly **async** (enqueues, polls). Verified NOT causes: the Redis dedicated-connection
+  regression is intact + self-asserting (`queue.ts:55`); the budget query is indexed
+  (`ai_calls_user_month_idx`, range scan); the adapters do a single fetch with **no retry loop** (no
+  silent 2–3× stacking). Real gaps: (a) **no client timeout** on the model fetch → a hung upstream
+  could block indefinitely; (b) no chat streaming so latency is dead-air; (c) single-threaded worker
+  serializes bursts; (d) free-tier cold start (owner/infra).
+- **Fix (this PR):** `resolveModelTimeoutMs` (env `LLM_TIMEOUT_MS`, default 30s, clamp 3–120s) +
+  `AbortController` on all live adapters (anthropic/openai-compat/gemini) → a slow/hung call aborts
+  and the caller falls back to the deterministic floor or queues, never hangs. SSE streaming, worker
+  concurrency, and the Render plan bump are noted as owner/infra follow-ups.
+- **LESSON:** "live is slower" isn't a diagnosis — trace each hop. The one true *bug* class here was
+  an unbounded external call; bound every provider fetch so the deterministic floor can engage.
 
 ## BUG-008 — Past conversations not viewable (archived hidden + no history surface)
 - **Symptom:** owner could see an archived conversation referenced but couldn't open the actual

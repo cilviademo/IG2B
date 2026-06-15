@@ -18,6 +18,7 @@ import {
   anthropicAdapter,
   stubTool,
   estTokens,
+  resolveModelTimeoutMs,
 } from "./model";
 
 export type Provider = "anthropic" | "openai" | "gemini" | "openrouter" | "ollama" | "deterministic";
@@ -83,6 +84,8 @@ function openAICompatibleAdapter(cfg: { provider: Provider; baseUrl: string; api
         { role: "user", content: opts.prompt },
       ];
       let res: Response;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), resolveModelTimeoutMs());
       try {
         res = await fetch(`${cfg.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
           method: "POST",
@@ -94,9 +97,12 @@ function openAICompatibleAdapter(cfg: { provider: Provider; baseUrl: string; api
             temperature: opts.temperature ?? 0.2,
             ...(opts.json ? { response_format: { type: "json_object" } } : {}),
           }),
+          signal: ctrl.signal,
         });
       } catch (e) {
-        throw new Error(`${cfg.provider}_network: ${redact(e instanceof Error ? e.message : "")}`);
+        throw new Error(ctrl.signal.aborted ? `${cfg.provider}_timeout` : `${cfg.provider}_network: ${redact(e instanceof Error ? e.message : "")}`);
+      } finally {
+        clearTimeout(timer);
       }
       if (!res.ok) throw new Error(`${cfg.provider}_${res.status}: ${redact(await res.text().catch(() => ""))}`);
       const j = (await res.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
@@ -116,6 +122,8 @@ function geminiAdapter(apiKey: string, model: string): ModelAdapter {
     async complete(opts: CompleteOpts): Promise<CompleteResult> {
       // Key goes in a header (x-goog-api-key), never the URL/logs.
       let res: Response;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), resolveModelTimeoutMs());
       try {
         res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
           method: "POST",
@@ -125,9 +133,12 @@ function geminiAdapter(apiKey: string, model: string): ModelAdapter {
             contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
             generationConfig: { maxOutputTokens: opts.maxTokens ?? 1024, temperature: opts.temperature ?? 0.2 },
           }),
+          signal: ctrl.signal,
         });
       } catch (e) {
-        throw new Error(`gemini_network: ${redact(e instanceof Error ? e.message : "")}`);
+        throw new Error(ctrl.signal.aborted ? "gemini_timeout" : `gemini_network: ${redact(e instanceof Error ? e.message : "")}`);
+      } finally {
+        clearTimeout(timer);
       }
       if (!res.ok) throw new Error(`gemini_${res.status}: ${redact(await res.text().catch(() => ""))}`);
       const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } };

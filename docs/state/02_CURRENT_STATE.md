@@ -1,4 +1,6 @@
-> **CHAT HISTORY (PR `claude/chat-history`, latest):** ChatGPT-style `/history` screen — every Radian conversation, searchable, archived toggle + restore; tap → full transcript in the Companion via `?conversation=` deep-link. `conversations.list/search` gained `includeArchived`; `POST /radian/conversations/:id/unarchive`. In More + "All history →" in the Companion. Fixes "can't see past Q&A" (BUG-008). No schema change; matrix 704/704. NB: threads persist only when the API is reachable (see connectivity banner / `VITE_API_URL`).
+> **RADIAN LATENCY — TIMEOUT GUARD (PR `claude/model-timeout`, latest):** diagnosed the "slow under a live key" report — mostly normal live-model latency (`/radian/chat` awaits `governedComplete` inline; stub was instant). Verified NOT a plumbing bug (Redis dedicated-connection intact + self-asserting, budget query indexed, no retry stacking). Fix: `resolveModelTimeoutMs` (`LLM_TIMEOUT_MS`, 30s default, 3–120s clamp) + `AbortController` on all live adapters → slow/hung calls abort → deterministic fallback/queue, never hang. `model-timeout-verify` (7) → matrix **711/711**. Follow-ups (owner/infra): chat SSE streaming, worker concurrency, Render starter tier. See BUG-009.
+
+> **CHAT HISTORY (PR `claude/chat-history`):** ChatGPT-style `/history` screen — every Radian conversation, searchable, archived toggle + restore; tap → full transcript in the Companion via `?conversation=` deep-link. `conversations.list/search` gained `includeArchived`; `POST /radian/conversations/:id/unarchive`. In More + "All history →" in the Companion. Fixes "can't see past Q&A" (BUG-008). No schema change; matrix 704/704. NB: threads persist only when the API is reachable (see connectivity banner / `VITE_API_URL`).
 
 > **NEGATIVE KNOWLEDGE (PR `claude/negative-knowledge`):** Indigold remembers ABSENCE — searched-but-not-found / retracted / excluded. Pure `negative-knowledge.ts` (`negative-knowledge-verify` 13); additive `negative_knowledge` table + `repo.negativeKnowledge`; `GET/POST/DELETE /radian/negative-knowledge`; World Lens gained a **"Known gaps & exclusions"** section (+ "Note a gap" action); `run_watchlist` auto-records a `not_found` when a search succeeds with zero results. matrix **704/704**; schema in sync. Completes the review's reasoning-layer items.
 
@@ -74,7 +76,7 @@
 
 # Current State
 
-`Last updated: 2026-06-15 · Commit: chat-history · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: model-timeout · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 
