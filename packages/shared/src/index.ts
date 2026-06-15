@@ -41,3 +41,4 @@ export * from "./capture-scopes";
 export * from "./evidence";
 export * from "./claims";
 export * from "./rss";
+export * from "./world-lens";

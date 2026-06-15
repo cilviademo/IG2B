@@ -1,4 +1,6 @@
-> **RESEARCH INBOX + TENSIONS SCREENS (PR `claude/research-tensions-screens`, latest):** the Phase 1–2 backends are now visible. **`/research`** (More → Research Inbox): triage external evidence by status + manage/poll RSS feeds. **`/tensions`** (More → Tensions): open tensions (contested / conflicting / stale-accepted) + the claims list with confidence bars and owner review (accept/reject/supersede). Client fns + routes + More entries; both code-split. **Full debug pass:** typecheck+build:all green, matrix **607/607**, schema in sync, correctness scan clean (no issues). No schema change.
+> **WORLD LENS + EVIDENCE DRAWER (PR `claude/world-lens-evidence-drawer`, latest):** **World Lens** ("what changed outside your vault" per subject) — pure `world-lens.ts` (`worldLens` + lexical relevance) composing claims + relevant evidence + tensions into sections; `GET /radian/world-lens?subject=&kind=&title=`; new `/world-lens` screen reached from the Atlas node sheet ("World Lens") + More. **Evidence Drawer** — `EvidenceDrawer` component exposing each Radian answer's provenance (vault vs web sources, deterministic-vs-reasoned, grounding), wired into the Companion chat. `world-lens-verify` (12) → matrix **619/619**; no schema change.
+
+> **RESEARCH INBOX + TENSIONS SCREENS (PR `claude/research-tensions-screens`):** the Phase 1–2 backends are now visible. **`/research`** (More → Research Inbox): triage external evidence by status + manage/poll RSS feeds. **`/tensions`** (More → Tensions): open tensions (contested / conflicting / stale-accepted) + the claims list with confidence bars and owner review (accept/reject/supersede). Client fns + routes + More entries; both code-split. **Full debug pass:** typecheck+build:all green, matrix **607/607**, schema in sync, correctness scan clean (no issues). No schema change.
 
 > **INTELLIGENCE PHASE 2 — RSS/ATOM CONNECTOR (PR `claude/rss-connector`):** the first evidence connector. Pure `rss.ts` (`parseFeed` RSS+Atom, CDATA/entity-safe + `feedItemToEvidence`); additive `feeds` table + `repo.feeds`; endpoints `GET/POST/DELETE /radian/feeds` + `POST /radian/feeds/:id/poll`; new `poll_feed` worker job (SSRF-safe `fetchFeedText` → parse → normalize → gate-dedup → Research Inbox). New entries are evidence, never auto-promoted. `rss-verify` (19) → matrix **607/607**; schema in sync. **Intelligence-program core complete** (evidence + claims/Tensions + first connector); more connectors + World Lens/Watchlists are incremental.
 
@@ -62,7 +64,7 @@
 
 # Current State
 
-`Last updated: 2026-06-15 · Commit: research-tensions-screens · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: world-lens-evidence-drawer · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

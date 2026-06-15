@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX, MessageCircle, ThumbsUp, ThumbsDown, X, Archive } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
+import EvidenceDrawer from "@/components/EvidenceDrawer";
 import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, radianFeedback, getBriefing, createConversation, listConversations, getConversation, archiveConversation, getAttention, type BackendCapture, type ChatMode, type CompanionBriefing, type Conversation, type AttentionItem } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
 import { speak, stopSpeaking, canSpeak, canListen, listenOnce } from "@/lib/speech";
@@ -180,7 +181,6 @@ export default function Companion() {
   }
 
   const MODE_LABEL: Record<string, string> = { auto: "Auto", vault: "Vault", general: "General", web: "Vault + Web", research: "Research" };
-  const GROUND_LABEL: Record<string, string> = { vault: "Vault-grounded", mixed: "General + your vault", general: "General reasoning — not live web-verified" };
 
   // Voice question → transcribe → ask → speak the answer back (hands-free).
   function micTap() {
@@ -386,19 +386,17 @@ export default function Companion() {
                 {m.role === "radian"
                   ? <Typewriter text={m.text} />
                   : <p style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text)", whiteSpace: "pre-wrap" }}>{m.text}</p>}
-                {m.role === "radian" && m.grounding && (
-                  <p className="cap-data mt-1.5" style={{ color: "var(--text-dim)" }}>{GROUND_LABEL[m.grounding] || m.grounding}{m.webNote ? ` · ${m.webNote}` : ""}</p>
-                )}
-                {m.sources && m.sources.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {m.sources.map((s, si) => (
-                      s.url
-                        ? <a key={si} href={s.url} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1 text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--info)", maxWidth: 200 }}><ExternalLink size={9} strokeWidth={1.5} /> {s.title}</a>
-                        // Vault source → open a node-anchored thread (Sprint 3b: keep the
-                        // conversation here instead of bouncing out to the Atlas graph).
-                        : <button key={si} onClick={() => s.id && void discuss(s.id, s.title)} disabled={!s.id} className="press inline-flex items-center gap-1 text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)", maxWidth: 180 }}><MessageCircle size={9} strokeWidth={1.5} /> {s.title}</button>
-                    ))}
-                  </div>
+                {/* Evidence Drawer — provenance behind the answer (vault vs web sources,
+                    deterministic vs reasoned, grounding). Vault chips open a node thread. */}
+                {m.role === "radian" && (m.grounding || (m.sources && m.sources.length > 0)) && (
+                  <EvidenceDrawer
+                    sources={m.sources}
+                    grounding={m.grounding}
+                    deterministic={m.deterministic}
+                    usedWeb={m.usedWeb}
+                    webNote={m.webNote}
+                    onDiscuss={(nid, title) => void discuss(nid, title)}
+                  />
                 )}
                 {m.role === "radian" && (
                   <button onClick={() => void saveMsg(i)} disabled={m.saved} className="press inline-flex items-center gap-1 mt-2 cap-data" style={{ color: m.saved ? "var(--good)" : "var(--text-dim)" }}>

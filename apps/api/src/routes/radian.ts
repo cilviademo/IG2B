@@ -13,6 +13,7 @@ import { scoreOpportunity, revenueSignal, capacityFit } from "@indigold/shared";
 import { fenceUntrusted, UNTRUSTED_GUARD } from "@indigold/shared";
 import { normalizeCaptureScopes } from "@indigold/shared";
 import { normalizeClaim, normalizeClaimEvidence, aggregateConfidence, isContested, claimStale, detectTensions, type Claim, type ClaimEvidenceLink } from "@indigold/shared";
+import { worldLens, type ExternalEvidence } from "@indigold/shared";
 import { randomBytes } from "crypto";
 import { sha256 } from "../middleware/auth";
 import { getEmbedder } from "@indigold/shared";
@@ -413,6 +414,43 @@ radianRouter.post("/claims/:id/evidence", async (req: Authed, res) => {
 radianRouter.get("/tensions", async (req: Authed, res) => {
   const rows = await repo.claims.list(req.userId!);
   res.json({ tensions: detectTensions(rows.map((r) => rowToClaim(r as Record<string, unknown>))) });
+});
+
+function rowToEvidence(r: Record<string, unknown>): ExternalEvidence {
+  const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null);
+  return {
+    id: String(r.id), connector: String(r.connector || ""), external_id: String(r.external_id || ""),
+    canonical_url: String(r.canonical_url || ""), title: String(r.title || ""), summary: String(r.summary || ""),
+    authors: Array.isArray(r.authors) ? (r.authors as unknown[]).map(String) : [], source_name: String(r.source_name || ""),
+    source_kind: String(r.source_kind || "web") as ExternalEvidence["source_kind"],
+    observed_at: iso(r.observed_at), retrieved_at: iso(r.retrieved_at) || new Date().toISOString(),
+    valid_until: iso(r.valid_until), refresh_after: iso(r.refresh_after),
+    license: r.license ? String(r.license) : null, attribution: String(r.attribution || ""), content_hash: String(r.content_hash || ""),
+    claim_candidates: Array.isArray(r.claim_candidates) ? (r.claim_candidates as unknown[]).map(String) : [],
+    status: String(r.status || "new") as ExternalEvidence["status"],
+  };
+}
+
+// World Lens (Intelligence review): for a subject (node / project / topic) — "what changed
+// outside your vault?" Claims + relevant external evidence + tensions, grouped deterministically.
+radianRouter.get("/world-lens", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const subject = String(req.query.subject || "").trim();
+  const kind = String(req.query.kind || "topic");
+  let subjectTitle = String(req.query.title || subject);
+  let subjectTerms: string[] = [];
+  if (kind === "node" && subject) {
+    const n = await repo.nodes.get(uid, subject).catch(() => null);
+    if (n) { subjectTitle = n.title; subjectTerms = n.tags || []; }
+  }
+  const [claimRows, evRows] = await Promise.all([
+    repo.claims.list(uid, subject || undefined),
+    repo.evidence.listInbox(uid, undefined, 200),
+  ]);
+  const claims = claimRows.map((r) => rowToClaim(r as Record<string, unknown>));
+  const evidence = (evRows as Record<string, unknown>[]).map(rowToEvidence);
+  const tensions = detectTensions(claims).filter((t) => !subject || t.subject === subject);
+  res.json({ lens: worldLens({ subject, subjectTitle, subjectTerms, claims, evidence, tensions }) });
 });
 
 // ---- Capture-only tokens (Security review, Finding A) — session-gated management ----

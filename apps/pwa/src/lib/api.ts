@@ -364,6 +364,17 @@ export async function getTensions(): Promise<TensionItem[]> {
   return r?.tensions ?? [];
 }
 
+// ---- World Lens ("what changed outside your vault" for a subject) ----
+export interface WorldLensEvidence { id: string; title: string; url: string; source: string; kind: string; observed_at?: string | null; retrieved_at: string; stale: boolean; status: string }
+export interface WorldLensClaim { id: string; statement: string; confidence: number; owner_status: string; contested: boolean; stale: boolean }
+export interface WorldLensSection { key: string; label: string; evidence?: WorldLensEvidence[]; claims?: WorldLensClaim[]; notes?: string[] }
+export interface WorldLensData { subject: string; subjectTitle: string; sections: WorldLensSection[]; counts: { evidence: number; claims: number; tensions: number } }
+export async function getWorldLens(subject: string, kind = "topic", title?: string): Promise<WorldLensData | null> {
+  const q = new URLSearchParams({ subject, kind, ...(title ? { title } : {}) });
+  const r = await radianGet<{ lens: WorldLensData }>(`/radian/world-lens?${q.toString()}`);
+  return r?.lens ?? null;
+}
+
 /** Record owner feedback on a finding (useful | not_useful | wrong_connection | dismiss). */
 export async function radianFeedback(nodeId: string, kind: string): Promise<boolean> {
   if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return false;
