@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: audit-p0 · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: security-tokenonly · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -495,3 +495,8 @@ commit(s) · what/why · live-test status).
 - Reviewed the Codex repository audit (`docs/REPOSITORY_AUDIT_2026-06-15.md`, on the Codex branch) and incorporated the two **safe** P0s now: (1) **blocking CI** — `.github/workflows/ci.yml` runs `typecheck:all` + `build:all` + the full verify matrix on every PR and on main; (2) **fatal migrations** — `apps/api` now `process.exit(1)` on a failed migration (was swallowed) so a bad schema never serves; `RUN_MIGRATIONS=false` still escapes.
 - **Deferred to a careful security pass (reliability gate in `07_ROADMAP.md`):** the **plaintext-password persistence** P0 (claimed accounts shouldn't store the real password in localStorage — needs token-only + a global re-login affordance; Keychain autofills) and **CORS breadth** (tighten `*.onrender.com` trust; weigh the PR-preview tradeoff). Both touch critical auth/deploy paths and need verification, so they're sequenced as the next phase rather than rushed.
 - **Verified (sandbox):** typecheck:all + api build green; CI yaml valid; matrix 465/465. No runtime regressions (CI is additive; migration change only affects the failure path).
+
+### 2026-06-15 · claude (Claude Code) · `main` — Security pass: token-only auth (no plaintext password) + CORS strict toggle
+- **Plaintext password P0 fixed:** claimed/logged-in accounts are now **token-only** — `claimAccount`/`loginAccount` set the token + `indigold_account_email` and **remove `indigold_device`** (the real password is never written to localStorage). `ensureSession` gains a **claimed-guard**: token gone + claimed → returns "session expired" (no silent mint) so an evicted token re-prompts login instead of **forking a new vault**; `logoutAccount` clears the flag. New `needsLogin()` + a **"Session expired — tap to log back in"** banner (AppBanners; iCloud Keychain autofills). The anonymous device account keeps its random password (not a human secret); pairing (secondary) still carries a password by design.
+- **CORS P0:** `CORS_ALLOW_ONRENDER=false` drops the blanket `*.onrender.com` trust → only configured origins. Default unchanged (keeps PR previews working); owner flips it once `PWA_ORIGIN` is set.
+- **Verified (sandbox):** typecheck:all + api + pwa builds green; matrix 465/465. **Owner on-device:** log in, then force a token loss → confirm the re-login banner restores the SAME vault (no fork) — auth is a critical path, please verify.

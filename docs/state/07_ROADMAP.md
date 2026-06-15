@@ -6,11 +6,9 @@ Status keys: **planned · in-progress · blocked · done→changelog.** Each ite
 source directive and the gate that unblocks/closes it.
 
 ## Reliability gate (Codex audit 2026-06-15) — address before the next big feature wave
-- **DONE this pass:** blocking **CI** (`.github/workflows/ci.yml`: typecheck:all + build:all + verify matrix on PR/main); **fatal migrations** (API exits on a failed migration instead of serving a bad schema).
-- **NEXT (security pass, top priority):**
-  - **Plaintext password persistence (P0):** the PWA stores the account password in `localStorage` (`indigold_device`) for silent re-auth. The random anonymous password is low-risk, but a **claimed account's real password must not be persisted** — move to token-only for claimed accounts + a global "session expired → log in" affordance (iCloud Keychain autofills). Needs careful auth-flow work + verification.
-  - **CORS breadth (P0):** API trusts any `*.onrender.com` origin. Tighten to configured origins; decide the PR-preview tradeoff (bearer-auth lowers the real risk, so this is hygiene). Likely an opt-in strict flag.
-- **Also from the audit:** queue retries/crash recovery, e2e integration test, tested vault restore, structured observability, dependency hygiene. Tracked in `docs/REPOSITORY_AUDIT_2026-06-15.md` (Codex branch).
+- **DONE:** blocking **CI**; **fatal migrations**; **plaintext-password fix** (claimed accounts are token-only — password never persisted; `ensureSession` re-prompts login instead of forking; "session expired" banner); **CORS** strict toggle (`CORS_ALLOW_ONRENDER=false` drops the blanket `*.onrender.com` trust).
+- **OWNER:** set `CORS_ALLOW_ONRENDER=false` on the API once `PWA_ORIGIN` is confirmed; on-device verify login + token-eviction re-login (no vault fork). Pairing (secondary) still carries a password by design.
+- **NEXT from the audit:** queue retries/crash recovery, e2e integration test, tested vault restore, structured observability, dependency hygiene. Tracked in `docs/REPOSITORY_AUDIT_2026-06-15.md` (Codex branch).
 
 ## In-progress (open PRs — merge gate = owner live-test)
 - **File upload (PR #1 `claude/indigold-file-upload`)** — *in-progress.* PWA file picker +

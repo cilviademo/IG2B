@@ -105,6 +105,9 @@ export function unlinkDevice(): void {
 // restores it on any surface. Stored so the silent session re-auths to it.
 export const accountEmail = (): string | null => localStorage.getItem(CLAIMED_KEY);
 export const isClaimed = (): boolean => !!accountEmail();
+/** A claimed (token-only) account whose token is gone → needs an explicit re-login
+ *  (we never persisted the password). Drives the "session expired" banner. */
+export const needsLogin = (): boolean => isClaimed() && !getToken();
 
 /** Secure the current vault with a real email+password (data preserved). */
 export async function claim(email: string, password: string): Promise<AccountResult> {

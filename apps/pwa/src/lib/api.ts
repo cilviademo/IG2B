@@ -60,6 +60,7 @@ export const api = {
 // API is unset/asleep/offline, everything stays local and re-syncs later.
 // ---------------------------------------------------------------------------
 const DEVICE_KEY = "indigold_device";
+const CLAIMED_KEY = "indigold_account_email"; // set when a real login/claim succeeds (token-only)
 
 // Surfaced to the UI so a failed token mint reports the REAL reason (CORS/network
 // vs auth 500 vs missing build URL) instead of a generic "couldn't reach".
@@ -75,6 +76,13 @@ export async function ensureSession(): Promise<boolean> {
     return false;
   }
   if (getToken()) return true;
+  // Claimed (real-login) accounts are TOKEN-ONLY — we never persist their password.
+  // If the token is gone (Redis session eviction), require an explicit re-login
+  // (iCloud Keychain autofills) rather than silently minting/forking a new vault.
+  if (localStorage.getItem(CLAIMED_KEY)) {
+    lastSessionErr = "session expired — please log in again";
+    return false;
+  }
   let creds: { email: string; password: string } | null = null;
   try {
     creds = JSON.parse(localStorage.getItem(DEVICE_KEY) || "null");
@@ -113,7 +121,8 @@ export interface AccountResult { ok: boolean; email?: string; error?: string }
 
 /** Claim the CURRENT vault: set a real email+password on this account so its data
  *  is preserved AND it's recoverable by login on any surface / after a reinstall.
- *  Persists the creds locally so the silent session re-auths to the same account. */
+ *  TOKEN-ONLY: the password is NOT persisted (security) — re-login restores after a
+ *  token loss (iCloud Keychain autofills). */
 export async function claimAccount(email: string, password: string): Promise<AccountResult> {
   if (!apiEnabled()) return { ok: false, error: "API not configured (VITE_API_URL unset)." };
   if (!getToken() && !(await ensureSession())) return { ok: false, error: lastSessionError() || "no session" };
@@ -128,7 +137,8 @@ export async function claimAccount(email: string, password: string): Promise<Acc
     if (!res.ok) return { ok: false, error: `claim failed (HTTP ${res.status})` };
     const j = (await res.json()) as { token?: string };
     if (j.token) setToken(j.token);
-    localStorage.setItem(DEVICE_KEY, JSON.stringify({ email, password }));
+    localStorage.setItem(CLAIMED_KEY, email);
+    localStorage.removeItem(DEVICE_KEY); // never persist the real password
     return { ok: true, email };
   } catch (e) {
     return { ok: false, error: `network/CORS: ${e instanceof Error ? e.message : "fetch failed"}` };
@@ -136,7 +146,7 @@ export async function claimAccount(email: string, password: string): Promise<Acc
 }
 
 /** Log in to an existing vault (e.g. after a reinstall, or on a second surface).
- *  Switches this surface to that account and persists the creds for re-auth. */
+ *  TOKEN-ONLY — the password is never written to localStorage. */
 export async function loginAccount(email: string, password: string): Promise<AccountResult> {
   if (!apiEnabled()) return { ok: false, error: "API not configured (VITE_API_URL unset)." };
   try {
@@ -150,7 +160,8 @@ export async function loginAccount(email: string, password: string): Promise<Acc
     const j = (await res.json()) as { token?: string };
     if (!j.token) return { ok: false, error: "login response had no token" };
     setToken(j.token);
-    localStorage.setItem(DEVICE_KEY, JSON.stringify({ email, password }));
+    localStorage.setItem(CLAIMED_KEY, email);
+    localStorage.removeItem(DEVICE_KEY); // never persist the real password
     return { ok: true, email };
   } catch (e) {
     return { ok: false, error: `network/CORS: ${e instanceof Error ? e.message : "fetch failed"}` };
@@ -162,6 +173,7 @@ export async function loginAccount(email: string, password: string): Promise<Acc
 export function logoutAccount(): void {
   clearToken();
   localStorage.removeItem(DEVICE_KEY);
+  localStorage.removeItem(CLAIMED_KEY);
 }
 
 interface SyncableCapture {

@@ -45,10 +45,15 @@ app.use(
     origin(origin, cb) {
       if (!origin) return cb(null, true); // curl, server-to-server, health checks
       if (configuredOrigins.includes(origin)) return cb(null, true);
-      try {
-        if (new URL(origin).hostname.endsWith(".onrender.com")) return cb(null, true);
-      } catch {
-        /* malformed origin -> deny */
+      // Codex audit P0: the blanket *.onrender.com trust is a convenience for
+      // unconfigured deploys + PR previews. Set CORS_ALLOW_ONRENDER=false to drop it
+      // and trust ONLY the configured origin(s) (recommended once PWA_ORIGIN is set).
+      if (process.env.CORS_ALLOW_ONRENDER !== "false") {
+        try {
+          if (new URL(origin).hostname.endsWith(".onrender.com")) return cb(null, true);
+        } catch {
+          /* malformed origin -> deny */
+        }
       }
       return cb(null, false);
     },
