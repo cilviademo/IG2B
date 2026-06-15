@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, Activity, RefreshCw, AlertTriangle, KeyRound, Copy, Trash2, Plus } from "lucide-react";
+import { ShieldCheck, Activity, RefreshCw, AlertTriangle, KeyRound, Copy, Trash2, Plus, Sparkles, Cpu } from "lucide-react";
+import { providerLabel } from "@/lib/modelLabel";
 import { useJson } from "@/hooks/useJson";
 import { fetchObservability, apiEnabled, createCaptureToken, listCaptureTokens, revokeCaptureToken, type Observability, type CaptureToken } from "@/lib/api";
 import { Button } from "@/components/primitives";
@@ -76,9 +77,27 @@ export default function Diagnostics() {
           <RefreshCw size={15} strokeWidth={1.5} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
-      <p className="cap-data mb-4" style={{ color: "var(--text-dim)" }}>
+      <p className="cap-data mb-3" style={{ color: "var(--text-dim)" }}>
         gray untested · gold simulated only · green owner-verified{manifest ? ` · manifest ${manifest.generated}` : ""}
       </p>
+
+      {/* Model status — is Radian answering with a live model (Claude) or the deterministic fallback? */}
+      {obs && (() => {
+        const live = obs.providers.mode === "live";
+        const dp = obs.providers.default_provider;
+        const configured = Object.entries(obs.providers.providers).filter(([, p]) => p.configured).map(([n]) => n);
+        const ok = live && dp !== "deterministic" && configured.includes(dp);
+        return (
+          <div className="flex items-center gap-2 px-3 py-2 mb-4" style={{ borderRadius: 8, border: `1px solid ${ok ? "var(--gold-line)" : "var(--line)"}`, background: "var(--surface)" }}>
+            {ok ? <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--gold)" }} /> : <Cpu size={14} strokeWidth={1.5} style={{ color: "var(--text-dim)" }} />}
+            <span style={{ fontSize: 13, color: "var(--text)" }}>
+              {ok
+                ? <>Answering with <b style={{ color: "var(--gold)" }}>{providerLabel(dp)}</b> ({dp}) · mode {obs.providers.mode}</>
+                : <>Deterministic fallback — no live model. {configured.length ? `Configured: ${configured.join(", ")}, default ${dp}.` : "Set ANTHROPIC_API_KEY on the API + worker services."}</>}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Verification matrix */}
       {manifest && (

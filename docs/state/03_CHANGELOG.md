@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: honest-connectivity · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: model-badge · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -668,3 +668,10 @@ commit(s) · what/why · live-test status).
 - **Fix (PWA-only, no schema/API change):** `api.ts` now captures transport failures (`lastApiErr` — HTTP status / network / CORS) in `chatRadian`/`askRadian`, and exposes `connectivityError()` (missing `VITE_API_URL` → expired session → transport) + a `probeApi()` `/health` check. The Companion chat fallback + toasts now show the **true reason** instead of "offline or API asleep".
 - **Connectivity banner** (`AppBanners`): probes `/health` on launch + on foreground; shows **"API isn't configured — showing sample data (set VITE_API_URL)"** when unconfigured, or **"Can't reach the API at <host> — <reason>"** with a Retry when configured-but-down. Most likely the owner's symptom = `VITE_API_URL` unset on the PWA static site (→ sample-data mode) or a free-tier cold start.
 - Logged in `05_DEBUGGING_LOG.md`. **Verified (sandbox):** typecheck:all + build:all green; matrix **704/704** (unchanged).
+
+### 2026-06-15 · claude (Claude Code) · `claude/model-badge` (PR) — "Who answered" model badge (Claude vs deterministic)
+- **Makes it obvious whether Radian is using a live model (Claude) or the deterministic fallback** — so the owner can confirm `ANTHROPIC_API_KEY` is actually taking effect, at a glance.
+- Clarifies the architecture: the **key is server-side only** (API + worker Render env); the PWA never holds it. Provider selection already defaults to `anthropic` + flips to `live` mode automatically when a key is present — so this is a *visibility* change, not a wiring change.
+- **Companion:** every Radian answer now shows a prominent badge — **"Claude"** (gold, when a live provider answered) or **"Deterministic"** (when it fell back). `/radian/chat`'s `provider` is now carried through `ChatReply` → the message.
+- **Diagnostics:** a model-status line under the header — *"Answering with Claude (anthropic) · mode live"* or *"Deterministic fallback — set ANTHROPIC_API_KEY on the API + worker services."*
+- New `apps/pwa/src/lib/modelLabel.ts` (`providerLabel`/`isLiveProvider`). **PWA-only; no schema/API change.** Verified: typecheck:all + build:all green; matrix **704/704** (unchanged).

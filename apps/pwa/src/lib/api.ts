@@ -257,6 +257,7 @@ export interface ChatReply {
   mode: Exclude<ChatMode, "auto">;
   grounding: "vault" | "mixed" | "general";
   deterministic: boolean;
+  provider?: string;
   usedWeb: boolean;
   webNote?: string;
   sources: { id?: string; title: string; url?: string }[];
