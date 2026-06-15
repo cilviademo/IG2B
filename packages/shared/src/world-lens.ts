@@ -36,6 +36,7 @@ export interface WorldLensInput {
   claims: Claim[];                // claims already scoped to this subject
   evidence: ExternalEvidence[];   // candidate evidence (will be relevance-filtered)
   tensions: Tension[];
+  negatives?: { kind: string; note: string }[]; // known gaps / retractions / exclusions
   now?: number;
 }
 
@@ -65,6 +66,8 @@ export function worldLens(input: WorldLensInput): WorldLens {
   if (claims.length) sections.push({ key: "claims", label: "What you believe", claims });
   if (corrections.length || supersededOrStale.length) sections.push({ key: "corrections", label: "Corrections & retractions", evidence: corrections.slice(0, 6), claims: supersededOrStale });
   if (input.tensions.length) sections.push({ key: "tensions", label: "Tensions", notes: input.tensions.map((t) => t.why) });
+  const negatives = input.negatives || [];
+  if (negatives.length) sections.push({ key: "gaps", label: "Known gaps & exclusions", notes: negatives.map((n) => `[${n.kind}] ${n.note}`) });
   if (questions.length) sections.push({ key: "questions", label: "Worth turning into claims", notes: questions });
 
   return { subject: input.subject, subjectTitle: input.subjectTitle, sections, counts: { evidence: relevant.length, claims: claims.length, tensions: input.tensions.length } };

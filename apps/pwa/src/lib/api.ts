@@ -396,6 +396,19 @@ export async function runDueWatchlists(): Promise<number> {
   return r?.queued ?? 0;
 }
 
+// ---- Negative knowledge (remember absence: not_found / retracted / excluded) ----
+export interface NegativeItem { id: string; subject: string; kind: string; note: string; created_at?: string }
+export async function listNegatives(subject?: string): Promise<NegativeItem[]> {
+  const r = await radianGet<{ items: NegativeItem[] }>(`/radian/negative-knowledge${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`);
+  return r?.items ?? [];
+}
+export async function addNegative(subject: string, kind: string, note: string): Promise<boolean> {
+  return !!(await radianPost(`/radian/negative-knowledge`, { subject, kind, note }));
+}
+export async function removeNegative(id: string): Promise<boolean> {
+  return delAt(`/radian/negative-knowledge/${encodeURIComponent(id)}`);
+}
+
 /** Record owner feedback on a finding (useful | not_useful | wrong_connection | dismiss). */
 export async function radianFeedback(nodeId: string, kind: string): Promise<boolean> {
   if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return false;

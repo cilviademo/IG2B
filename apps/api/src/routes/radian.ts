@@ -16,6 +16,7 @@ import { normalizeClaim, normalizeClaimEvidence, aggregateConfidence, isConteste
 import { worldLens, type ExternalEvidence } from "@indigold/shared";
 import { normalizeCadence, watchlistDue } from "@indigold/shared";
 import { isOwnerIntent, intentGuidance } from "@indigold/shared";
+import { normalizeNegativeKind } from "@indigold/shared";
 import { randomBytes } from "crypto";
 import { sha256 } from "../middleware/auth";
 import { getEmbedder } from "@indigold/shared";
@@ -486,14 +487,33 @@ radianRouter.get("/world-lens", async (req: Authed, res) => {
     const n = await repo.nodes.get(uid, subject).catch(() => null);
     if (n) { subjectTitle = n.title; subjectTerms = n.tags || []; }
   }
-  const [claimRows, evRows] = await Promise.all([
+  const [claimRows, evRows, negRows] = await Promise.all([
     repo.claims.list(uid, subject || undefined),
     repo.evidence.listInbox(uid, undefined, 200),
+    repo.negativeKnowledge.list(uid, subject || undefined),
   ]);
   const claims = claimRows.map((r) => rowToClaim(r as Record<string, unknown>));
   const evidence = (evRows as Record<string, unknown>[]).map(rowToEvidence);
   const tensions = detectTensions(claims).filter((t) => !subject || t.subject === subject);
-  res.json({ lens: worldLens({ subject, subjectTitle, subjectTerms, claims, evidence, tensions }) });
+  const negatives = (negRows as { kind: string; note: string }[]).map((n) => ({ kind: String(n.kind), note: String(n.note) }));
+  res.json({ lens: worldLens({ subject, subjectTitle, subjectTerms, claims, evidence, tensions, negatives }) });
+});
+
+// ---- Negative knowledge (Intelligence review — remember absence) ----
+radianRouter.get("/negative-knowledge", async (req: Authed, res) => {
+  const subject = req.query.subject ? String(req.query.subject) : undefined;
+  res.json({ items: await repo.negativeKnowledge.list(req.userId!, subject) });
+});
+radianRouter.post("/negative-knowledge", async (req: Authed, res) => {
+  const note = String(req.body?.note || "").trim();
+  if (!note) return res.status(400).json({ error: "note_required" });
+  const nid = id("neg");
+  await repo.negativeKnowledge.create({ id: nid, user_id: req.userId!, subject: String(req.body?.subject || "").slice(0, 200), kind: normalizeNegativeKind(req.body?.kind), note: note.slice(0, 600) });
+  res.status(201).json({ id: nid });
+});
+radianRouter.delete("/negative-knowledge/:id", async (req: Authed, res) => {
+  await repo.negativeKnowledge.remove(req.userId!, req.params.id);
+  res.json({ ok: true });
 });
 
 // ---- Capture-only tokens (Security review, Finding A) — session-gated management ----

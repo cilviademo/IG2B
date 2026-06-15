@@ -268,6 +268,26 @@ export const watchlists = {
   },
 };
 
+// ---- negative knowledge (Intelligence review — remember absence) ----
+export const negativeKnowledge = {
+  async create(n: { id: string; user_id: string; subject: string; kind: string; note: string }) {
+    await query(`INSERT INTO negative_knowledge (id, user_id, subject, kind, note) VALUES ($1,$2,$3,$4,$5)`,
+      [n.id, n.user_id, n.subject, n.kind, n.note]);
+  },
+  async list(userId: string, subject?: string) {
+    const where = subject ? ` AND subject=$2` : "";
+    const r = await query(`SELECT * FROM negative_knowledge WHERE user_id=$1${where} ORDER BY created_at DESC`, subject ? [userId, subject] : [userId]);
+    return r.rows;
+  },
+  async existsForSubject(userId: string, subject: string, kind: string): Promise<boolean> {
+    const r = await query(`SELECT 1 FROM negative_knowledge WHERE user_id=$1 AND subject=$2 AND kind=$3 LIMIT 1`, [userId, subject, kind]);
+    return (r.rowCount ?? 0) > 0;
+  },
+  async remove(userId: string, id: string) {
+    await query(`DELETE FROM negative_knowledge WHERE user_id=$1 AND id=$2`, [userId, id]);
+  },
+};
+
 // ---- captures ----
 export const captures = {
   async create(c: Capture & { raw?: object }) {
