@@ -51,6 +51,15 @@ export function loadModelConfig(env: Record<string, string | undefined> = proces
   };
 }
 
+// Live model calls are bounded by a hard timeout so a slow/hung provider can NEVER hang a
+// request — on abort the adapter throws and the caller falls back to the deterministic floor or
+// queues (capture-instant / AI-async). Override with LLM_TIMEOUT_MS (clamped 3s–120s).
+export function resolveModelTimeoutMs(env: Record<string, string | undefined> = process.env): number {
+  const raw = Number(env.LLM_TIMEOUT_MS);
+  if (!Number.isFinite(raw) || raw <= 0) return 30000;
+  return Math.max(3000, Math.min(120000, Math.round(raw)));
+}
+
 export interface TokenUsage {
   input: number;
   output: number;
@@ -156,21 +165,32 @@ export function anthropicAdapter(apiKey: string, model: string): ModelAdapter {
     provider: "anthropic",
     model,
     async complete(opts) {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: opts.maxTokens ?? 1024,
-          temperature: opts.temperature ?? 0.2,
-          system: opts.json ? `${opts.system || ""}\nRespond with ONLY valid JSON, no prose.`.trim() : opts.system,
-          messages: [{ role: "user", content: opts.prompt }],
-        }),
-      });
+      // Hard timeout: abort a slow/hung call so it never blocks the request (deterministic floor).
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), resolveModelTimeoutMs());
+      let res: Response;
+      try {
+        res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: opts.maxTokens ?? 1024,
+            temperature: opts.temperature ?? 0.2,
+            system: opts.json ? `${opts.system || ""}\nRespond with ONLY valid JSON, no prose.`.trim() : opts.system,
+            messages: [{ role: "user", content: opts.prompt }],
+          }),
+          signal: ctrl.signal,
+        });
+      } catch (e) {
+        throw new Error(ctrl.signal.aborted ? "anthropic_timeout" : `anthropic_network: ${(e instanceof Error ? e.message : "").slice(0, 120)}`);
+      } finally {
+        clearTimeout(timer);
+      }
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
         throw new Error(`anthropic_${res.status}: ${detail.slice(0, 200)}`);
