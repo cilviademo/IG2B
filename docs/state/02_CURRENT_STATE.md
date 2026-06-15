@@ -20,7 +20,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: shares-ai-honesty · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: companion-deepen · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

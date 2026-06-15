@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: shares-ai-honesty · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: companion-deepen · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -461,3 +461,7 @@ commit(s) · what/why · live-test status).
 - **Source link re-accessible anywhere (owner ask):** `ingest_capture` now ALWAYS stores `meta.source_url = cap.url` on the node (not just when scraped), so Atlas NodeSheet "Open source" works for every shared link; the Companion "What I found" cards gain an **"Open link"** action; CaptureDetail already had "Open original". Files open via signed URL.
 - **AI reasoning made honest + visible (owner: "shares don't use AI at all"):** the pipeline IS wired (PWA share → POST /captures → ingest → `governedComplete`), so thin results mean the model ran in the **deterministic floor** (no provider key / budget). `ingest_capture` now records `meta.reasoned` + `meta.provider` from the governed result, and the Companion "What I found" card shows **"Analyzed by Radian"** (real model) vs **"Deterministic — add a model key in Settings → API for deep reasoning."** This surfaces the actual unlock instead of failing silently. URL scrape (prior commit) feeds real page text into that reasoning once a key is set.
 - **Verified (sandbox):** typecheck:all + worker + pwa builds green; matrix 459/459. The reasoned/deterministic split + live link depend on the deployed worker + provider key → owner confirms on device (and sets `ANTHROPIC_API_KEY` if the card reads "Deterministic").
+
+### 2026-06-14 · claude (Claude Code) · `main` — Companion arrival: one-tap deepen (Research/Explain/Convene)
+- The Radian home "What I found" cards now carry **inline actions** on a ready item — **Research**, **Explain**, and **Convene** (Situation Room) fire the Radian verb on that node via `askRadian` + Task Center `trackJob` (shows under "Running now"; result lands in the node's thread). This completes the proactive-arrival loop (summary → connections → questions/actions) from the front door — reasoning without digging into the graph.
+- **Verified (sandbox):** typecheck:all + pwa build green; matrix 459/459. Live verbs need the deployed worker + provider key.

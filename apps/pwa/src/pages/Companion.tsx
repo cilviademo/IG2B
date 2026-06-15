@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
-import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, type BackendCapture } from "@/lib/api";
+import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, type BackendCapture } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
+import { toast } from "sonner";
 
 // "What I found" — the proactive arrival. Radian surfaces what it learned from your
 // recent shares (capture → enriched node), so the front door is "here's what I found,"
@@ -46,9 +47,29 @@ function relTime(ms: number): string {
 }
 
 export default function Companion() {
-  const { tasks, retry } = useTasks();
+  const { tasks, retry, trackJob } = useTasks();
   const [, navigate] = useLocation();
   const [found, setFound] = useState<Found[]>([]);
+  const [asking, setAsking] = useState<string | null>(null);
+
+  // One-tap deepen from the arrival feed: fire a Radian verb on the node and hand it
+  // to the Task Center (shows under "Running now", result lands in the node thread).
+  async function deepen(f: Found, verb: string) {
+    if (!f.nodeId || asking) return;
+    setAsking(f.id + verb);
+    try {
+      const r = await askRadian("node", f.nodeId, verb);
+      if (!r) { toast.error("Couldn't reach Radian", { description: "offline or API asleep" }); return; }
+      if (r.job) {
+        trackJob({ kind: "companion", feature: verb === "research" ? "Research" : "Companion", tab: "/atlas", label: `${verb.replace("_", " ")} — ${f.title}`, jobId: r.job, subjectType: "node", subjectId: f.nodeId, verb });
+        toast.success(`Radian is ${verb === "research" ? "researching" : "working on"} this`, { description: "Watch it under Running now." });
+      } else {
+        toast.success("Done", { description: "task created in your vault" });
+      }
+    } finally {
+      setAsking(null);
+    }
+  }
 
   // Pull recent shares + their enriched nodes → "what I found".
   const loadFound = useCallback(async () => {
@@ -143,6 +164,19 @@ export default function Companion() {
                         See what I found <ArrowRight size={12} strokeWidth={1.5} />
                       </Link>
                     </div>
+                    {/* Deepen right here — Radian reasoning from the front door. */}
+                    {f.nodeId && (
+                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        {([["research", "Research", Search], ["explain", "Explain", BookOpen]] as const).map(([verb, label, Icon]) => (
+                          <button key={verb} onClick={() => void deepen(f, verb)} disabled={!!asking} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 999, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
+                            {asking === f.id + verb ? <Loader2 size={11} strokeWidth={1.5} className="animate-spin" /> : <Icon size={11} strokeWidth={1.5} />} {label}
+                          </button>
+                        ))}
+                        <button onClick={() => navigate(`/situation-room?subject_type=node&subject_id=${encodeURIComponent(f.nodeId as string)}&title=${encodeURIComponent(f.title)}`)} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 999, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
+                          <Users size={11} strokeWidth={1.5} /> Convene
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
