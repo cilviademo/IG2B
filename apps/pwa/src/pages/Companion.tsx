@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
-import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, getBriefing, type BackendCapture, type ChatMode } from "@/lib/api";
+import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, getBriefing, type BackendCapture, type ChatMode, type CompanionBriefing } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
 import { speak, stopSpeaking, canSpeak, canListen, listenOnce } from "@/lib/speech";
 import { toast } from "sonner";
@@ -181,6 +181,13 @@ export default function Companion() {
 
   useEffect(() => () => stopSpeaking(), []); // stop any speech when leaving Radian
 
+  // Daily orientation — a deterministic "Chief of Staff" opener (momentum, resurfaced,
+  // overdue, focus) from /radian/briefing. Falls back to the simple greeting if absent.
+  const [orient, setOrient] = useState<CompanionBriefing | null>(null);
+  useEffect(() => {
+    if (apiEnabled()) getBriefing().then((r) => setOrient(r?.briefing ?? null)).catch(() => {});
+  }, []);
+
   const running = useMemo(() => tasks.filter((t) => isRunning(t.status)).sort((a, b) => b.updatedAt - a.updatedAt), [tasks]);
   const recent = useMemo(() => tasks.filter((t) => !isRunning(t.status)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 30), [tasks]);
 
@@ -198,9 +205,21 @@ export default function Companion() {
           </button>
         )}
       </div>
-      <p className="mb-5" style={{ fontSize: 14, color: "var(--text-dim)" }}>
-        {greeting}. {running.length ? `I'm working on ${running.length} thing${running.length > 1 ? "s" : ""}.` : "Share or ask, and I'll dig in."}
-      </p>
+      {orient && !orient.bootstrap ? (
+        <div className="mb-5">
+          <p style={{ fontSize: 15, color: "var(--text)", lineHeight: 1.5 }}>{orient.greeting}</p>
+          {orient.lines.slice(0, 3).map((l, i) => (
+            <p key={i} className="mt-1" style={{ fontSize: 13.5, color: "var(--text-dim)", lineHeight: 1.5 }}>{l}</p>
+          ))}
+          {running.length > 0 && (
+            <p className="mt-1 cap-data" style={{ color: "var(--gold)" }}>Working on {running.length} thing{running.length > 1 ? "s" : ""} now.</p>
+          )}
+        </div>
+      ) : (
+        <p className="mb-5" style={{ fontSize: 14, color: "var(--text-dim)" }}>
+          {greeting}. {running.length ? `I'm working on ${running.length} thing${running.length > 1 ? "s" : ""}.` : "Share or ask, and I'll dig in."}
+        </p>
+      )}
 
       {/* Ask Radian anything — by text or voice, grounded in your vault. */}
       <div className="flex gap-2 items-end mb-2">

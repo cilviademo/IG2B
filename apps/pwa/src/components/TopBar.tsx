@@ -6,7 +6,8 @@ import NotificationCenter from "./NotificationCenter";
 // "I need a way to go back/return" gap — every screen now has explicit history controls
 // in addition to the per-sheet X close.
 const TITLES: Record<string, string> = {
-  "/": "Mission Control",
+  "/": "Radian",
+  "/home": "Mission Control",
   "/quests": "Quests",
   "/inbox": "Inbox",
   "/timeline": "Timeline",

@@ -45,7 +45,8 @@ function Routes() {
   return (
     <Suspense fallback={<Loading label="Indigold" />}>
       <Switch>
-        <Route path="/" component={Dashboard} />
+        <Route path="/" component={Companion} />
+        <Route path="/home" component={Dashboard} />
         <Route path="/inbox" component={Inbox} />
         <Route path="/timeline" component={Timeline} />
         <Route path="/time-machine" component={TimeMachine} />

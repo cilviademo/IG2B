@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: auth-token-only · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: radian-home · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -531,3 +531,8 @@ commit(s) · what/why · live-test status).
 - **Plaintext-password P0 fully resolved (safely this time).** Now that sessions are durable (Postgres backstop, owner-confirmed on device), claimed/logged-in accounts are **token-only**: `claimAccount`/`loginAccount` set the token + `indigold_account_email` and **remove `indigold_device`** — the real password is never written to localStorage. `ensureSession` re-instates the **claimed-guard** (no token + claimed → "session expired", no silent mint/fork); `needsLogin()` → the re-login banner (iCloud Keychain autofills). Anonymous device accounts keep their throwaway random password (not a human secret).
 - **Why it's safe now (vs the earlier revert):** durable tokens survive Redis eviction, so token-only no longer locks users out; login is owner-confirmed working. The guard prevents vault-forking on a genuine logout.
 - **Verified (sandbox):** typecheck:all + pwa build green; matrix 484/484. Shipped as a PR so CI gates the auth-critical change. **Owner final check:** sign out → log in (works); after a while/app-restart you stay in (durable session); a true wipe → "session expired" → log in restores the same vault.
+
+### 2026-06-15 · claude (Claude Code) · `claude/radian-home` (PR) — Sprint 1: Radian becomes Home
+- **Resolved Home/Radian duplication** (external product-strategy review): `/` now renders the **Radian Companion**; the classic dashboard moved to `/home` (reachable in More as "Mission Control"). Primary tabs are now **Radian · Inbox · Timeline · Library · More** (Library promoted; Atlas stays background in More). `/companion` still resolves for existing links.
+- **Daily orientation:** Radian home leads with a deterministic "Chief of Staff" opener (greeting + top signal lines from `/radian/briefing`); falls back to the simple greeting when unavailable. On device (Anthropic key + data) it shows momentum / resurfaced / overdue / focus.
+- **Verified (sandbox):** typecheck:all + pwa build green; matrix 484/484; headless `/` renders Radian with the new tab bar; `/home` = dashboard. Shipped as a PR so CI gates the IA change. **Owner phone-gate:** nav + safe-area read true; capture/SW/worker/schema untouched.
