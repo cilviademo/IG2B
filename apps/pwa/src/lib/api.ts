@@ -67,6 +67,33 @@ const CLAIMED_KEY = "indigold_account_email"; // set when a real login/claim suc
 let lastSessionErr: string | null = null;
 export const lastSessionError = () => lastSessionErr;
 
+// Last transport-level failure from a Radian call (HTTP status / network / CORS), so the UI can
+// report the REAL reason instead of guessing "offline or API asleep".
+let lastApiErr: string | null = null;
+const noteApiOk = () => { lastApiErr = null; };
+const noteApiHttp = (path: string, status: number) => { lastApiErr = `API ${status} @ ${path}`; };
+const noteApiNetwork = (e: unknown) => { lastApiErr = `can't reach ${BASE || "API"} (${e instanceof Error ? e.message : "network/CORS"})`; };
+
+/** The best-known reason a Radian call failed: missing config, expired session, or transport. */
+export const connectivityError = (): string | null => {
+  if (!apiEnabled()) return "VITE_API_URL is not set — the app is on sample data, not your live API.";
+  return lastSessionErr || lastApiErr;
+};
+
+/** Lightweight reachability probe (GET /health). Used by the connectivity banner. */
+export async function probeApi(): Promise<{ ok: boolean; base: string; reason: string | null }> {
+  if (!apiEnabled()) return { ok: false, base: "", reason: "VITE_API_URL is not set (sample-data mode)" };
+  try {
+    const res = await fetch(`${BASE}/health`, { headers: { accept: "application/json" } });
+    if (!res.ok) { noteApiHttp("/health", res.status); return { ok: false, base: BASE, reason: `API returned HTTP ${res.status}` }; }
+    noteApiOk();
+    return { ok: true, base: BASE, reason: null };
+  } catch (e) {
+    noteApiNetwork(e);
+    return { ok: false, base: BASE, reason: lastApiErr };
+  }
+}
+
 /** Ensure we have a bearer token — uses a per-device account so the user never
  *  sees a login screen (keeps the "no forms" UX). Returns false if API is off. */
 export async function ensureSession(): Promise<boolean> {
@@ -246,9 +273,11 @@ export async function chatRadian(question: string, mode: ChatMode = "auto", hist
       headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
       body: JSON.stringify({ question, mode, history, conversationId, intent }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) { noteApiHttp("/radian/chat", res.status); return null; }
+    noteApiOk();
     return (await res.json()) as ChatReply;
-  } catch {
+  } catch (e) {
+    noteApiNetwork(e);
     return null;
   }
 }
@@ -671,9 +700,11 @@ export async function askRadian(subjectType: string, subjectId: string, verb: st
       headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
       body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId, verb, question }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) { noteApiHttp("/radian/ask", res.status); return null; }
+    noteApiOk();
     return (await res.json()) as AskResult;
-  } catch {
+  } catch (e) {
+    noteApiNetwork(e);
     return null;
   }
 }

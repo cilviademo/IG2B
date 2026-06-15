@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: negative-knowledge · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: honest-connectivity · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -662,3 +662,9 @@ commit(s) · what/why · live-test status).
 - **Auto-capture:** `run_watchlist` records a `not_found` (once per topic) when a search **succeeds but returns zero results** — absence as a first-class signal.
 - **PWA:** World Lens shows the gaps section + a **"Note a gap"** action (subject-scoped); `listNegatives`/`addNegative`/`removeNegative` clients.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix **704/704** (+13); schema in sync. This completes the Intelligence review's reasoning-layer items (evidence · claims/freshness/Tensions · World Lens · Evidence Drawer · connectors · Watchlists · owner intents · negative knowledge).
+
+### 2026-06-15 · claude (Claude Code) · `claude/honest-connectivity` (PR) — Honest "couldn't reach Radian" errors + connectivity banner
+- **Problem (owner report):** asking Radian always showed "couldn't reach Radian (offline or API asleep)" — a guess that hid the real cause. Every Radian client returns `null` on `!apiEnabled()` / no session / failed request, and the UI showed a fixed string. The actual reason was already known in `lastSessionError()` but discarded.
+- **Fix (PWA-only, no schema/API change):** `api.ts` now captures transport failures (`lastApiErr` — HTTP status / network / CORS) in `chatRadian`/`askRadian`, and exposes `connectivityError()` (missing `VITE_API_URL` → expired session → transport) + a `probeApi()` `/health` check. The Companion chat fallback + toasts now show the **true reason** instead of "offline or API asleep".
+- **Connectivity banner** (`AppBanners`): probes `/health` on launch + on foreground; shows **"API isn't configured — showing sample data (set VITE_API_URL)"** when unconfigured, or **"Can't reach the API at <host> — <reason>"** with a Retry when configured-but-down. Most likely the owner's symptom = `VITE_API_URL` unset on the PWA static site (→ sample-data mode) or a free-tier cold start.
+- Logged in `05_DEBUGGING_LOG.md`. **Verified (sandbox):** typecheck:all + build:all green; matrix **704/704** (unchanged).

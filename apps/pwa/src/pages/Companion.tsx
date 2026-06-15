@@ -4,6 +4,7 @@ import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
 import EvidenceDrawer from "@/components/EvidenceDrawer";
+import { connectivityError } from "@/lib/api";
 import { allIntents, intentToMode, type OwnerIntent } from "@/lib/intent";
 import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, radianFeedback, getBriefing, createConversation, listConversations, getConversation, archiveConversation, getAttention, type BackendCapture, type ChatMode, type CompanionBriefing, type Conversation, type AttentionItem } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
@@ -127,7 +128,7 @@ export default function Companion() {
   // (its "workstream thread") that resumes its full history here.
   async function openAnchored(anchorType: string, anchorId: string, title: string) {
     const c = await createConversation(`On: ${title}`.slice(0, 60), anchorType, anchorId);
-    if (!c) { toast.error("Couldn't open thread", { description: "offline or API asleep" }); return; }
+    if (!c) { toast.error("Couldn't open thread", { description: connectivityError() || "offline or API asleep" }); return; }
     await openConvo(c.id);
     void loadConvos();
   }
@@ -162,7 +163,7 @@ export default function Companion() {
       let cid = convoId;
       if (!cid) { const c = await createConversation(q.slice(0, 60)); cid = c?.id ?? null; if (cid) setConvoId(cid); }
       const r = await chatRadian(q, mode, history, cid, intent ?? undefined);
-      const text = r ? r.answer : "I couldn't reach the model (offline, or the API is waking — try again in ~30s).";
+      const text = r ? r.answer : `I couldn't reach Radian — ${connectivityError() || "the API may be waking; try again in ~30s"}.`;
       setChat((c) => [...c, r
         ? { role: "radian", text, q, sources: r.sources, deterministic: r.deterministic, mode: r.mode, grounding: r.grounding, webNote: r.webNote, usedWeb: r.usedWeb }
         : { role: "radian", text, q }]);
@@ -208,7 +209,7 @@ export default function Companion() {
     setAsking(f.id + verb);
     try {
       const r = await askRadian("node", f.nodeId, verb);
-      if (!r) { toast.error("Couldn't reach Radian", { description: "offline or API asleep" }); return; }
+      if (!r) { toast.error("Couldn't reach Radian", { description: connectivityError() || "offline or API asleep" }); return; }
       if (r.job) {
         trackJob({ kind: "companion", feature: verb === "research" ? "Research" : "Companion", tab: "/atlas", label: `${verb.replace("_", " ")} — ${f.title}`, jobId: r.job, subjectType: "node", subjectId: f.nodeId, verb });
         toast.success(`Radian is ${verb === "research" ? "researching" : "working on"} this`, { description: "Watch it under Running now." });
