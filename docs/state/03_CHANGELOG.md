@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: openalex-wikipedia · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: owner-intents · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -646,3 +646,10 @@ commit(s) · what/why · live-test status).
 - **Wikipedia** (MediaWiki search API, no key). Pure `packages/shared/src/wikipedia.ts`: `buildWikipediaUrl`, `parseWikipedia`/`wikiItemToEvidence` (snippet HTML+entities stripped, `pageid` dedupe, article URL, **CC BY-SA attribution + license** carried), `source_kind: "encyclopedia"`. `wikipedia-verify` (13).
 - **Worker.** `run_watchlist` generalized to a `gather(url, connector, parse)` helper and now runs **Crossref + OpenAlex** for `scholarly` and **Wikipedia** for the new **`encyclopedia`** kind (all via SSRF-safe `fetchJson`, deduped). API accepts `encyclopedia` in watchlist `kinds`; PWA `/watchlists` adds an **Encyclopedia** source toggle.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix **676/676** (+30); schema unchanged (in sync). Live fetches need worker egress → owner sees results on device. Phase-2 connector set is now RSS · Crossref · OpenAlex · Wikipedia. **Next:** owner-intent labels; negative knowledge.
+
+### 2026-06-15 · claude (Claude Code) · `claude/owner-intents` (PR) — Owner-intent labels over brain modes
+- **Radian is now framed by WHAT THE OWNER WANTS, not internal brain modes.** Five intents — **My memory · Explain · Check · Research · Decide** — each picks a retrieval mode AND adds a tailored system guidance clause (e.g. Check → verdict + confidence + what would change it + contradictions; Decide → options/trade-offs/recommendation; My memory → vault-only, never invent).
+- Pure `packages/shared/src/intent.ts` (`OWNER_INTENTS`, `intentToMode`, `intentGuidance`, `allIntents`); `intent-verify` (15). Mirrored to `apps/pwa/src/lib/intent.ts` (label/mode/blurb — the PWA can't import `@indigold/shared`).
+- **API:** `/radian/chat` accepts `intent` → appends `intentGuidance(intent)` to the system framing, echoes it + stores in message meta. **Backward compatible** (no intent → existing Auto/mode behavior unchanged).
+- **PWA:** the Companion's chip row is now **Auto + the 5 intents** (each sets the brain mode under the hood + sends `intent`); the message bubble's mode badge + Evidence Drawer are unchanged.
+- **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **691/691** (+15); schema in sync. **Next:** negative knowledge (remember searched-but-not-found / retracted / excluded).

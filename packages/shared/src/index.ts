@@ -45,4 +45,5 @@ export * from "./crossref";
 export * from "./openalex";
 export * from "./wikipedia";
 export * from "./watchlists";
+export * from "./intent";
 export * from "./world-lens";
