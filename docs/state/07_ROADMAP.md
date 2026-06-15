@@ -1,6 +1,6 @@
 # Roadmap
 
-`Last updated: 2026-06-15 · Commit: roadmap-completion · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: security-prompt-injection · By: claude (Claude Code)`
 
 Status keys: **done · owner-gated · infra-gated · planned.** "Done" = code on `main`, CI-green,
 matrix-tested. Owner/infra-gated work is *built or trivial* but needs an action only the owner
@@ -34,6 +34,28 @@ can take (a device check, a Render env var, a paid plan). Each item lists its ga
   5) — **deliberately deferred** (each needs a careful migration + re-verify across the
   no-workspaces vendored packages). Safe patch bumps (ioredis 5.11.1, aws-sdk 3.1068) available
   when convenient. Re-run the audit each quarter.
+
+## 🔒 security (from the Intelligence & Security review — `docs/INDIGOLD_INTELLIGENCE_AND_SECURITY_REVIEW_2026-06-15.md`)
+- **Finding B — prompt injection: DONE.** External content (web results, scraped pages, transcripts,
+  fetched source) is fenced via `fenceUntrusted` + `UNTRUSTED_GUARD` so it's treated as data, never
+  instruction. `sanitize-verify`.
+- **Finding A — scoped capture token: OPEN (owner decision).** One bearer grants the whole vault; the
+  iOS Shortcut embeds it. Build a separate **hashed capture-only token** (`capture:text|file|status`,
+  denies reads/delete/export/account/chat/assets) — **additive, without changing the `/capture?raw=…`
+  path (constraint #1)**. Needs a small `capture_tokens` schema add + an issuance UI. **Gate:** owner
+  decides the token-issuance UX (where/how the Shortcut token is generated), then I build it.
+
+## 🧠 intelligence / open-information program (review proposals — owner prioritizes; Phase 0→5)
+- **Phase 1 — evidence foundation:** typed `ExternalEvidence` contract + connector registry + privacy/
+  quota/cache/license/provenance gates (the prompt-layer sanitizer already shipped). **Claims layer**
+  (statement·type·subject·valid/observed time·confidence·evidence·counterevidence·owner status) +
+  **freshness** fields + **negative knowledge** + **"why did Radian show me this?"** provenance.
+- **Phase 2 — first connectors:** RSS/Atom → Crossref → OpenAlex → Wikimedia (new evidence → Research
+  Inbox, never auto-promoted). **Phase 4:** arXiv / Europe PMC / Hacker News / FRED / regulatory.
+- **Phase 3 — evidence UX:** World Lens, Evidence Drawer, Research Inbox, Watchlists (weekly), Tensions
+  (contradiction) view. **Owner intents** (My memory/Explain/Check/Research/Decide) over brain modes.
+- **Phase 5 — evaluation + proactive intelligence:** golden vault, retrieval metrics, weekly change
+  detection, decision-review triggers. Plus **full correlation-trace diagnostics** end-to-end.
 
 ## 👤 owner-gated (built/trivial — needs an on-device or Render action)
 - **Device phone-gates (constraint #5 — the live gate):** confirm each shipped sprint behaves on
