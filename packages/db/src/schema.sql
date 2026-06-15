@@ -339,3 +339,31 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
+
+-- Sprint 3 — durable conversation threads. Radian is a relationship, not a session:
+-- conversations persist (optionally anchored to a node/capture/project) with their
+-- messages, so a thread survives a browser restart and can be resumed/searched.
+CREATE TABLE IF NOT EXISTS conversations (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL DEFAULT 'Conversation',
+  anchor_type TEXT NOT NULL DEFAULT 'open',   -- open | node | capture | project
+  anchor_id   TEXT,
+  status      TEXT NOT NULL DEFAULT 'active',  -- active | archived
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS conversations_user_idx ON conversations(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS conversations_anchor_idx ON conversations(anchor_type, anchor_id);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id              TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id         TEXT NOT NULL,
+  role            TEXT NOT NULL,               -- you | radian
+  text            TEXT NOT NULL DEFAULT '',
+  sources         JSONB NOT NULL DEFAULT '[]'::jsonb,
+  meta            JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages(conversation_id, created_at);

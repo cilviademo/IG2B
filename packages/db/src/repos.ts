@@ -59,6 +59,54 @@ export const sessions = {
   },
 };
 
+// ---- conversations + messages (Sprint 3: durable threads) ----
+export interface ConversationRow { id: string; user_id: string; title: string; anchor_type: string; anchor_id: string | null; status: string; created_at: string; updated_at: string }
+export interface MessageRow { id: string; conversation_id: string; user_id: string; role: string; text: string; sources: unknown; meta: unknown; created_at: string }
+
+export const conversations = {
+  async create(c: { id: string; user_id: string; title: string; anchor_type?: string; anchor_id?: string | null }) {
+    await query(
+      `INSERT INTO conversations (id, user_id, title, anchor_type, anchor_id) VALUES ($1,$2,$3,$4,$5)`,
+      [c.id, c.user_id, c.title.slice(0, 120), c.anchor_type ?? "open", c.anchor_id ?? null],
+    );
+    return this.get(c.user_id, c.id);
+  },
+  async list(userId: string, limit = 50) {
+    const r = await query<ConversationRow>(`SELECT * FROM conversations WHERE user_id=$1 AND status<>'archived' ORDER BY updated_at DESC LIMIT $2`, [userId, limit]);
+    return r.rows;
+  },
+  async get(userId: string, id: string) {
+    const r = await query<ConversationRow>(`SELECT * FROM conversations WHERE user_id=$1 AND id=$2`, [userId, id]);
+    return r.rows[0] || null;
+  },
+  async findAnchored(userId: string, anchorType: string, anchorId: string) {
+    const r = await query<ConversationRow>(`SELECT * FROM conversations WHERE user_id=$1 AND anchor_type=$2 AND anchor_id=$3 AND status<>'archived' ORDER BY updated_at DESC LIMIT 1`, [userId, anchorType, anchorId]);
+    return r.rows[0] || null;
+  },
+  async touch(id: string) {
+    await query(`UPDATE conversations SET updated_at=now() WHERE id=$1`, [id]);
+  },
+  async setStatus(userId: string, id: string, status: string) {
+    await query(`UPDATE conversations SET status=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, status]);
+  },
+  async setTitle(userId: string, id: string, title: string) {
+    await query(`UPDATE conversations SET title=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, title.slice(0, 120)]);
+  },
+};
+
+export const messages = {
+  async add(m: { id: string; conversation_id: string; user_id: string; role: string; text: string; sources?: unknown; meta?: unknown }) {
+    await query(
+      `INSERT INTO messages (id, conversation_id, user_id, role, text, sources, meta) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [m.id, m.conversation_id, m.user_id, m.role, m.text, JSON.stringify(m.sources ?? []), JSON.stringify(m.meta ?? {})],
+    );
+  },
+  async list(userId: string, conversationId: string, limit = 200) {
+    const r = await query<MessageRow>(`SELECT * FROM messages WHERE user_id=$1 AND conversation_id=$2 ORDER BY created_at ASC LIMIT $3`, [userId, conversationId, limit]);
+    return r.rows;
+  },
+};
+
 // ---- captures ----
 export const captures = {
   async create(c: Capture & { raw?: object }) {

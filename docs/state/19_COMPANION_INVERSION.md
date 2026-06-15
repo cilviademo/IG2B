@@ -1,6 +1,6 @@
 # Companion Inversion — from graph-app to AI companion
 
-`Last updated: 2026-06-14 · Commit: finding-feedback · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: conversation-threads · By: claude (Claude Code)`
 
 > Owner directive: Indigold still behaves like "a graph database with AI attached." Invert it:
 > **You → Radian (companion) → conversation memory → Situation Room → Atlas (hidden memory) →
@@ -84,3 +84,14 @@ unavailable"), with precise Research/Explain/Convene as secondary actions.
 event). Dismissed findings persist as dismissed (filtered from the feed on reload) — a real
 ranking signal, proposal-only (never deletes). **Still to do:** media lifecycle stages once the
 media worker is live; use the feedback signal in proactive ranking (Sprint 4 Attention Queue).
+
+## Sprint 3 — durable conversation threads (done: persistence substrate)
+New `conversations` + `messages` tables (+ `repo.conversations`/`repo.messages`) and endpoints
+(`POST/GET /radian/conversations`, `GET /radian/conversations/:id`, `:id/archive`). `/radian/chat`
+takes an optional `conversationId`: it uses the **stored thread** as history and **persists both
+turns**, so a conversation survives a browser restart. Anchored threads (node/capture/project)
+are deduped (one ongoing thread per anchor). The Companion home now lists **durable
+Conversations** (replacing the in-memory list), with **+ New** and tap-to-resume (loads the full
+message history back into the chat). `reset-vault` wipes both new tables.
+**Sprint 3b (next):** route findings / source-chips → a node-anchored thread (not Atlas);
+remember/forget + thread search; workstream (project/decision) threads.
