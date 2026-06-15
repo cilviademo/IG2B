@@ -352,7 +352,7 @@ radianRouter.get("/watchlists", async (req: Authed, res) => {
 radianRouter.post("/watchlists", async (req: Authed, res) => {
   const topic = String(req.body?.topic || "").trim();
   if (!topic) return res.status(400).json({ error: "topic_required" });
-  const kindsIn = Array.isArray(req.body?.kinds) ? req.body.kinds.map(String).filter((k: string) => ["scholarly", "rss"].includes(k)) : [];
+  const kindsIn = Array.isArray(req.body?.kinds) ? req.body.kinds.map(String).filter((k: string) => ["scholarly", "encyclopedia", "rss"].includes(k)) : [];
   const wid = id("watch");
   await repo.watchlists.create({ id: wid, user_id: req.userId!, topic: topic.slice(0, 200), kinds: kindsIn.length ? kindsIn : ["scholarly"], cadence: normalizeCadence(req.body?.cadence) });
   res.status(201).json({ id: wid, topic });

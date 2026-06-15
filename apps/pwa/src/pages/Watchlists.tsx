@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "wouter";
-import { Radar, RefreshCw, Plus, Trash2, GraduationCap, Rss, Inbox as InboxIcon } from "lucide-react";
+import { Radar, RefreshCw, Plus, Trash2, GraduationCap, Rss, Inbox as InboxIcon, BookMarked } from "lucide-react";
 import { toast } from "sonner";
 import { apiEnabled, listWatchlists, addWatchlist, removeWatchlist, runWatchlist, type Watchlist } from "@/lib/api";
 
@@ -14,6 +14,7 @@ export default function Watchlists() {
   const [loading, setLoading] = useState(false);
   const [topic, setTopic] = useState("");
   const [scholarly, setScholarly] = useState(true);
+  const [encyclopedia, setEncyclopedia] = useState(false);
   const [rss, setRss] = useState(false);
   const [cadence, setCadence] = useState<string>("weekly");
 
@@ -26,7 +27,7 @@ export default function Watchlists() {
   async function add() {
     const t = topic.trim();
     if (!t) { toast.error("Enter a topic to watch"); return; }
-    const kinds = [scholarly && "scholarly", rss && "rss"].filter(Boolean) as string[];
+    const kinds = [scholarly && "scholarly", encyclopedia && "encyclopedia", rss && "rss"].filter(Boolean) as string[];
     if (!kinds.length) { toast.error("Pick at least one source"); return; }
     if (await addWatchlist(t, kinds, cadence)) { setTopic(""); toast.success("Watching"); void load(); } else toast.error("Couldn't add");
   }
@@ -57,6 +58,7 @@ export default function Watchlists() {
             <input value={topic} onChange={(e) => setTopic(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void add()} placeholder="e.g. perovskite solar cells" className="w-full bg-transparent outline-none mb-2.5" style={{ fontSize: 14, color: "var(--text)", borderBottom: "1px solid var(--line)", paddingBottom: 5 }} />
             <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
               <Toggle on={scholarly} set={setScholarly} icon={GraduationCap} label="Scholarly" />
+              <Toggle on={encyclopedia} set={setEncyclopedia} icon={BookMarked} label="Encyclopedia" />
               <Toggle on={rss} set={setRss} icon={Rss} label="Your feeds" />
               <span className="mx-1" style={{ color: "var(--line)" }}>·</span>
               {CADENCES.map((c) => (
@@ -82,6 +84,7 @@ export default function Watchlists() {
                       <span className="block truncate" style={{ fontSize: 15, color: "var(--text)" }}>{w.topic}</span>
                       <span className="cap-data inline-flex items-center gap-1.5" style={{ color: "var(--text-dim)" }}>
                         {w.kinds.includes("scholarly") && <span className="inline-flex items-center gap-0.5"><GraduationCap size={10} strokeWidth={1.5} /> scholarly</span>}
+                        {w.kinds.includes("encyclopedia") && <span className="inline-flex items-center gap-0.5"><BookMarked size={10} strokeWidth={1.5} /> encyclopedia</span>}
                         {w.kinds.includes("rss") && <span className="inline-flex items-center gap-0.5"><Rss size={10} strokeWidth={1.5} /> feeds</span>}
                         · {w.cadence} · ran {relTime(w.last_run)}{w.last_status ? ` (${w.last_status})` : ""}
                       </span>
