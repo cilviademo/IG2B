@@ -8,6 +8,7 @@ import { providersStatus, providerConfigured, resolveTask, PROVIDER_ENV, ALL_PRO
 import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
 import { buildAttentionQueue, ageDays, inboxUrgency, type AttentionCandidate } from "@indigold/shared";
+import { narrate, type Moment } from "@indigold/shared";
 import { getEmbedder } from "@indigold/shared";
 import { isResearchSafe, BudgetExceededError } from "@indigold/shared";
 import { findVerb, verbsFor } from "@indigold/shared";
@@ -407,6 +408,55 @@ radianRouter.get("/attention", async (req: Authed, res) => {
 
   const queue = buildAttentionQueue(cands, 7);
   res.json({ queue, counts: { inbox: inbox.length, blocked: questList.filter((q) => q.state === "blocked").length, candidates: cands.length } });
+});
+
+// ---- Sprint 5: Narrative Timeline — the vault's history as a readable story ----
+// Assembles REAL dated moments (captures, ideas, research, connections, decisions, completed
+// quests) from the live vault and runs the pure `narrate` composer → newest-first chapters
+// (This week / Last week / by month) each with a deterministic summary. Themes + resurfaced
+// (Time Machine, 30d) annotate only the most-recent chapter. No LLM. Replaces the old static
+// sample-timeline screen with the owner's actual story.
+radianRouter.get("/narrative", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const now = Date.now();
+  const [nodes, edges, decisionsR, captures, questList] = await Promise.all([
+    repo.nodes.list(uid), repo.edges.list(uid), repo.decisions.list(uid), repo.captures.list(uid), repo.quests.list(uid),
+  ]);
+  const moments: Moment[] = [];
+
+  for (const c of captures as { id: string; title?: string; captured_at?: string }[]) {
+    if (c.captured_at) moments.push({ id: c.id, date: c.captured_at, kind: "capture", title: c.title || "Capture" });
+  }
+  for (const n of nodes) {
+    const created = (n as { created_at?: string }).created_at;
+    if (!created) continue;
+    const label = (n as { truth_label?: string }).truth_label;
+    const inference = (n as { meta?: { epistemic_type?: string } }).meta?.epistemic_type === "inference";
+    const kind: Moment["kind"] = label === "Research" ? "research" : inference ? "research" : "idea";
+    moments.push({ id: n.id, date: created, kind, title: n.title });
+  }
+  // Real connections only (exclude derived_from provenance edges — those are AI plumbing).
+  const titleById = new Map(nodes.map((n) => [n.id, n.title] as const));
+  for (const e of edges as { id: string; relationship?: string; valid_from?: string; source_id: string; target_id: string }[]) {
+    if (!e.valid_from || e.relationship === "derived_from") continue;
+    const a = titleById.get(e.source_id), b = titleById.get(e.target_id);
+    if (!a || !b) continue;
+    moments.push({ id: e.id, date: e.valid_from, kind: "connection", title: `${a} ↔ ${b}` });
+  }
+  for (const d of decisionsR as { id: string; decision: string; created_at?: string }[]) {
+    if (d.created_at) moments.push({ id: d.id, date: d.created_at, kind: "decision", title: d.decision });
+  }
+  for (const q of questList) {
+    if (q.state === "completed" && q.updated_at) moments.push({ id: q.id, date: q.updated_at, kind: "milestone", title: q.title });
+  }
+
+  const tm = timeMachine({ nodes: nodes as TimeMachineInput["nodes"], edges: edges as TimeMachineInput["edges"] }, "30d", now);
+  const { chapters } = narrate(moments, {
+    now,
+    themes: tm.replay.themes.map((t) => t.tag),
+    resurfaced: tm.resurfaced.resurfacedThemes,
+  });
+  res.json({ chapters, total_moments: moments.length });
 });
 
 // ---- Living OS G10: Companion — the spoken commander's briefing (deterministic) ----

@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: sprint-4-attention-queue · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: sprint-5-narrative-timeline · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -565,3 +565,11 @@ commit(s) · what/why · live-test status).
 - **Companion home** leads with a **"Needs you now"** section (above "What I found"): each item shows a band dot (now=gold / soon=info / later=dim), a kind icon, title, reason, and a one-tap action. **revisit → Discuss** opens that node's **anchored thread** (Sprint 3b tie-in); triage→Inbox; unblock/due/review→Quests.
 - **No schema change.** New `attention-queue-verify` (13 checks: ranking, feedback boost/demote/drop, dedup, limit, determinism, tie-break, helpers) → matrix **497/497**.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix 497/497. Live ranking needs Postgres data → owner sees the real queue on device.
+
+### 2026-06-15 · claude (Claude Code) · `claude/sprint-5-narrative-timeline` (PR) — Sprint 5: Narrative Timeline
+- **The Timeline was fully synthetic** (it read a static `public/data/sample_timeline.json`, never the vault). Now it tells the owner's **real story**.
+- **Pure composer** `packages/shared/src/narrative.ts` (`narrate`): buckets dated **moments** (captures, ideas, research, connections, decisions, completed quests) into newest-first **chapters** — *This week / Last week / by month* — each with a **deterministic plain-language summary** ("You captured 3 items, formed 2 ideas, and made 1 decision."), pluralized + Oxford-joined. Themes + resurfaced (Time Machine 30d) annotate only the most-recent chapter ("Focus: …", "Resurfaced: …"). Per-kind significance for the spine dots. No LLM; bad/undated moments skipped; deterministic.
+- **Endpoint** `GET /radian/narrative` assembles real moments from nodes/edges/decisions/captures/quests (real **connections** only — `derived_from` provenance edges excluded), feeds `narrate` with live Time-Machine themes/resurfaced.
+- **Timeline page rewritten** to render live chapters (header + summary + per-chapter moment spine) when signed in; **empty state** when the vault is new; the original static sample is kept only as the **offline/not-signed-in demo**.
+- **No schema change.** New `narrative-verify` (13 checks: bucketing, summary phrasing/pluralization, theme annotation scoping, caps + significance, bad-date skip, determinism) → matrix **510/510**.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix 510/510. Live chapters need Postgres data → owner sees their real timeline on device.

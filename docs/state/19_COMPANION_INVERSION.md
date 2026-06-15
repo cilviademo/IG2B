@@ -1,6 +1,6 @@
 # Companion Inversion — from graph-app to AI companion
 
-`Last updated: 2026-06-15 · Commit: sprint-4-attention-queue · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: sprint-5-narrative-timeline · By: claude (Claude Code)`
 
 > Owner directive: Indigold still behaves like "a graph database with AI attached." Invert it:
 > **You → Radian (companion) → conversation memory → Situation Room → Atlas (hidden memory) →
@@ -118,4 +118,13 @@ a project or decision and surface it from those surfaces (Mission Control / deci
 - **Companion home** leads with **"Needs you now"** (above "What I found"): band dot + kind icon +
   reason + one-tap action. **revisit → Discuss** opens that node's anchored thread (Sprint 3b
   tie-in); triage→Inbox; unblock/due/review→Quests. `attention-queue-verify` (13) → matrix 497.
-**Next:** Sprint 5 (narrative Timeline), Sprint 6 (Atlas evolution); plus the workstream-threads tail.
+## Sprint 5 — Narrative Timeline (done)
+- The Timeline was fully synthetic (static `sample_timeline.json`). Now it tells the **real story**.
+- **Pure composer** `narrative.ts` (`narrate`): buckets real moments (captures/ideas/research/
+  connections/decisions/completed quests) into newest-first **chapters** (This week / Last week /
+  by month), each with a **deterministic summary** (pluralized, Oxford-joined); Time-Machine
+  themes + resurfaced annotate only the most-recent chapter. No LLM.
+- **`GET /radian/narrative`** assembles real moments (real connections only — `derived_from`
+  excluded) + live themes/resurfaced. **Timeline page rewritten**: live chapters + empty state;
+  static sample kept only as the offline/not-signed-in demo. `narrative-verify` (13) → matrix 510.
+**Next:** Sprint 6 (Atlas evolution) + the Sprint 3b workstream-threads tail.
