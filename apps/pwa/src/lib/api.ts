@@ -325,6 +325,45 @@ export async function revokeCaptureToken(id: string): Promise<boolean> {
   return !!(await radianPost(`/radian/capture-tokens/${encodeURIComponent(id)}/revoke`, {}));
 }
 
+// ---- Research Inbox / evidence + feeds (Intelligence Phase 1–2) ----
+export interface Evidence { id: string; connector: string; title: string; summary: string; canonical_url: string; source_name: string; source_kind: string; observed_at?: string | null; retrieved_at: string; status: string; authors: string[] }
+export interface Feed { id: string; url: string; title: string; last_polled?: string | null; last_status?: string | null }
+export async function listEvidence(status?: string): Promise<Evidence[]> {
+  const r = await radianGet<{ items: Evidence[] }>(`/radian/evidence${status ? `?status=${encodeURIComponent(status)}` : ""}`);
+  return r?.items ?? [];
+}
+export async function setEvidenceStatus(id: string, status: string): Promise<boolean> {
+  return !!(await radianPost(`/radian/evidence/${encodeURIComponent(id)}/status`, { status }));
+}
+export async function listFeeds(): Promise<Feed[]> {
+  const r = await radianGet<{ items: Feed[] }>(`/radian/feeds`);
+  return r?.items ?? [];
+}
+export async function addFeed(url: string, title?: string): Promise<boolean> {
+  return !!(await radianPost(`/radian/feeds`, { url, title }));
+}
+export async function removeFeed(id: string): Promise<boolean> {
+  return delAt(`/radian/feeds/${encodeURIComponent(id)}`);
+}
+export async function pollFeed(id: string): Promise<boolean> {
+  return !!(await radianPost(`/radian/feeds/${encodeURIComponent(id)}/poll`, {}));
+}
+
+// ---- Claims + Tensions ----
+export interface ClaimItem { id: string; statement: string; claim_type: string; subject: string; subject_kind: string; confidence: number; owner_status: string; valid_until?: string | null; contested?: boolean; stale?: boolean; evidence: { evidence_id: string; stance: string; weight: number }[] }
+export interface TensionItem { kind: string; subject: string; claimIds: string[]; why: string }
+export async function listClaims(subject?: string): Promise<ClaimItem[]> {
+  const r = await radianGet<{ items: ClaimItem[] }>(`/radian/claims${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`);
+  return r?.items ?? [];
+}
+export async function setClaimStatus(id: string, owner_status: string): Promise<boolean> {
+  return !!(await radianPost(`/radian/claims/${encodeURIComponent(id)}/status`, { owner_status }));
+}
+export async function getTensions(): Promise<TensionItem[]> {
+  const r = await radianGet<{ tensions: TensionItem[] }>(`/radian/tensions`);
+  return r?.tensions ?? [];
+}
+
 /** Record owner feedback on a finding (useful | not_useful | wrong_connection | dismiss). */
 export async function radianFeedback(nodeId: string, kind: string): Promise<boolean> {
   if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return false;
