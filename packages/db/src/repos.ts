@@ -71,17 +71,19 @@ export const conversations = {
     );
     return this.get(c.user_id, c.id);
   },
-  async list(userId: string, limit = 50) {
-    const r = await query<ConversationRow>(`SELECT * FROM conversations WHERE user_id=$1 AND status<>'archived' ORDER BY updated_at DESC LIMIT $2`, [userId, limit]);
+  async list(userId: string, limit = 50, includeArchived = false) {
+    const where = includeArchived ? "" : " AND status<>'archived'";
+    const r = await query<ConversationRow>(`SELECT * FROM conversations WHERE user_id=$1${where} ORDER BY updated_at DESC LIMIT $2`, [userId, limit]);
     return r.rows;
   },
   // Thread search (Sprint 3b): match the title OR any message text in the thread.
-  // Case-insensitive substring; archived threads excluded; most-recent first.
-  async search(userId: string, q: string, limit = 50) {
+  // Case-insensitive substring; most-recent first. Archived included only when asked.
+  async search(userId: string, q: string, limit = 50, includeArchived = false) {
     const like = `%${q.replace(/[%_]/g, (m) => "\\" + m)}%`;
+    const where = includeArchived ? "" : " AND c.status<>'archived'";
     const r = await query<ConversationRow>(
       `SELECT c.* FROM conversations c
-         WHERE c.user_id=$1 AND c.status<>'archived'
+         WHERE c.user_id=$1${where}
            AND (c.title ILIKE $2 OR EXISTS (
              SELECT 1 FROM messages m WHERE m.conversation_id=c.id AND m.text ILIKE $2))
          ORDER BY c.updated_at DESC LIMIT $3`,

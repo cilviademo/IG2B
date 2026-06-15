@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: model-badge · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: chat-history · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -675,3 +675,9 @@ commit(s) · what/why · live-test status).
 - **Companion:** every Radian answer now shows a prominent badge — **"Claude"** (gold, when a live provider answered) or **"Deterministic"** (when it fell back). `/radian/chat`'s `provider` is now carried through `ChatReply` → the message.
 - **Diagnostics:** a model-status line under the header — *"Answering with Claude (anthropic) · mode live"* or *"Deterministic fallback — set ANTHROPIC_API_KEY on the API + worker services."*
 - New `apps/pwa/src/lib/modelLabel.ts` (`providerLabel`/`isLiveProvider`). **PWA-only; no schema/API change.** Verified: typecheck:all + build:all green; matrix **704/704** (unchanged).
+
+### 2026-06-15 · claude (Claude Code) · `claude/chat-history` (PR) — ChatGPT-style chat history (view + revisit past Q&A)
+- **Owner report:** could see archived conversations referenced but couldn't reopen the actual Q&A. The persistence existed (durable `conversations`+`messages`), but archived threads were filtered out of the list with no way back, and there was no discoverable "all chats" surface.
+- **New `/history` screen** (ChatGPT/Claude-style): every conversation, searchable (title + message text), with an archived toggle; tap → reopens the **full transcript** in the Companion via a `?conversation=<id>` deep-link; archive/restore inline. In the More hub + an "All history →" link in the Companion.
+- **API/repo:** `conversations.list`/`search` gained `includeArchived`; `GET /radian/conversations?archived=1`; new **`POST /radian/conversations/:id/unarchive`**. Companion now honors `?conversation=` to open a saved thread.
+- **No schema change** (additive option + endpoint). **Verified (sandbox):** typecheck:all + build:all green; matrix **704/704** (unchanged). Logged BUG-008. NB: threads only persist when the API is reachable — if "couldn't reach Radian," fix `VITE_API_URL` first (PR #34 banner names it).

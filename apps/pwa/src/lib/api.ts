@@ -306,8 +306,11 @@ export async function createConversation(title: string, anchorType = "open", anc
   const r = await radianPost<{ conversation: Conversation }>(`/radian/conversations`, { title, anchorType, anchorId });
   return r?.conversation ?? null;
 }
-export async function listConversations(q?: string): Promise<Conversation[]> {
-  const r = await radianGet<{ conversations: Conversation[] }>(`/radian/conversations${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+export async function listConversations(q?: string, includeArchived = false): Promise<Conversation[]> {
+  const qs = new URLSearchParams();
+  if (q) qs.set("q", q);
+  if (includeArchived) qs.set("archived", "1");
+  const r = await radianGet<{ conversations: Conversation[] }>(`/radian/conversations${qs.toString() ? `?${qs}` : ""}`);
   return r?.conversations ?? [];
 }
 export async function getConversation(id: string): Promise<{ conversation: Conversation; messages: ConvMessage[] } | null> {
@@ -315,6 +318,9 @@ export async function getConversation(id: string): Promise<{ conversation: Conve
 }
 export async function archiveConversation(id: string): Promise<boolean> {
   return !!(await radianPost(`/radian/conversations/${encodeURIComponent(id)}/archive`, {}));
+}
+export async function unarchiveConversation(id: string): Promise<boolean> {
+  return !!(await radianPost(`/radian/conversations/${encodeURIComponent(id)}/unarchive`, {}));
 }
 
 // ---- Attention Queue (Sprint 4): "what needs you now" ----

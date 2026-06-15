@@ -1,6 +1,6 @@
 # Debugging Log (institutional scar tissue)
 
-`Last updated: 2026-06-15 · Commit: honest-connectivity · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: chat-history · By: claude (Claude Code)`
 
 Every significant bug: **symptom → root cause → fix → LESSON.** Append-only.
 
@@ -67,6 +67,19 @@ Every significant bug: **symptom → root cause → fix → LESSON.** Append-onl
   unset on the PWA static site, or a free-tier cold start.)
 - **LESSON:** Never print a guessed cause. Surface the known error — the owner debugs from
   what's on screen (cf. BUG-005, BUG-006).
+
+## BUG-008 — Past conversations not viewable (archived hidden + no history surface)
+- **Symptom:** owner could see an archived conversation referenced but couldn't open the actual
+  Q&A; wanted a ChatGPT-style revisitable history.
+- **Root cause:** durable `conversations`/`messages` persisted fine, but `conversations.list`
+  excluded archived (`status<>'archived'`) with no unarchive path, and there was no discoverable
+  "all chats" view — so archived threads became dead references. (Compounded by BUG-007 when the
+  API was unreachable: nothing got persisted at all.)
+- **Fix:** `claude/chat-history` — `/history` screen (search + archived toggle + restore), tap →
+  full transcript in the Companion via `?conversation=` deep-link; `includeArchived` on list/search
+  + `POST /conversations/:id/unarchive`.
+- **LESSON:** "archived" must remain *retrievable*, and durable data needs a findable surface —
+  persistence without a view is invisible. (Connectivity is the precondition — see BUG-007.)
 
 ## BUG-006 — Headless-green ≠ live-green (verification discipline)
 - **Symptom:** Repeated fixes were "verified locally (headless)" then failed on device.

@@ -555,7 +555,8 @@ radianRouter.post("/conversations", async (req: Authed, res) => {
 radianRouter.get("/conversations", async (req: Authed, res) => {
   const uid = req.userId!;
   const q = String(req.query.q || "").trim().slice(0, 120);
-  const list = q ? await repo.conversations.search(uid, q) : await repo.conversations.list(uid);
+  const includeArchived = String(req.query.archived || "") === "1";
+  const list = q ? await repo.conversations.search(uid, q, 50, includeArchived) : await repo.conversations.list(uid, 50, includeArchived);
   // Enrich anchored threads with the anchor's title so the UI can show "on: <title>"
   // (Sprint 3b: node/capture/project/decision-anchored threads are recognizable in the list).
   const idsOf = (t: string) => list.filter((c) => c.anchor_type === t && c.anchor_id).map((c) => c.anchor_id as string);
@@ -580,6 +581,10 @@ radianRouter.get("/conversations/:id", async (req: Authed, res) => {
 });
 radianRouter.post("/conversations/:id/archive", async (req: Authed, res) => {
   await repo.conversations.setStatus(req.userId!, req.params.id, "archived");
+  res.json({ ok: true });
+});
+radianRouter.post("/conversations/:id/unarchive", async (req: Authed, res) => {
+  await repo.conversations.setStatus(req.userId!, req.params.id, "active");
   res.json({ ok: true });
 });
 
