@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: sprint-3b-anchored-threads · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: sprint-4-attention-queue · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -558,3 +558,10 @@ commit(s) · what/why · live-test status).
 - **Anchor-aware list + forget.** Listing enriches anchored threads with the **anchor's title** ("on: <node title>"); each thread has an **Archive (forget)** action (soft `status=archived` — never deletes vault data).
 - **No schema change** (anchor columns already shipped in Sprint 3) → no migration risk.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix 484/484; schema unchanged. Live dedupe/search need Postgres → owner verifies on device (tap a source chip → lands in that node's thread; search finds it by content).
+
+### 2026-06-15 · claude (Claude Code) · `claude/sprint-4-attention-queue` (PR) — Sprint 4: Attention Queue ("what needs you now")
+- **Pure ranker** `packages/shared/src/attention-queue.ts` (`buildAttentionQueue`): composes the owner's real signals into a short, scored "do next" list on top of the B6 `attentionScore` primitive (importance/urgency/recency/signal weighed together — the loudest input never auto-wins). **Honours the Sprint 2b feedback signal**: a **dismissed** item is dropped, "not useful" is demoted (×0.6), "useful" is boosted (+12). Deterministic (ties break by kind priority then id); bands `now`/`soon`/`later`. Helpers `ageDays`, `inboxUrgency`. No LLM, no mutation — it ranks, never changes data.
+- **Endpoint** `GET /radian/attention` gathers candidates — inbox backlog → **triage** (louder with age), **blocked** quests → **unblock** (loud), in-play/snoozed quests → **due**, open opportunities → **review**, Time-Machine resurfaced forgotten gems → **revisit** (carries each node's `meta.feedback` so dismissed gems don't resurface) — and runs the engine (top 7 + counts).
+- **Companion home** leads with a **"Needs you now"** section (above "What I found"): each item shows a band dot (now=gold / soon=info / later=dim), a kind icon, title, reason, and a one-tap action. **revisit → Discuss** opens that node's **anchored thread** (Sprint 3b tie-in); triage→Inbox; unblock/due/review→Quests.
+- **No schema change.** New `attention-queue-verify` (13 checks: ranking, feedback boost/demote/drop, dedup, limit, determinism, tie-break, helpers) → matrix **497/497**.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix 497/497. Live ranking needs Postgres data → owner sees the real queue on device.

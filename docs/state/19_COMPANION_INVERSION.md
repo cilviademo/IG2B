@@ -1,6 +1,6 @@
 # Companion Inversion — from graph-app to AI companion
 
-`Last updated: 2026-06-15 · Commit: sprint-3b-anchored-threads · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: sprint-4-attention-queue · By: claude (Claude Code)`
 
 > Owner directive: Indigold still behaves like "a graph database with AI attached." Invert it:
 > **You → Radian (companion) → conversation memory → Situation Room → Atlas (hidden memory) →
@@ -105,5 +105,17 @@ message history back into the chat). `reset-vault` wipes both new tables.
   and an **Archive (forget)** action (soft `status=archived` — never deletes vault data).
 - No schema change (the anchor columns shipped in Sprint 3).
 **Still to do:** workstream (project/decision) threads — auto-create/resume a thread anchored to
-a project or decision and surface it from those surfaces (Mission Control / decisions). Then
-**Sprint 4 (Attention Queue):** rank what needs the owner now (uses the Sprint 2b feedback signal).
+a project or decision and surface it from those surfaces (Mission Control / decisions).
+
+## Sprint 4 — Attention Queue ("what needs you now", done)
+- **Pure ranker** `attention-queue.ts` (`buildAttentionQueue`) on the B6 `attentionScore`
+  primitive: importance/urgency/recency/signal weighed together so the loudest input never
+  auto-wins. **Honours Sprint 2b feedback** (dismissed→dropped, not-useful→×0.6, useful→+12);
+  deterministic; bands `now`/`soon`/`later`. No LLM, no mutation.
+- **`GET /radian/attention`** gathers inbox backlog → **triage**, blocked quests → **unblock**,
+  in-play/snoozed quests → **due**, open opportunities → **review**, resurfaced forgotten gems →
+  **revisit** (carries each node's feedback), runs the engine (top 7).
+- **Companion home** leads with **"Needs you now"** (above "What I found"): band dot + kind icon +
+  reason + one-tap action. **revisit → Discuss** opens that node's anchored thread (Sprint 3b
+  tie-in); triage→Inbox; unblock/due/review→Quests. `attention-queue-verify` (13) → matrix 497.
+**Next:** Sprint 5 (narrative Timeline), Sprint 6 (Atlas evolution); plus the workstream-threads tail.
