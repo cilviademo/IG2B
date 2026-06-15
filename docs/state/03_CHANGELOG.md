@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: radian-websearch · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: audit-p0 · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -490,3 +490,8 @@ commit(s) · what/why · live-test status).
 - **Live web search behind the ToolAdapter seam** (`makeWebSearchTool`, `webSearchConfigured` in providers.ts) — Tavily (preferred) or Brave by env key (`TAVILY_API_KEY`/`BRAVE_API_KEY`), returns normalized `{title,url,snippet}`. Replaces the `web_search` stub in `getTools`. `/radian/chat` web/research modes now fetch real results (governed seam, server-only), inject them into the prompt, set `usedWeb`, and return **real cited web sources** (the Companion renders them as external links). No key → honest "Web research isn't configured" + general reasoning, never fabricated sources. Privacy: secret/internal still excluded.
 - **Progressive reveal:** Radian's chat answers animate in (typewriter) for a live feel. NOTE: this is a client-side reveal of the full answer — true token-by-token SSE streaming is a deeper backend follow-up (flagged, not faked).
 - **Verified (sandbox):** new `websearch-verify` (6 tests: not-configured/missing-query never fabricate; getTools wiring) → matrix **465/465**; typecheck:all + api+worker+pwa builds green. Live web needs `TAVILY_API_KEY` or `BRAVE_API_KEY` on the API → owner adds to unlock Research mode citations.
+
+### 2026-06-15 · claude (Claude Code) · `main` — Codex audit P0s: blocking CI + fatal migrations
+- Reviewed the Codex repository audit (`docs/REPOSITORY_AUDIT_2026-06-15.md`, on the Codex branch) and incorporated the two **safe** P0s now: (1) **blocking CI** — `.github/workflows/ci.yml` runs `typecheck:all` + `build:all` + the full verify matrix on every PR and on main; (2) **fatal migrations** — `apps/api` now `process.exit(1)` on a failed migration (was swallowed) so a bad schema never serves; `RUN_MIGRATIONS=false` still escapes.
+- **Deferred to a careful security pass (reliability gate in `07_ROADMAP.md`):** the **plaintext-password persistence** P0 (claimed accounts shouldn't store the real password in localStorage — needs token-only + a global re-login affordance; Keychain autofills) and **CORS breadth** (tighten `*.onrender.com` trust; weigh the PR-preview tradeoff). Both touch critical auth/deploy paths and need verification, so they're sequenced as the next phase rather than rushed.
+- **Verified (sandbox):** typecheck:all + api build green; CI yaml valid; matrix 465/465. No runtime regressions (CI is additive; migration change only affects the failure path).

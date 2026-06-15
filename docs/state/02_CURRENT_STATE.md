@@ -1,4 +1,6 @@
-> **REAL WEB SEARCH + PROGRESSIVE REVEAL (latest):** web search is now real behind the ToolAdapter seam — `makeWebSearchTool` (Tavily/Brave by `TAVILY_API_KEY`/`BRAVE_API_KEY`) replaces the stub; `/radian/chat` web/research modes fetch live results (governed, server-only), cite **real web sources** (external links in the Companion), set `usedWeb`. No key → honest "Web research isn't configured," never fabricated. Radian chat answers also **animate in** (client-side reveal; true SSE token-streaming still deferred). new `websearch-verify` → matrix **465/465**; builds green. **Owner adds `TAVILY_API_KEY` (or `BRAVE_API_KEY`) to unlock Research citations.**
+> **CODEX AUDIT P0s — CI + FATAL MIGRATIONS (latest):** incorporated the two safe P0s — **blocking CI** (`.github/workflows/ci.yml`: typecheck:all + build:all + verify matrix on PR/main) and **fatal migrations** (API exits on a failed migration vs serving a bad schema). **Reliability gate** set in `07_ROADMAP.md`: the **plaintext-password-persistence** P0 (claimed accounts store the real password in localStorage — needs token-only + global re-login) and **CORS breadth** are sequenced as the next careful security pass (critical auth/deploy paths). matrix 465/465; builds green. Full audit on the Codex branch (`docs/REPOSITORY_AUDIT_2026-06-15.md`).
+
+> **REAL WEB SEARCH + PROGRESSIVE REVEAL:** web search is now real behind the ToolAdapter seam — `makeWebSearchTool` (Tavily/Brave by `TAVILY_API_KEY`/`BRAVE_API_KEY`) replaces the stub; `/radian/chat` web/research modes fetch live results (governed, server-only), cite **real web sources** (external links in the Companion), set `usedWeb`. No key → honest "Web research isn't configured," never fabricated. Radian chat answers also **animate in** (client-side reveal; true SSE token-streaming still deferred). new `websearch-verify` → matrix **465/465**; builds green. **Owner adds `TAVILY_API_KEY` (or `BRAVE_API_KEY`) to unlock Research citations.**
 
 > **RADIAN BRAIN MODES:** fixed the "vault-only gatekeeper" — `/radian/chat` now has answer modes **Auto · Vault · General · Vault+Web · Research** (selector on the Companion, Auto default). Auto infers; **General is the no-refuse default** (answers with Claude reasoning, then "In your Indigold context:" connection). Honest web (stub) → "Web research isn't configured — save as research task," no fake sources; real web via `WEB_RESEARCH=on`. Multi-turn (last 6 turns), per-reply labels (mode/grounding/web/deterministic/sources), **Save to vault** (`/radian/remember` → capture→ingest). Privacy: secret/internal excluded from context in all modes. matrix 459/459; builds green. Streaming (SSE) deferred.
 
@@ -28,7 +30,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: radian-websearch · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: audit-p0 · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

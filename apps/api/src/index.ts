@@ -123,7 +123,11 @@ async function boot() {
     try {
       await migrate();
     } catch (e) {
-      console.error("[api] migration skipped/failed:", (e as Error).message);
+      // Codex audit P0: a failed migration must be FATAL — serving on a possibly-stale
+      // or wrong schema risks silent data corruption. Crash so the deploy is marked
+      // failed and Render keeps the last-good release. (Set RUN_MIGRATIONS=false to skip.)
+      console.error("[api] FATAL: migration failed — refusing to start:", (e as Error).message);
+      process.exit(1);
     }
   }
   // PII safeguard: if storage is configured, refuse to serve uploads from a

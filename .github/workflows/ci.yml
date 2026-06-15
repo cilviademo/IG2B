@@ -1,0 +1,32 @@
+name: CI
+
+# Blocking gate (Codex audit P0): typecheck + build + the full verify matrix must pass
+# on every PR and on main. Mirrors the local "definition of done" so green ≠ luck.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck (all workspaces + PWA)
+        run: npm run typecheck:all
+      - name: Build (api · worker · radian · encompass · pwa)
+        run: npm run build:all
+      - name: Verify matrix (packages/shared)
+        run: |
+          set -euo pipefail
+          cd packages/shared
+          for f in scripts/*-verify.ts; do
+            echo "== $f =="
+            npx tsx "$f"
+          done
