@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: backlog-sweep · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: auth-token-only · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -526,3 +526,8 @@ commit(s) · what/why · live-test status).
 - **PR #12 (durable sessions) merged green** — the new CI gate caught a real reproducibility bug first (root-only `npm ci` missed apps/api's `@aws-sdk/*`/`busboy`); fixed CI to install per-package deps; `verify` + `changelog-touched` green → squash-merged (`d4a9c60`).
 - **Vault restore completed:** `/io/import` now also restores **timeline** events (`normalizeImportTimeline` — enum-validated defaults, id preserved, `node_id` remapped to the re-keyed node or dropped). Restore now covers captures + nodes + edges + timeline. `import-verify` 15 checks → matrix **484/484**.
 - **Checked but intentionally NOT changed:** retiring `/activity` — it's load-bearing (Task Center "open result" navigates to `/activity?task=`), so it stays.
+
+### 2026-06-15 · claude (Claude Code) · `claude/auth-token-only` (PR) — Auth step 2: token-only (no stored password)
+- **Plaintext-password P0 fully resolved (safely this time).** Now that sessions are durable (Postgres backstop, owner-confirmed on device), claimed/logged-in accounts are **token-only**: `claimAccount`/`loginAccount` set the token + `indigold_account_email` and **remove `indigold_device`** — the real password is never written to localStorage. `ensureSession` re-instates the **claimed-guard** (no token + claimed → "session expired", no silent mint/fork); `needsLogin()` → the re-login banner (iCloud Keychain autofills). Anonymous device accounts keep their throwaway random password (not a human secret).
+- **Why it's safe now (vs the earlier revert):** durable tokens survive Redis eviction, so token-only no longer locks users out; login is owner-confirmed working. The guard prevents vault-forking on a genuine logout.
+- **Verified (sandbox):** typecheck:all + pwa build green; matrix 484/484. Shipped as a PR so CI gates the auth-critical change. **Owner final check:** sign out → log in (works); after a while/app-restart you stay in (durable session); a true wipe → "session expired" → log in restores the same vault.
