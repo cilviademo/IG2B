@@ -187,8 +187,17 @@ radianRouter.post("/chat", async (req: Authed, res) => {
   const uid = req.userId!;
   const question = String(req.body?.question || "").trim().slice(0, 1000);
   if (!question) return res.status(400).json({ error: "question_required" });
-  const history = (Array.isArray(req.body?.history) ? req.body.history : [])
-    .slice(-6).map((h: { role?: string; text?: string }) => ({ role: h.role === "you" ? "User" : "Radian", text: String(h.text || "").slice(0, 600) }));
+  // Durable thread: when a conversationId is given, history comes from the stored
+  // thread (authoritative) and both turns are persisted below.
+  const conversationId = req.body?.conversationId ? String(req.body.conversationId) : null;
+  let history: { role: string; text: string }[];
+  if (conversationId) {
+    const thread = await repo.messages.list(uid, conversationId, 12).catch(() => []);
+    history = thread.slice(-6).map((m) => ({ role: m.role === "you" ? "User" : "Radian", text: String(m.text || "").slice(0, 600) }));
+  } else {
+    history = (Array.isArray(req.body?.history) ? req.body.history : [])
+      .slice(-6).map((h: { role?: string; text?: string }) => ({ role: h.role === "you" ? "User" : "Radian", text: String(h.text || "").slice(0, 600) }));
+  }
   const mode = (["auto", "vault", "general", "web", "research"].includes(String(req.body?.mode)) ? String(req.body?.mode) : "auto") as ChatMode;
   const resolvedMode = mode === "auto" ? inferMode(question) : mode;
   const wantWeb = resolvedMode === "web" || resolvedMode === "research";
@@ -244,8 +253,20 @@ radianRouter.post("/chat", async (req: Authed, res) => {
   const grounding = resolvedMode === "vault" ? "vault" : ctx ? "mixed" : "general";
   const vaultSources = picked.slice(0, 5).map((n) => ({ id: n.id, title: n.title }));
   const webSources = webResults.map((w) => ({ title: w.title, url: w.url }));
+  const finalAnswer = answer || "Let me try that another way — could you rephrase, or pick a mode (Vault / General / Research)?";
+
+  // Persist both turns to the durable thread (best-effort; never fail the answer).
+  if (conversationId) {
+    try {
+      await repo.messages.add({ id: id("msg"), conversation_id: conversationId, user_id: uid, role: "you", text: question });
+      await repo.messages.add({ id: id("msg"), conversation_id: conversationId, user_id: uid, role: "radian", text: finalAnswer, sources: [...vaultSources, ...webSources], meta: { mode: resolvedMode, grounding, deterministic: provider === "deterministic", usedWeb: webResults.length > 0 } });
+      await repo.conversations.touch(conversationId);
+    } catch { /* thread persistence is best-effort */ }
+  }
+
   res.json({
-    answer: answer || "Let me try that another way — could you rephrase, or pick a mode (Vault / General / Research)?",
+    conversationId,
+    answer: finalAnswer,
     mode: resolvedMode,
     grounding,
     provider,
@@ -288,6 +309,33 @@ radianRouter.post("/feedback", async (req: Authed, res) => {
   }
   await repo.nodes.setFeedback(uid, nodeId, { kind, at: new Date().toISOString() });
   await repo.emitEvent({ user_id: uid, actor: "user", event_type: "feedback", subject_type: "node", subject_id: nodeId, correlation_id: nodeId, payload: { kind } });
+  res.json({ ok: true });
+});
+
+// ---- Durable conversation threads (Sprint 3) ----
+radianRouter.post("/conversations", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const title = String(req.body?.title || "Conversation").trim().slice(0, 120) || "Conversation";
+  const anchorType = ["open", "node", "capture", "project"].includes(String(req.body?.anchorType)) ? String(req.body.anchorType) : "open";
+  const anchorId = req.body?.anchorId ? String(req.body.anchorId) : null;
+  // Reuse an existing thread for the same anchor (so a node has one ongoing conversation).
+  if (anchorType !== "open" && anchorId) {
+    const existing = await repo.conversations.findAnchored(uid, anchorType, anchorId);
+    if (existing) return res.json({ conversation: existing, reused: true });
+  }
+  const c = await repo.conversations.create({ id: id("conv"), user_id: uid, title, anchor_type: anchorType, anchor_id: anchorId });
+  res.json({ conversation: c });
+});
+radianRouter.get("/conversations", async (req: Authed, res) => {
+  res.json({ conversations: await repo.conversations.list(req.userId!) });
+});
+radianRouter.get("/conversations/:id", async (req: Authed, res) => {
+  const conversation = await repo.conversations.get(req.userId!, req.params.id);
+  if (!conversation) return res.status(404).json({ error: "not_found" });
+  res.json({ conversation, messages: await repo.messages.list(req.userId!, req.params.id) });
+});
+radianRouter.post("/conversations/:id/archive", async (req: Authed, res) => {
+  await repo.conversations.setStatus(req.userId!, req.params.id, "archived");
   res.json({ ok: true });
 });
 

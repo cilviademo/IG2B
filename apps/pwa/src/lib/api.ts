@@ -233,22 +233,58 @@ export interface ChatReply {
   usedWeb: boolean;
   webNote?: string;
   sources: { id?: string; title: string; url?: string }[];
+  conversationId?: string | null;
 }
-/** Ask Radian anything with a brain mode (Auto/Vault/General/Web/Research) + short history. */
-export async function chatRadian(question: string, mode: ChatMode = "auto", history: { role: string; text: string }[] = []): Promise<ChatReply | null> {
+/** Ask Radian anything with a brain mode + short history. Pass `conversationId` to
+ *  persist both turns to a durable thread (and use that thread's history). */
+export async function chatRadian(question: string, mode: ChatMode = "auto", history: { role: string; text: string }[] = [], conversationId?: string | null): Promise<ChatReply | null> {
   if (!apiEnabled()) return null;
   if (!getToken() && !(await ensureSession())) return null;
   try {
     const res = await fetch(`${BASE}/radian/chat`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
-      body: JSON.stringify({ question, mode, history }),
+      body: JSON.stringify({ question, mode, history, conversationId }),
     });
     if (!res.ok) return null;
     return (await res.json()) as ChatReply;
   } catch {
     return null;
   }
+}
+
+// ---- Durable conversation threads (Sprint 3) ----
+export interface Conversation { id: string; title: string; anchor_type: string; anchor_id: string | null; status: string; updated_at: string }
+export interface ConvMessage { id: string; role: string; text: string; sources?: { id?: string; title: string; url?: string }[]; meta?: { mode?: string; grounding?: string; deterministic?: boolean } }
+
+async function radianGet<T>(path: string): Promise<T | null> {
+  if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return null;
+  try {
+    const res = await fetch(`${BASE}${path}`, { headers: { authorization: `Bearer ${getToken()}` } });
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch { return null; }
+}
+async function radianPost<T>(path: string, body: unknown): Promise<T | null> {
+  if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return null;
+  try {
+    const res = await fetch(`${BASE}${path}`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` }, body: JSON.stringify(body) });
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch { return null; }
+}
+
+export async function createConversation(title: string, anchorType = "open", anchorId?: string): Promise<Conversation | null> {
+  const r = await radianPost<{ conversation: Conversation }>(`/radian/conversations`, { title, anchorType, anchorId });
+  return r?.conversation ?? null;
+}
+export async function listConversations(): Promise<Conversation[]> {
+  const r = await radianGet<{ conversations: Conversation[] }>(`/radian/conversations`);
+  return r?.conversations ?? [];
+}
+export async function getConversation(id: string): Promise<{ conversation: Conversation; messages: ConvMessage[] } | null> {
+  return radianGet(`/radian/conversations/${encodeURIComponent(id)}`);
+}
+export async function archiveConversation(id: string): Promise<boolean> {
+  return !!(await radianPost(`/radian/conversations/${encodeURIComponent(id)}/archive`, {}));
 }
 
 /** Record owner feedback on a finding (useful | not_useful | wrong_connection | dismiss). */

@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX, MessageCircle, ThumbsUp, ThumbsDown, X } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
-import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, radianFeedback, getBriefing, type BackendCapture, type ChatMode, type CompanionBriefing } from "@/lib/api";
+import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, radianFeedback, getBriefing, createConversation, listConversations, getConversation, type BackendCapture, type ChatMode, type CompanionBriefing, type Conversation } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
 import { speak, stopSpeaking, canSpeak, canListen, listenOnce } from "@/lib/speech";
 import { toast } from "sonner";
@@ -93,6 +93,22 @@ export default function Companion() {
   const [voice, setVoice] = useState(false); // speak Radian's replies aloud
   const [briefing, setBriefing] = useState(false);
   const [mode, setMode] = useState<ChatMode>("auto"); // brain mode
+  const [convoId, setConvoId] = useState<string | null>(null); // current durable thread
+  const [convos, setConvos] = useState<Conversation[]>([]); // durable thread list
+
+  const loadConvos = useCallback(async () => {
+    if (apiEnabled()) setConvos(await listConversations());
+  }, []);
+
+  // Resume a durable thread into the chat.
+  async function openConvo(id: string) {
+    const r = await getConversation(id);
+    if (!r) { toast.error("Couldn't open conversation"); return; }
+    setConvoId(id);
+    setChat(r.messages.map((m) => ({ role: m.role === "you" ? "you" : "radian", text: m.text, sources: m.sources, mode: m.meta?.mode, grounding: m.meta?.grounding, deterministic: m.meta?.deterministic })));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function newConvo() { setConvoId(null); setChat([]); setInput(""); }
 
   async function sendChat(override?: string, speakBack?: boolean) {
     const q = (override ?? input).trim();
@@ -102,12 +118,17 @@ export default function Companion() {
     setChat((c) => [...c, { role: "you", text: q }]);
     setChatBusy(true);
     try {
-      const r = await chatRadian(q, mode, history);
+      // Lazily start a durable thread so the conversation persists + is resumable.
+      let cid = convoId;
+      if (!cid) { const c = await createConversation(q.slice(0, 60)); cid = c?.id ?? null; if (cid) setConvoId(cid); }
+      const r = await chatRadian(q, mode, history, cid);
       const text = r ? r.answer : "I couldn't reach the model (offline, or the API is waking — try again in ~30s).";
       setChat((c) => [...c, r
         ? { role: "radian", text, q, sources: r.sources, deterministic: r.deterministic, mode: r.mode, grounding: r.grounding, webNote: r.webNote, usedWeb: r.usedWeb }
         : { role: "radian", text, q }]);
+      if (r?.conversationId && !convoId) setConvoId(r.conversationId);
       if ((speakBack || voice) && canSpeak()) speak(text);
+      void loadConvos(); // refresh durable list (title/updated)
     } finally {
       setChatBusy(false);
     }
@@ -209,9 +230,10 @@ export default function Companion() {
 
   useEffect(() => {
     void loadFound();
-    const off = onVaultSynced(() => void loadFound());
+    void loadConvos();
+    const off = onVaultSynced(() => { void loadFound(); void loadConvos(); });
     return off;
-  }, [loadFound]);
+  }, [loadFound, loadConvos]);
 
   useEffect(() => () => stopSpeaking(), []); // stop any speech when leaving Radian
 
@@ -447,39 +469,29 @@ export default function Companion() {
       )}
 
       <section>
-        <div className="cap-data mb-2" style={{ color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Recent conversations</div>
-        {recent.length === 0 ? (
+        <div className="flex items-center gap-2 mb-2">
+          <span className="cap-data" style={{ color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Conversations</span>
+          {(convoId || chat.length > 0) && (
+            <button onClick={newConvo} className="press cap-data ml-auto inline-flex items-center gap-1" style={{ color: "var(--gold)" }}>+ New</button>
+          )}
+        </div>
+        {convos.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-12 gap-2">
             <Sparkles size={22} strokeWidth={1.5} style={{ color: "var(--text-dim)" }} />
             <span style={{ fontSize: 14, color: "var(--text-dim)" }}>No conversations yet.</span>
-            <span style={{ fontSize: 12.5, color: "var(--text-dim)" }}>Open a node or capture and Ask Radian — it'll show up here.</span>
+            <span style={{ fontSize: 12.5, color: "var(--text-dim)" }}>Ask Radian anything above — your threads are saved and resumable here.</span>
           </div>
         ) : (
           <div className="space-y-2">
-            {recent.map((t) => (
-              <div key={t.id} className="p-3" style={{ borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)" }}>
-                <div className="flex items-center gap-2 mb-1">
-                  {isOk(t.status) ? <Check size={14} strokeWidth={1.5} style={{ color: "var(--good)" }} />
-                    : t.status === "failed" ? <AlertTriangle size={14} strokeWidth={1.5} style={{ color: "var(--risk)" }} />
-                    : <Dot color="var(--text-dim)" />}
-                  <span className="flex-1 min-w-0 truncate" style={{ fontSize: 14, color: "var(--text)" }}>{t.label}</span>
-                  <span className="cap-data flex items-center gap-1" style={{ color: "var(--text-dim)" }}><Clock size={10} strokeWidth={1.5} /> {relTime(t.updatedAt)}</span>
+            {convos.map((c) => (
+              <button key={c.id} onClick={() => void openConvo(c.id)} className="press w-full text-left p-3" style={{ borderRadius: 10, border: `1px solid ${c.id === convoId ? "var(--gold-line)" : "var(--line)"}`, background: "var(--surface)" }}>
+                <div className="flex items-center gap-2">
+                  <MessageCircle size={14} strokeWidth={1.5} style={{ color: "var(--gold)", flexShrink: 0 }} />
+                  <span className="flex-1 min-w-0 truncate" style={{ fontSize: 14, color: "var(--text)" }}>{c.title}</span>
+                  {c.anchor_type !== "open" && <span className="cap-data" style={{ color: "var(--text-dim)" }}>{c.anchor_type}</span>}
+                  <span className="cap-data flex items-center gap-1" style={{ color: "var(--text-dim)" }}><Clock size={10} strokeWidth={1.5} /> {relTime(new Date(c.updated_at).getTime())}</span>
                 </div>
-                {t.status === "fallback" && <p className="cap-data mb-1" style={{ color: "var(--gold)" }}>Answered from your vault (deterministic).</p>}
-                {t.error && <p className="cap-data mb-1" style={{ color: "var(--risk)" }}>{t.error}</p>}
-                <div className="flex gap-2 mt-1">
-                  {isOk(t.status) && (
-                    <Link href={resultHref(t)} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 6, border: "1px solid var(--gold-line)", color: "var(--gold)" }}>
-                      Open <ArrowRight size={12} strokeWidth={1.5} />
-                    </Link>
-                  )}
-                  {t.status === "failed" && (
-                    <button onClick={() => retry(t.id)} className="press inline-flex items-center gap-1 px-2.5 py-1.5 text-xs" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)" }}>
-                      <RotateCcw size={12} strokeWidth={1.5} /> Retry
-                    </button>
-                  )}
-                </div>
-              </div>
+              </button>
             ))}
           </div>
         )}

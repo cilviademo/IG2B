@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: finding-feedback · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: conversation-threads · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -545,3 +545,9 @@ commit(s) · what/why · live-test status).
 ### 2026-06-15 · claude (Claude Code) · `claude/finding-feedback` (PR) — Sprint 2b: durable finding feedback
 - Arrival cards gain **Useful / Not useful / Dismiss**. `POST /radian/feedback {nodeId,kind}` merges `{kind,at}` into `node.meta.feedback` (`nodes.setFeedback`, additive jsonb merge) + emits a `feedback` event (new `EventType`). **Dismiss persists** — dismissed findings are filtered from the "What I found" feed on every reload (won't resurface); useful/not-useful are recorded as ranking signal. Proposal-only — never deletes data.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix 484/484. Feeds the future Attention Queue (Sprint 4) ranking. Live feedback needs the deployed API → owner sees it on device.
+
+### 2026-06-15 · claude (Claude Code) · `claude/conversation-threads` (PR) — Sprint 3: durable conversation threads
+- **Persistence substrate:** new `conversations` + `messages` tables (additive to schema.sql + regenerated schema.ts; `reset-vault` wipes both) + `repo.conversations`/`repo.messages`. Endpoints: `POST/GET /radian/conversations`, `GET /radian/conversations/:id`, `POST /radian/conversations/:id/archive`. Anchored threads (node/capture/project) dedupe to one ongoing thread per anchor.
+- **Chat persists:** `/radian/chat` takes optional `conversationId` — uses the **stored thread** as history (server-authoritative) and **persists both turns**, so a conversation survives a browser restart (fixes the "this-session only" limitation).
+- **Companion home:** the "Conversations" section now lists **durable threads** (was an in-memory Task-Center list), with **+ New** and **tap-to-resume** (reloads full message history into the chat); chat lazily creates a thread on first message.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix 484/484; schema.sql↔schema.ts in sync. DB calls need live Postgres → owner verifies on device (ask → restart → thread still there + resumable). **Sprint 3b:** route findings/source-chips → node-anchored threads (not Atlas) + remember/forget + search.
