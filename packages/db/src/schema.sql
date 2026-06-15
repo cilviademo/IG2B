@@ -460,3 +460,16 @@ CREATE TABLE IF NOT EXISTS watchlists (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS watchlists_user_idx ON watchlists(user_id);
+
+-- Negative knowledge (Intelligence review): remember ABSENCE — searched-but-not-found, retracted,
+-- or deliberately excluded. Surfaced in the World Lens so gaps aren't silently forgotten.
+CREATE TABLE IF NOT EXISTS negative_knowledge (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id),
+  subject    TEXT NOT NULL DEFAULT '',
+  kind       TEXT NOT NULL DEFAULT 'excluded',
+  note       TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS negative_knowledge_user_idx ON negative_knowledge(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS negative_knowledge_subject_idx ON negative_knowledge(user_id, subject);

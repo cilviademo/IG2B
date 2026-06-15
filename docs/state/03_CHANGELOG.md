@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: owner-intents · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: negative-knowledge · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -653,3 +653,12 @@ commit(s) · what/why · live-test status).
 - **API:** `/radian/chat` accepts `intent` → appends `intentGuidance(intent)` to the system framing, echoes it + stores in message meta. **Backward compatible** (no intent → existing Auto/mode behavior unchanged).
 - **PWA:** the Companion's chip row is now **Auto + the 5 intents** (each sets the brain mode under the hood + sends `intent`); the message bubble's mode badge + Evidence Drawer are unchanged.
 - **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **691/691** (+15); schema in sync. **Next:** negative knowledge (remember searched-but-not-found / retracted / excluded).
+
+### 2026-06-15 · claude (Claude Code) · `claude/negative-knowledge` (PR) — Negative knowledge (remember absence)
+- **Indigold now remembers ABSENCE** — searched-but-not-found, retracted, deliberately excluded — so gaps aren't silently forgotten and dead ends aren't re-litigated.
+- Pure `packages/shared/src/negative-knowledge.ts` (`NEGATIVE_KINDS` not_found/retracted/excluded, `normalizeNegative`, labels); `negative-knowledge-verify` (13, incl. World Lens "gaps" surfacing).
+- **Schema (additive):** `negative_knowledge` table (+ regenerated schema.ts) + `repo.negativeKnowledge` (create/list/existsForSubject/remove). `reset-vault` wipes it.
+- **Endpoints:** `GET/POST/DELETE /radian/negative-knowledge`. **World Lens** now composes a **"Known gaps & exclusions"** section (`worldLens` gained an optional `negatives` input) and `/radian/world-lens` feeds it.
+- **Auto-capture:** `run_watchlist` records a `not_found` (once per topic) when a search **succeeds but returns zero results** — absence as a first-class signal.
+- **PWA:** World Lens shows the gaps section + a **"Note a gap"** action (subject-scoped); `listNegatives`/`addNegative`/`removeNegative` clients.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix **704/704** (+13); schema in sync. This completes the Intelligence review's reasoning-layer items (evidence · claims/freshness/Tensions · World Lens · Evidence Drawer · connectors · Watchlists · owner intents · negative knowledge).

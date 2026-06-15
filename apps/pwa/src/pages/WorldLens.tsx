@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { Globe, ExternalLink, RefreshCw, Scale, Clock, AlertTriangle, HelpCircle, Newspaper, Check } from "lucide-react";
-import { apiEnabled, getWorldLens, type WorldLensData, type WorldLensSection } from "@/lib/api";
+import { Globe, ExternalLink, RefreshCw, Scale, Clock, AlertTriangle, HelpCircle, Newspaper, Check, Ban } from "lucide-react";
+import { toast } from "sonner";
+import { apiEnabled, getWorldLens, addNegative, type WorldLensData, type WorldLensSection } from "@/lib/api";
 
 // World Lens (Intelligence review): for a subject (node/project/topic) — "what changed OUTSIDE
 // your vault?" Reads /world-lens?subject=&kind=&title=. Deterministic sections from claims +
@@ -9,7 +10,7 @@ import { apiEnabled, getWorldLens, type WorldLensData, type WorldLensSection } f
 function param(k: string): string {
   try { return new URLSearchParams(window.location.search).get(k) || ""; } catch { return ""; }
 }
-const SECTION_ICON: Record<string, typeof Globe> = { new: Newspaper, counter: AlertTriangle, claims: Check, corrections: Clock, tensions: Scale, questions: HelpCircle };
+const SECTION_ICON: Record<string, typeof Globe> = { new: Newspaper, counter: AlertTriangle, claims: Check, corrections: Clock, tensions: Scale, gaps: Ban, questions: HelpCircle };
 const relTime = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—");
 
 export default function WorldLens() {
@@ -28,12 +29,23 @@ export default function WorldLens() {
   }
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
+  async function noteGap() {
+    const note = window.prompt(`Note a gap or exclusion for "${lens?.subjectTitle || title || subject}"\n(e.g. "looked for X, found nothing" / "excluded — decided against")`);
+    if (!note || !note.trim()) return;
+    if (await addNegative(subject, "excluded", note.trim())) { toast.success("Noted"); void load(); } else toast.error("Couldn't save");
+  }
+
   return (
     <div className="px-5 pt-6 pb-12">
       <div className="flex items-center gap-2 mb-1">
         <Globe size={18} strokeWidth={1.5} style={{ color: "var(--gold)" }} />
         <h1 className="text-xl font-display">World Lens</h1>
-        <button onClick={() => void load()} className="tap-target ml-auto" aria-label="Refresh" style={{ color: "var(--text-dim)" }}>
+        {subject && apiEnabled() && (
+          <button onClick={() => void noteGap()} className="press ml-auto inline-flex items-center gap-1 cap-data" style={{ color: "var(--text-dim)" }}>
+            <Ban size={12} strokeWidth={1.5} /> Note a gap
+          </button>
+        )}
+        <button onClick={() => void load()} className={`tap-target ${subject && apiEnabled() ? "" : "ml-auto"}`} aria-label="Refresh" style={{ color: "var(--text-dim)" }}>
           <RefreshCw size={15} strokeWidth={1.5} className={loading ? "animate-spin" : ""} />
         </button>
       </div>

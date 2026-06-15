@@ -1,4 +1,6 @@
-> **OWNER-INTENT LABELS (PR `claude/owner-intents`, latest):** Radian's chat is now framed by owner intent — **My memory · Explain · Check · Research · Decide** — not raw brain modes. Pure `intent.ts` (`intentToMode` + `intentGuidance`; `intent-verify` 15; mirrored in `apps/pwa/src/lib/intent.ts`). `/radian/chat` accepts `intent` → appends tailored guidance to the system framing (backward compatible). Companion chip row = Auto + 5 intents (each sets the brain mode + sends intent). matrix **691/691**; no schema change.
+> **NEGATIVE KNOWLEDGE (PR `claude/negative-knowledge`, latest):** Indigold remembers ABSENCE — searched-but-not-found / retracted / excluded. Pure `negative-knowledge.ts` (`negative-knowledge-verify` 13); additive `negative_knowledge` table + `repo.negativeKnowledge`; `GET/POST/DELETE /radian/negative-knowledge`; World Lens gained a **"Known gaps & exclusions"** section (+ "Note a gap" action); `run_watchlist` auto-records a `not_found` when a search succeeds with zero results. matrix **704/704**; schema in sync. Completes the review's reasoning-layer items.
+
+> **OWNER-INTENT LABELS (PR `claude/owner-intents`):** Radian's chat is now framed by owner intent — **My memory · Explain · Check · Research · Decide** — not raw brain modes. Pure `intent.ts` (`intentToMode` + `intentGuidance`; `intent-verify` 15; mirrored in `apps/pwa/src/lib/intent.ts`). `/radian/chat` accepts `intent` → appends tailored guidance to the system framing (backward compatible). Companion chip row = Auto + 5 intents (each sets the brain mode + sends intent). matrix **691/691**; no schema change.
 
 > **CONNECTORS — OPENALEX + WIKIPEDIA (PR `claude/openalex-wikipedia`):** two more evidence connectors on the existing contract/gate (no schema change). **OpenAlex** (`openalex.ts` — `buildOpenAlexUrl`/`parseOpenAlex` + `reconstructAbstract` from the inverted index; `openalex-verify` 17). **Wikipedia** (`wikipedia.ts` — `buildWikipediaUrl`/`parseWikipedia`, snippet stripped, CC BY-SA carried, `source_kind: "encyclopedia"`; `wikipedia-verify` 13). `run_watchlist` generalized to a `gather()` helper: `scholarly` → Crossref + OpenAlex, new `encyclopedia` → Wikipedia; PWA adds an Encyclopedia toggle. matrix **676/676**. Connector set: RSS · Crossref · OpenAlex · Wikipedia.
 
@@ -70,7 +72,7 @@
 
 # Current State
 
-`Last updated: 2026-06-15 · Commit: owner-intents · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: negative-knowledge · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

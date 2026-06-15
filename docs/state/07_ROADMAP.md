@@ -1,6 +1,6 @@
 # Roadmap
 
-`Last updated: 2026-06-15 · Commit: owner-intents · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: negative-knowledge · By: claude (Claude Code)`
 
 Status keys: **done · owner-gated · infra-gated · planned.** "Done" = code on `main`, CI-green,
 matrix-tested. Owner/infra-gated work is *built or trivial* but needs an action only the owner
@@ -53,9 +53,9 @@ can take (a device check, a Render env var, a paid plan). Each item lists its ga
 - **Phase 2 — connectors: RSS/Atom · Crossref · OpenAlex · Wikipedia DONE** (`rss`/`crossref`/
   `openalex`/`wikipedia` + `feeds`/`watchlists` + `poll_feed`/`run_watchlist`). **Phase 4 next:**
   arXiv / Europe PMC / Hacker News / FRED / regulatory (same contract + gate).
-- **Phase 3 — evidence UX: Research Inbox · Tensions · World Lens · Evidence Drawer · Watchlists ·
-  owner intents (My memory/Explain/Check/Research/Decide) all DONE.** Remaining: **negative
-  knowledge** (remember searched-but-not-found / retracted / excluded).
+- **Phase 3 — evidence UX: ALL DONE** — Research Inbox · Tensions · World Lens · Evidence Drawer ·
+  Watchlists · owner intents · **negative knowledge** (`negative_knowledge` + World Lens "Known gaps"
+  + auto-capture on empty searches).
 - **Phase 5 — evaluation + proactive intelligence:** golden vault, retrieval metrics, weekly change
   detection, decision-review triggers. Plus **full correlation-trace diagnostics** end-to-end.
 

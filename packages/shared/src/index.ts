@@ -46,4 +46,5 @@ export * from "./openalex";
 export * from "./wikipedia";
 export * from "./watchlists";
 export * from "./intent";
+export * from "./negative-knowledge";
 export * from "./world-lens";
