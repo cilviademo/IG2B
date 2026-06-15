@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: radian-home · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: rich-arrival · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -536,3 +536,8 @@ commit(s) · what/why · live-test status).
 - **Resolved Home/Radian duplication** (external product-strategy review): `/` now renders the **Radian Companion**; the classic dashboard moved to `/home` (reachable in More as "Mission Control"). Primary tabs are now **Radian · Inbox · Timeline · Library · More** (Library promoted; Atlas stays background in More). `/companion` still resolves for existing links.
 - **Daily orientation:** Radian home leads with a deterministic "Chief of Staff" opener (greeting + top signal lines from `/radian/briefing`); falls back to the simple greeting when unavailable. On device (Anthropic key + data) it shows momentum / resurfaced / overdue / focus.
 - **Verified (sandbox):** typecheck:all + pwa build green; matrix 484/484; headless `/` renders Radian with the new tab bar; `/home` = dashboard. Shipped as a PR so CI gates the IA change. **Owner phone-gate:** nav + safe-area read true; capture/SW/worker/schema untouched.
+
+### 2026-06-15 · claude (Claude Code) · `claude/rich-arrival` (PR) — Sprint 2: richer "What I found" arrival cards
+- The Radian home arrival cards now read like an intelligent briefing, using data already fetched (no per-item LLM cost): **"Your note"** (why you saved it), the synthesis, **named + openable connections** (real graph neighbours via `derived_from`-excluded edges → tappable chips, not just a count), and **content-aware suggested prompts** (Key takeaway / Connect to my work / Skeptic's view) that open a grounded conversation (`sendChat`). AI-status copy softened to "Quick analysis · deeper reasoning unavailable" (setup lives in Settings/Diagnostics). Precise Research/Explain/Convene kept as secondary actions.
+- **Still to do (Sprint 2b):** useful/not-useful/wrong-connection feedback (needs a small store) + media lifecycle stages once the media worker is live.
+- **Verified (sandbox):** typecheck:all + pwa build green; matrix 484/484. Rich card content needs live data → owner sees it on device.
