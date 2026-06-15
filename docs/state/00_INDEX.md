@@ -22,6 +22,9 @@ working code out of ignorance of history.
 | 8 | [`08_CONSTRAINTS.md`](08_CONSTRAINTS.md) | The iron rules. **If you read only one file beyond this index, read this.** |
 | 9 | [`09_VERIFICATION.md`](09_VERIFICATION.md) | How to prove work: stubs, headless, the phone re-test ritual |
 | 9b | [`09_PHONE_GATES.md`](09_PHONE_GATES.md) | The per-subsystem phone-gate **checklist** (walk top-to-bottom, flip 🟡→🟢) |
+| 18 | [`18_BUILD_AGENTS.md`](18_BUILD_AGENTS.md) | Build-time Claude Code agents (dev accelerators; not runtime) |
+| 19 | [`19_LOCAL_FIRST_NOTES.md`](19_LOCAL_FIRST_NOTES.md) | Local-first / escalation routing idea (deferred) |
+| 21 | [`21_SKILL_SCHEMA_EVAL.md`](21_SKILL_SCHEMA_EVAL.md) | Skill-schema vs verb-catalog recommendation |
 
 **Minimum reading before any work:** `00_INDEX` → `02_CURRENT_STATE` → `08_CONSTRAINTS`
 (+ any file relevant to your task area).

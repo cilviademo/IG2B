@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: model-timeout · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: adoption-docs · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -687,3 +687,10 @@ commit(s) · what/why · live-test status).
 - **The one true bug class = an unbounded external call.** Fix: `resolveModelTimeoutMs` (env `LLM_TIMEOUT_MS`, default 30s, clamped 3–120s) + an `AbortController` on **all live adapters** (anthropic, openai-compatible, gemini) → a slow/hung provider **aborts** (`*_timeout`) and the caller falls back to the deterministic floor or queues, **never hangs the UI**. `model-timeout-verify` (7).
 - **Noted as owner/infra follow-ups (not built):** chat SSE streaming (biggest *felt* win), worker concurrency >1 for bursts, Render starter tier to kill cold starts.
 - **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **711/711** (+7). Deterministic floor intact.
+
+### 2026-06-15 · claude (Claude Code) · `claude/adoption-docs` (PR) — Agent/skill adoption docs (Parts 1, 3, 4A — docs only)
+- **Docs-only PR** from the external-adoption brief; no code, no imports, no runtime change.
+- **`18_BUILD_AGENTS.md` (Part 1):** curated ~12 build-time Claude Code agents (Code Reviewer, Security Architect, AppSec, Accessibility Auditor, Performance Benchmarker, UX/Mobile Designer, Test Engineer, Reality Checker, Multi-Agent/Voice engineers, PM) mapped to Indigold work + phases, installed to `~/.claude/agents/` on the dev machine. **agency-agents NOT imported/committed** (sandbox is repo-scoped; clone is an owner step).
+- **`19_LOCAL_FIRST_NOTES.md` (Part 4A):** OpenJarvis local-first/escalation idea as a *routing policy* inside `getTaskAdapter` (cheap/local first → escalate to Claude) — **deferred** (needs a local Ollama/box; the `ollama` provider seam already exists). No code.
+- **`21_SKILL_SCHEMA_EVAL.md` (Part 3):** honest recommendation — **don't retrofit** the 8-verb `VerbSpec` catalog (sufficient, adding agentskills ceremony buys nothing); define the typed skill/tool descriptor **at the MCP boundary** (Part 5) where external/untrusted tools actually need it. Report-only.
+- Indexed in `00_INDEX.md`. **Next:** `claude/mcp-seam` (dormant MCP connector contract + deterministic stub + verify), then personas.
