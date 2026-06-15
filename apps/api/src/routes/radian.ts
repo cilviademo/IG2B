@@ -170,42 +170,94 @@ radianRouter.post("/context", async (req: Authed, res) => {
   res.json({ pack: cid, plan: { ...plan, included: plan.included.map((c) => ({ id: c.id, kind: c.kind, title: c.title, score: Number(c.score.toFixed(2)), reasons: c.reasons, tokens: c.tokens })) }, semantic_provider: sem.matches.length ? (sem as { provider?: string }).provider : "none" });
 });
 
-// ---- Conversational Radian: ask anything across the vault (grounded, synchronous) ----
-// Retrieves the most relevant (research-safe) nodes for the question, answers via the
-// governed path (budget + provider), and returns the sources it used. secret/internal
-// nodes are excluded from context, so they never reach the model.
+// ---- Conversational Radian: ask anything, with brain modes (Auto/Vault/General/Web/Research) ----
+// Radian is a companion, NOT a vault gatekeeper: it answers generally with Claude when the
+// vault is thin, and only restricts to the vault when asked. Web/Research go through the
+// governed seam; live web is gated by WEB_RESEARCH=on (else honest "not configured", no fake
+// sources). secret/internal nodes are excluded from context in every mode.
+type ChatMode = "auto" | "vault" | "general" | "web" | "research";
+function inferMode(q: string): Exclude<ChatMode, "auto"> {
+  const t = q.toLowerCase();
+  if (/\b(based on|from|in) (my|the) (vault|notes|captures|atlas|graph)\b|\bmy vault\b/.test(t)) return "vault";
+  if (/\b(research|latest|current|recent|news|find|search|sources?|cite|repo|repository|github|gitlab|arxiv|article|paper|reel|tiktok|youtube|on the web|online)\b/.test(t)) return "research";
+  return "general"; // default: answer, never refuse
+}
+
 radianRouter.post("/chat", async (req: Authed, res) => {
   const uid = req.userId!;
   const question = String(req.body?.question || "").trim().slice(0, 1000);
   if (!question) return res.status(400).json({ error: "question_required" });
+  const history = (Array.isArray(req.body?.history) ? req.body.history : [])
+    .slice(-6).map((h: { role?: string; text?: string }) => ({ role: h.role === "you" ? "User" : "Radian", text: String(h.text || "").slice(0, 600) }));
+  const mode = (["auto", "vault", "general", "web", "research"].includes(String(req.body?.mode)) ? String(req.body?.mode) : "auto") as ChatMode;
+  const resolvedMode = mode === "auto" ? inferMode(question) : mode;
+  const wantWeb = resolvedMode === "web" || resolvedMode === "research";
+  const webConfigured = process.env.WEB_RESEARCH === "on"; // flip on once a real web tool is wired
 
+  // Vault retrieval (research-safe only) — context for vault/web/research and connection for general.
   const sem = await semanticNeighbors(uid, question, 12).catch(() => ({ matches: [] as { subject_id: string; score: number }[] }));
-  const nodes = await repo.nodes.list(uid); // mvs DESC
+  const nodes = await repo.nodes.list(uid);
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const safe = (n: typeof nodes[number]) => isResearchSafe(String((n as { meta?: { sensitivity?: string } }).meta?.sensitivity || "private"));
   let picked = sem.matches.map((m) => byId.get(m.subject_id)).filter((n): n is typeof nodes[number] => !!n).filter(safe).slice(0, 8);
-  if (picked.length === 0) picked = nodes.filter(safe).slice(0, 8); // fallback: top by mvs
-  const context = picked.map((n) => `- ${n.title}: ${(n.summary || "").slice(0, 280)}`).join("\n") || "(the vault is empty)";
+  if (picked.length === 0 && resolvedMode === "vault") picked = nodes.filter(safe).slice(0, 8);
+  const ctx = picked.map((n) => `- ${n.title}: ${(n.summary || "").slice(0, 280)}`).join("\n");
+  const convo = history.length ? history.map((h: { role: string; text: string }) => `${h.role}: ${h.text}`).join("\n") + "\n\n" : "";
+
+  let system: string;
+  if (resolvedMode === "vault") {
+    system = "You are Radian, the owner's personal intelligence. Answer ONLY from the vault context. State what IS known; if something isn't covered, say so plainly — don't invent. Be a helpful assistant, not a gatekeeper.";
+  } else {
+    const webClause = wantWeb && !webConfigured
+      ? " Live web research is NOT available right now, so rely on general knowledge and DO NOT claim current/web-verified facts or cite sources you can't see."
+      : "";
+    system = `You are Radian, the owner's personal intelligence OS — a sharp, candid companion.${webClause} Answer the question directly and usefully with your general reasoning first. Then, if the vault context is relevant, add a short "In your Indigold context:" paragraph connecting it to their work. Never refuse for lack of vault context. Never invent sources.`;
+  }
+  const prompt = `${convo}VAULT CONTEXT${resolvedMode === "vault" ? "" : " (may be empty — use only if relevant)"}:\n${ctx || "(none)"}\n\nQUESTION: ${question}`;
 
   let answer = "";
   let provider = "deterministic";
   try {
     const r = await repo.governedComplete({
-      userId: uid, tier: "strong", task: "synthesis", purpose: "chat",
-      system: "You are Radian, the owner's personal intelligence OS. Answer the question using ONLY the vault context provided; be concise and direct; if the context doesn't cover it, say so plainly. Never invent facts or sources.",
-      prompt: `VAULT CONTEXT:\n${context}\n\nQUESTION: ${question}`,
+      userId: uid, tier: "strong", task: wantWeb ? "research" : "synthesis", purpose: "chat", system, prompt,
     });
     provider = r.provider;
     answer = r.text || "";
   } catch (e) {
     answer = e instanceof BudgetExceededError ? "Budget governor reached — I've paused model calls to avoid overspending. Try again next cycle." : "";
   }
+
+  const grounding = resolvedMode === "vault" ? "vault" : ctx ? "mixed" : "general";
   res.json({
-    answer: answer || "I don't have enough in your vault to answer that yet — capture more and ask again.",
+    answer: answer || "Let me try that another way — could you rephrase, or pick a mode (Vault / General / Research)?",
+    mode: resolvedMode,
+    grounding,
     provider,
     deterministic: provider === "deterministic",
+    usedWeb: wantWeb && webConfigured,
+    webNote: wantWeb && !webConfigured ? "Web research isn't configured — answered with general reasoning. Save it as a research task to queue for later." : undefined,
     sources: picked.slice(0, 5).map((n) => ({ id: n.id, title: n.title })),
   });
+});
+
+// Save a Radian answer to the vault (reuses the capture→ingest pipeline so it's
+// classified, connected, and searchable like anything else).
+radianRouter.post("/remember", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const question = String(req.body?.question || "").trim().slice(0, 200);
+  const answer = String(req.body?.answer || "").trim();
+  if (!answer) return res.status(400).json({ error: "answer_required" });
+  const capId = id("cap");
+  await repo.captures.create({
+    id: capId, user_id: uid, type: "manual_text", source: "radian_chat",
+    captured_at: new Date().toISOString(), truth_layer: "A", status: "inbox",
+    sensitivity: "internal", processing_status: "unprocessed",
+    title: question || "Radian answer", note: answer, url: null, screenshot_ref: null,
+  });
+  const j = await enqueue("ingest_capture", uid, { captureId: capId });
+  await repo.jobs.record({ id: j.id, user_id: uid, type: j.type, status: "queued", payload: j.payload });
+  await repo.emitEvent({ user_id: uid, actor: "user", event_type: "capture_created", subject_type: "capture", subject_id: capId, correlation_id: capId, payload: { source: "radian_chat" } });
+  res.json({ ok: true, capture: capId });
 });
 
 // ---- Living OS G10: Companion — the spoken commander's briefing (deterministic) ----

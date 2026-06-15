@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
-import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, getBriefing, type BackendCapture } from "@/lib/api";
+import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, getBriefing, type BackendCapture, type ChatMode } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
 import { speak, stopSpeaking, canSpeak, canListen, listenOnce } from "@/lib/speech";
 import { toast } from "sonner";
@@ -52,29 +52,45 @@ export default function Companion() {
   const [, navigate] = useLocation();
   const [found, setFound] = useState<Found[]>([]);
   const [asking, setAsking] = useState<string | null>(null);
-  // Free-form conversation with Radian, grounded in the vault (this-session transcript).
-  const [chat, setChat] = useState<{ role: "you" | "radian"; text: string; sources?: { id: string; title: string }[]; deterministic?: boolean }[]>([]);
+  // Free-form conversation with Radian (this-session transcript, multi-turn).
+  type Msg = { role: "you" | "radian"; text: string; q?: string; sources?: { id: string; title: string }[]; deterministic?: boolean; mode?: string; grounding?: string; webNote?: string; usedWeb?: boolean; saved?: boolean };
+  const [chat, setChat] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [voice, setVoice] = useState(false); // speak Radian's replies aloud
   const [briefing, setBriefing] = useState(false);
+  const [mode, setMode] = useState<ChatMode>("auto"); // brain mode
 
   async function sendChat(override?: string, speakBack?: boolean) {
     const q = (override ?? input).trim();
     if (!q || chatBusy) return;
     setInput("");
+    const history = chat.slice(-6).map((m) => ({ role: m.role, text: m.text }));
     setChat((c) => [...c, { role: "you", text: q }]);
     setChatBusy(true);
     try {
-      const r = await chatRadian(q);
+      const r = await chatRadian(q, mode, history);
       const text = r ? r.answer : "I couldn't reach the model (offline, or the API is waking — try again in ~30s).";
-      setChat((c) => [...c, r ? { role: "radian", text, sources: r.sources, deterministic: r.deterministic } : { role: "radian", text }]);
+      setChat((c) => [...c, r
+        ? { role: "radian", text, q, sources: r.sources, deterministic: r.deterministic, mode: r.mode, grounding: r.grounding, webNote: r.webNote, usedWeb: r.usedWeb }
+        : { role: "radian", text, q }]);
       if ((speakBack || voice) && canSpeak()) speak(text);
     } finally {
       setChatBusy(false);
     }
   }
+
+  async function saveMsg(idx: number) {
+    const m = chat[idx];
+    if (!m || m.role !== "radian" || m.saved) return;
+    const ok = await rememberRadian(m.q || "Radian answer", m.text);
+    if (ok) { setChat((c) => c.map((x, i) => (i === idx ? { ...x, saved: true } : x))); toast.success("Saved to vault"); }
+    else toast.error("Couldn't save");
+  }
+
+  const MODE_LABEL: Record<string, string> = { auto: "Auto", vault: "Vault", general: "General", web: "Vault + Web", research: "Research" };
+  const GROUND_LABEL: Record<string, string> = { vault: "Vault-grounded", mixed: "General + your vault", general: "General reasoning — not live web-verified" };
 
   // Voice question → transcribe → ask → speak the answer back (hands-free).
   function micTap() {
@@ -185,25 +201,50 @@ export default function Companion() {
           {chatBusy ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <ArrowUp size={18} strokeWidth={2} />}
         </button>
       </div>
-      {canSpeak() && (
-        <button onClick={() => { setVoice((v) => { if (v) stopSpeaking(); return !v; }); }} className="press inline-flex items-center gap-1.5 mb-4 cap-data" style={{ color: voice ? "var(--gold)" : "var(--text-dim)" }}>
-          {voice ? <Volume2 size={12} strokeWidth={1.5} /> : <VolumeX size={12} strokeWidth={1.5} />} {voice ? "Radian speaks replies" : "Replies are silent"}
-        </button>
-      )}
+      {/* Brain mode — how Radian should answer (Auto infers from the question). */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="flex gap-1.5 overflow-x-auto">
+          {(["auto", "vault", "general", "web", "research"] as ChatMode[]).map((mk) => (
+            <button key={mk} onClick={() => setMode(mk)} className="press shrink-0 px-2.5 py-1 text-[11px] font-semibold" style={{ borderRadius: 999, border: `1px solid ${mode === mk ? "var(--gold-line)" : "var(--line)"}`, color: mode === mk ? "var(--gold)" : "var(--text-dim)" }}>
+              {MODE_LABEL[mk]}
+            </button>
+          ))}
+        </div>
+        {canSpeak() && (
+          <button onClick={() => { setVoice((v) => { if (v) stopSpeaking(); return !v; }); }} className="press inline-flex items-center gap-1.5 ml-auto cap-data" style={{ color: voice ? "var(--gold)" : "var(--text-dim)" }}>
+            {voice ? <Volume2 size={12} strokeWidth={1.5} /> : <VolumeX size={12} strokeWidth={1.5} />} {voice ? "Speaks" : "Silent"}
+          </button>
+        )}
+      </div>
 
       {chat.length > 0 && (
         <div className="space-y-2 mb-5">
           {chat.map((m, i) => (
             <div key={i} className={m.role === "you" ? "flex justify-end" : ""}>
               <div className="p-3" style={{ borderRadius: 12, maxWidth: "92%", background: m.role === "you" ? "var(--surface-2)" : "var(--surface)", border: `1px solid ${m.role === "you" ? "var(--line)" : "var(--gold-line)"}` }}>
-                {m.role === "radian" && <div className="cap-data mb-1 inline-flex items-center gap-1" style={{ color: "var(--gold)" }}><Sparkles size={10} strokeWidth={1.5} /> Radian{m.deterministic ? " · deterministic" : ""}</div>}
+                {m.role === "radian" && (
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                    <span className="cap-data inline-flex items-center gap-1" style={{ color: "var(--gold)" }}><Sparkles size={10} strokeWidth={1.5} /> Radian</span>
+                    {m.mode && <span className="cap-data px-1.5 py-0.5" style={{ borderRadius: 5, border: "1px solid var(--line)", color: "var(--text-dim)" }}>{MODE_LABEL[m.mode] || m.mode}</span>}
+                    {m.usedWeb && <span className="cap-data" style={{ color: "var(--good)" }}>web</span>}
+                    {m.deterministic && <span className="cap-data" style={{ color: "var(--gold)" }}>deterministic</span>}
+                  </div>
+                )}
                 <p style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text)", whiteSpace: "pre-wrap" }}>{m.text}</p>
+                {m.role === "radian" && m.grounding && (
+                  <p className="cap-data mt-1.5" style={{ color: "var(--text-dim)" }}>{GROUND_LABEL[m.grounding] || m.grounding}{m.webNote ? ` · ${m.webNote}` : ""}</p>
+                )}
                 {m.sources && m.sources.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {m.sources.map((s) => (
                       <Link key={s.id} href={`/atlas?focus=${encodeURIComponent(s.id)}`} className="press text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)", maxWidth: 180 }}>{s.title}</Link>
                     ))}
                   </div>
+                )}
+                {m.role === "radian" && (
+                  <button onClick={() => void saveMsg(i)} disabled={m.saved} className="press inline-flex items-center gap-1 mt-2 cap-data" style={{ color: m.saved ? "var(--good)" : "var(--text-dim)" }}>
+                    {m.saved ? <Check size={11} strokeWidth={1.5} /> : <BookOpen size={11} strokeWidth={1.5} />} {m.saved ? "Saved to vault" : "Save to vault"}
+                  </button>
                 )}
               </div>
             </div>

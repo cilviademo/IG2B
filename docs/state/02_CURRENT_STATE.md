@@ -1,4 +1,6 @@
-> **HANDS-FREE RADIAN (latest):** JARVIS-style voice — the Radian chat has a **mic** (speech-to-text → ask → speak the answer), a **"Radian speaks replies"** toggle, and a header **"Brief me"** that speaks the live `/radian/briefing`. Browser-native (`lib/speech.ts`), no backend/cost; gated by `canListen()`/`canSpeak()`, silent degrade. matrix 459/459; builds green. Device features → owner confirms on iPhone.
+> **RADIAN BRAIN MODES (latest):** fixed the "vault-only gatekeeper" — `/radian/chat` now has answer modes **Auto · Vault · General · Vault+Web · Research** (selector on the Companion, Auto default). Auto infers; **General is the no-refuse default** (answers with Claude reasoning, then "In your Indigold context:" connection). Honest web (stub) → "Web research isn't configured — save as research task," no fake sources; real web via `WEB_RESEARCH=on`. Multi-turn (last 6 turns), per-reply labels (mode/grounding/web/deterministic/sources), **Save to vault** (`/radian/remember` → capture→ingest). Privacy: secret/internal excluded from context in all modes. matrix 459/459; builds green. Streaming (SSE) deferred.
+
+> **HANDS-FREE RADIAN:** JARVIS-style voice — the Radian chat has a **mic** (speech-to-text → ask → speak the answer), a **"Radian speaks replies"** toggle, and a header **"Brief me"** that speaks the live `/radian/briefing`. Browser-native (`lib/speech.ts`), no backend/cost; gated by `canListen()`/`canSpeak()`, silent degrade. matrix 459/459; builds green. Device features → owner confirms on iPhone.
 
 > **CONVERSATIONAL RADIAN:** new `POST /radian/chat` = ask-anything over the vault — retrieves relevant research-safe nodes (`semanticNeighbors` → top-MVS fallback), answers via `governedComplete` (budget+provider; secret/internal excluded from context), returns cited **sources**. Companion home now has a prominent **"Ask Radian anything"** chat (transcript + source chips → node) — the ChatGPT/Perplexity-over-your-vault surface. Plus one-tap **deepen** (Research/Explain/Convene) on "What I found" cards. matrix 459/459; builds green; headless-verified. Live answers need the deployed worker + provider key.
 
@@ -24,7 +26,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: radian-voice · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: radian-modes · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

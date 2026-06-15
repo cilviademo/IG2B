@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: radian-voice · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: radian-modes · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -475,3 +475,13 @@ commit(s) · what/why · live-test status).
 - **Voice + speech** (`lib/speech.ts`, browser-native, no backend/cost): the Radian chat gains a **mic** (SpeechRecognition → transcribe → ask → speak the answer back), a **"Radian speaks replies"** toggle (SpeechSynthesis), and a header **"Brief me"** that speaks the live `/radian/briefing` (the JARVIS morning brief). Speech stops on leave. All best-effort: `canListen()`/`canSpeak()` gate the controls, silent degrade where unsupported.
 - This makes the front door a true conversational OS — talk to Radian, it answers aloud with vault-grounded sources.
 - **Verified (sandbox):** typecheck:all + pwa build green; matrix 459/459; headless `/companion` shows mic + Brief me + speak toggle. Voice/speech are device features → owner confirms on iPhone.
+
+### 2026-06-15 · claude (Claude Code) · `main` — Radian brain modes (Vault/General/Web/Research) + multi-turn + save
+- **Fixes "Radian refuses general questions" (vault-only gatekeeper):** `/radian/chat` rewritten with **answer modes** — `auto` (infers), `vault` (vault-only), `general` (Claude reasoning, no vault required), `web`/`research`. **General is the default** when Auto can't tell, so it never refuses for missing vault context; it answers generally then adds an "In your Indigold context:" connection when relevant. Auto-inference keys per spec ("based on my vault"→vault; research/latest/find/source/repo/article/reel/…→research).
+- **Honest web:** `web_search` is still a stub, so web/research modes answer with general reasoning + an honest **"Web research isn't configured — save as a research task"** note (no fabricated sources). Real web flips on via `WEB_RESEARCH=on` once a tool is wired (governed seam; never called from the frontend).
+- **Labeling (spec #3):** every reply returns `mode`, `grounding` (vault/mixed/general → "General reasoning — not live web-verified"), `usedWeb`, `deterministic`, `sources`; the Companion shows mode chips + these labels.
+- **Multi-turn ("Go"):** last 6 turns sent as history → real conversation, not one-shot.
+- **Save (spec #6):** `POST /radian/remember` saves an answer via the capture→ingest pipeline (classified, connected, searchable); "Save to vault" on each reply.
+- **UI (spec #2):** mode selector (Auto default) — Auto · Vault · General · Vault + Web · Research.
+- **Privacy (spec #8):** secret/internal nodes excluded from context in ALL modes → never sent to the model.
+- **Verified (sandbox):** typecheck:all + api + pwa builds green; matrix 459/459; headless `/companion` shows the mode selector. Live answers/modes need the deployed worker + provider key (+ `WEB_RESEARCH=on` for live web). Streaming responses deferred (SSE) — noted as next.

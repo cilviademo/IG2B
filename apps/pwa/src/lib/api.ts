@@ -198,21 +198,45 @@ export const lastSyncError = () => lastSyncErr;
 
 /** Push one capture to the backend (creates a capture -> enqueues worker pipeline).
  *  Auto-recovers a stale/evicted session (401 -> re-mint -> retry once). */
-export interface ChatReply { answer: string; deterministic: boolean; sources: { id: string; title: string }[] }
-/** Ask Radian anything across the vault (grounded, synchronous). */
-export async function chatRadian(question: string): Promise<ChatReply | null> {
+export type ChatMode = "auto" | "vault" | "general" | "web" | "research";
+export interface ChatReply {
+  answer: string;
+  mode: Exclude<ChatMode, "auto">;
+  grounding: "vault" | "mixed" | "general";
+  deterministic: boolean;
+  usedWeb: boolean;
+  webNote?: string;
+  sources: { id: string; title: string }[];
+}
+/** Ask Radian anything with a brain mode (Auto/Vault/General/Web/Research) + short history. */
+export async function chatRadian(question: string, mode: ChatMode = "auto", history: { role: string; text: string }[] = []): Promise<ChatReply | null> {
   if (!apiEnabled()) return null;
   if (!getToken() && !(await ensureSession())) return null;
   try {
     const res = await fetch(`${BASE}/radian/chat`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, mode, history }),
     });
     if (!res.ok) return null;
     return (await res.json()) as ChatReply;
   } catch {
     return null;
+  }
+}
+
+/** Persist a Radian answer to the vault (capture → ingest pipeline). */
+export async function rememberRadian(question: string, answer: string): Promise<boolean> {
+  if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return false;
+  try {
+    const res = await fetch(`${BASE}/radian/remember`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ question, answer }),
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }
 
