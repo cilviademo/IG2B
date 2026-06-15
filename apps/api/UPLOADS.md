@@ -59,10 +59,12 @@ parallel branch for files, so a shared screenshot/PDF/video POSTs its bytes:
    - **Get Contents of URL** with:
      - **URL:** `https://indigold-api.onrender.com/capture/upload`
      - **Method:** `POST`
-     - **Headers:** `Authorization` = `Bearer <YOUR_DEVICE_TOKEN>`
-       *(get this token once: open the PWA → it auto-registers a device session;
-       read `localStorage.indigold_token` in Safari Web Inspector, or expose it via
-       a small in-app "Copy API token" button — ask and I'll add one.)*
+     - **Headers:** `Authorization` = `Bearer <YOUR_CAPTURE_TOKEN>`
+       **Recommended: use a SCOPED capture token, not your device session token.**
+       Generate one in **More → Diagnostics → Capture tokens → Generate** (shown once;
+       copy it into the Shortcut). A capture token can ONLY create captures — if it leaks
+       it cannot read, delete, export, chat, or sign asset URLs. Revoke it anytime there.
+       (The full device session token also works but grants the whole vault — avoid it.)
      - **Request Body:** **Form**
        - Add field **`file`** → type **File** → value **Shortcut Input** (the shared file)
        - (optional) field **`title`** → *Shortcut Input Name*

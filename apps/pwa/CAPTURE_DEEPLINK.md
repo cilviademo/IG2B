@@ -145,8 +145,12 @@ link/text. Add a branch on the shared content type:
    - **URL:** `https://indigold-pwa.onrender.com` is the PWA; the **file endpoint
      is the API host** — `https://indigold-api.onrender.com/capture/upload`.
    - **Method:** `POST`
-   - **Headers:** `Authorization` = `Bearer <your device token>` (copy it once from
-     **I/O → Device token → Copy**; it's the silent per-device account token).
+   - **Headers:** `Authorization` = `Bearer <your CAPTURE token>`.
+     **Recommended: a SCOPED capture token** (More → Diagnostics → Capture tokens →
+     Generate; shown once). It can ONLY create captures — safe to embed in a Shortcut;
+     revoke anytime. (A text-only Shortcut can POST to `/capture/text` with
+     `{note,title?,url?}` using a `capture:text` token.) The device session token also
+     works but grants the whole vault — prefer the scoped token.
    - **Request Body:** `Form`
      - `file` → the **Shortcut Input** (the shared image/PDF/audio) — *field name
        must be `file`*

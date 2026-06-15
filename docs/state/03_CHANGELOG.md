@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: security-prompt-injection · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: scoped-capture-token · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -594,3 +594,10 @@ commit(s) · what/why · live-test status).
 - **Finding A — one all-powerful bearer token (OPEN, owner decision).** `requireAuth`/`readSession` carry no scope; a leaked iOS-Shortcut token grants the whole vault. Proposed fix: a separate **hashed capture-only token** — additive, **without** changing the `/capture?raw=…` link path (constraint #1). Queued in `07_ROADMAP.md` pending the owner's call on token-issuance UX (needs a small `capture_tokens` schema add + UI).
 - **Forward proposals** (evidence connector framework, claims layer, freshness, contradictions/Tensions, negative knowledge, "why did Radian show me this?", World Lens/Research Inbox/Watchlists) mirrored into `07_ROADMAP.md` with a Phase 0→5 build order.
 - **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **541/541**.
+
+### 2026-06-15 · claude (Claude Code) · `claude/scoped-capture-token` (PR) — Security Finding A: scoped capture-only token
+- **Resolves Finding A.** A leaked iOS-Shortcut bearer no longer risks the whole vault: new **hashed, scoped capture token** (`capture_tokens` table — additive to schema.sql + regenerated schema.ts; raw shown once, only sha256 stored). New `requireAuthOrCapture(scope)` accepts a session **or** a scoped capture token; it's applied to **only** the ingest endpoints, and `requireAuth` (session-only) stays on every other route — so a capture token authenticates **nowhere else** (no reads/delete/export/chat/signed-assets). Pure scope helpers (`capture-scopes.ts`: `CAPTURE_SCOPES`, `tokenHasScope`, `normalizeCaptureScopes`) + `capture-scopes-verify` (10).
+- **Endpoints:** `POST /capture/upload` (file) + new `POST /capture/text` (`{note,title?,url?}`) both accept the scoped token; `GET /assets/:id/url` is now **session-only**. Management (session-gated): `POST/GET /radian/capture-tokens`, `POST /radian/capture-tokens/:id/revoke`.
+- **PWA:** **More → Diagnostics → Capture tokens** — Generate (raw shown once + copy), list with scopes/last-used, revoke. Shortcut docs (`UPLOADS.md`, `CAPTURE_DEEPLINK.md`) updated to recommend the scoped token.
+- **Constraint #1 honored:** the `/capture?raw=…` link/text path is **untouched** (this is additive). `reset-vault` preserves `capture_tokens` (auth-adjacent, like sessions).
+- **Verified (sandbox):** typecheck:all + build:all green; matrix **551/551**; schema.sql↔schema.ts in sync. Owner device-gate: generate a token, use it in the Shortcut → capture works; confirm it's rejected on a non-capture route.
