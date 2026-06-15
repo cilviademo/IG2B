@@ -119,6 +119,13 @@ export const nodes = {
   async setMeta(userId: string, id: string, meta: object) {
     await query(`UPDATE nodes SET meta=$3, updated_at=now() WHERE user_id=$1 AND id=$2`, [userId, id, JSON.stringify(meta)]);
   },
+  // Merge an owner-feedback signal into meta.feedback (used for arrival-card ranking).
+  async setFeedback(userId: string, id: string, feedback: object) {
+    await query(
+      `UPDATE nodes SET meta = meta || jsonb_build_object('feedback', $3::jsonb), updated_at=now() WHERE user_id=$1 AND id=$2`,
+      [userId, id, JSON.stringify(feedback)],
+    );
+  },
   // Idempotent theme node (Stage 9): one per (user, tag), refreshed each consolidation.
   async upsertTheme(userId: string, tag: string, nodeIds: string[]) {
     const tid = `theme_${userId.slice(-8)}_${tag.replace(/[^a-z0-9]/gi, "").slice(0, 24)}`;

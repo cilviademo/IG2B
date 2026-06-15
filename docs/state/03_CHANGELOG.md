@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: rich-arrival · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: finding-feedback · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -541,3 +541,7 @@ commit(s) · what/why · live-test status).
 - The Radian home arrival cards now read like an intelligent briefing, using data already fetched (no per-item LLM cost): **"Your note"** (why you saved it), the synthesis, **named + openable connections** (real graph neighbours via `derived_from`-excluded edges → tappable chips, not just a count), and **content-aware suggested prompts** (Key takeaway / Connect to my work / Skeptic's view) that open a grounded conversation (`sendChat`). AI-status copy softened to "Quick analysis · deeper reasoning unavailable" (setup lives in Settings/Diagnostics). Precise Research/Explain/Convene kept as secondary actions.
 - **Still to do (Sprint 2b):** useful/not-useful/wrong-connection feedback (needs a small store) + media lifecycle stages once the media worker is live.
 - **Verified (sandbox):** typecheck:all + pwa build green; matrix 484/484. Rich card content needs live data → owner sees it on device.
+
+### 2026-06-15 · claude (Claude Code) · `claude/finding-feedback` (PR) — Sprint 2b: durable finding feedback
+- Arrival cards gain **Useful / Not useful / Dismiss**. `POST /radian/feedback {nodeId,kind}` merges `{kind,at}` into `node.meta.feedback` (`nodes.setFeedback`, additive jsonb merge) + emits a `feedback` event (new `EventType`). **Dismiss persists** — dismissed findings are filtered from the "What I found" feed on every reload (won't resurface); useful/not-useful are recorded as ranking signal. Proposal-only — never deletes data.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix 484/484. Feeds the future Attention Queue (Sprint 4) ranking. Live feedback needs the deployed API → owner sees it on device.

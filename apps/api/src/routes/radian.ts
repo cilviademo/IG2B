@@ -276,6 +276,21 @@ radianRouter.post("/remember", async (req: Authed, res) => {
   res.json({ ok: true, capture: capId });
 });
 
+// Owner feedback on an arrival/finding (useful | not_useful | wrong_connection | dismiss).
+// Persisted on the node so it survives reload and feeds arrival-card ranking (dismissed
+// items stop resurfacing; "not useful" is demoted). Proposal-only: never deletes data.
+radianRouter.post("/feedback", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const nodeId = String(req.body?.nodeId || "");
+  const kind = String(req.body?.kind || "");
+  if (!nodeId || !["useful", "not_useful", "wrong_connection", "dismiss"].includes(kind)) {
+    return res.status(400).json({ error: "nodeId + valid kind required" });
+  }
+  await repo.nodes.setFeedback(uid, nodeId, { kind, at: new Date().toISOString() });
+  await repo.emitEvent({ user_id: uid, actor: "user", event_type: "feedback", subject_type: "node", subject_id: nodeId, correlation_id: nodeId, payload: { kind } });
+  res.json({ ok: true });
+});
+
 // ---- Living OS G10: Companion — the spoken commander's briefing (deterministic) ----
 // Assembles a "Jarvis" morning briefing from real signals (momentum, resurfaced, critical
 // quests, recommended focus, XP/streak). The PWA reads `speech` aloud. No LLM.

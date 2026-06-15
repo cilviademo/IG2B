@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX, MessageCircle } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX, MessageCircle, ThumbsUp, ThumbsDown, X } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
-import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, getBriefing, type BackendCapture, type ChatMode, type CompanionBriefing } from "@/lib/api";
+import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, radianFeedback, getBriefing, type BackendCapture, type ChatMode, type CompanionBriefing } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
 import { speak, stopSpeaking, canSpeak, canListen, listenOnce } from "@/lib/speech";
 import { toast } from "sonner";
@@ -11,8 +11,8 @@ import { toast } from "sonner";
 // "What I found" — the proactive arrival. Radian surfaces what it learned from your
 // recent shares (capture → enriched node), so the front door is "here's what I found,"
 // not a database you go dig through.
-interface Found { id: string; title: string; platform?: string; status: "reading" | "ready"; summary?: string; nodeId?: string; connectedNodes: { id: string; title: string }[]; note?: string; at: string; url?: string; reasoned?: boolean }
-type NodeRow = { id: string; title?: string; summary?: string; source_capture_id?: string; meta?: { reasoned?: boolean; web?: { url?: string }; media?: { url?: string } } };
+interface Found { id: string; title: string; platform?: string; status: "reading" | "ready"; summary?: string; nodeId?: string; connectedNodes: { id: string; title: string }[]; note?: string; at: string; url?: string; reasoned?: boolean; feedback?: string }
+type NodeRow = { id: string; title?: string; summary?: string; source_capture_id?: string; meta?: { reasoned?: boolean; web?: { url?: string }; media?: { url?: string }; feedback?: { kind?: string } } };
 type EdgeRow = { source_id: string; target_id: string; relationship?: string };
 
 const PLATFORM: { test: RegExp; name: string }[] = [
@@ -160,6 +160,16 @@ export default function Companion() {
     }
   }
 
+  // Owner feedback on a finding → records a ranking signal. Dismiss removes it from the
+  // feed (persisted, so it won't resurface); others mark it. Optimistic.
+  async function giveFeedback(f: Found, kind: string) {
+    if (!f.nodeId) return;
+    setFound((prev) => kind === "dismiss" ? prev.filter((x) => x.id !== f.id) : prev.map((x) => (x.id === f.id ? { ...x, feedback: kind } : x)));
+    const ok = await radianFeedback(f.nodeId, kind);
+    if (!ok) toast.error("Couldn't save feedback");
+    else if (kind === "dismiss") toast("Dismissed", { description: "It won't resurface here." });
+  }
+
   // Pull recent shares + their enriched nodes → "what I found".
   const loadFound = useCallback(async () => {
     if (!apiEnabled()) return;
@@ -190,9 +200,11 @@ export default function Companion() {
         connectedNodes: node ? neighbors(node.id) : [],
         note: (c.note || "").trim() || undefined,
         at: c.captured_at, url: c.url ?? undefined, reasoned: node?.meta?.reasoned,
+        feedback: node?.meta?.feedback?.kind,
       };
     });
-    setFound(items);
+    // Dismissed findings stay dismissed across reloads (persisted on the node).
+    setFound(items.filter((f) => f.feedback !== "dismiss"));
   }, []);
 
   useEffect(() => {
@@ -395,6 +407,21 @@ export default function Companion() {
                           <Users size={11} strokeWidth={1.5} /> Convene
                         </button>
                       </div>
+                    )}
+                    {/* Feedback — a ranking signal; dismiss won't resurface. */}
+                    {f.nodeId && (
+                      f.feedback && f.feedback !== "dismiss" ? (
+                        <div className="cap-data mt-2 inline-flex items-center gap-1" style={{ color: "var(--text-dim)" }}>
+                          <Check size={11} strokeWidth={1.5} /> {f.feedback === "useful" ? "Marked useful" : f.feedback === "not_useful" ? "Marked not useful" : "Noted"}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 mt-2 pt-2" style={{ borderTop: "1px solid var(--line)" }}>
+                          <span className="cap-data" style={{ color: "var(--text-dim)" }}>helpful?</span>
+                          <button onClick={() => void giveFeedback(f, "useful")} className="press inline-flex items-center gap-1 cap-data" style={{ color: "var(--text-dim)" }}><ThumbsUp size={12} strokeWidth={1.5} /> Useful</button>
+                          <button onClick={() => void giveFeedback(f, "not_useful")} className="press inline-flex items-center gap-1 cap-data" style={{ color: "var(--text-dim)" }}><ThumbsDown size={12} strokeWidth={1.5} /> Not useful</button>
+                          <button onClick={() => void giveFeedback(f, "dismiss")} className="press inline-flex items-center gap-1 cap-data ml-auto" style={{ color: "var(--text-dim)" }}><X size={12} strokeWidth={1.5} /> Dismiss</button>
+                        </div>
+                      )
                     )}
                   </>
                 )}
