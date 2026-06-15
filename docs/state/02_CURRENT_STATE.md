@@ -76,9 +76,11 @@
 
 # Current State
 
+> **BOARDROOM PERSONA ENRICHMENT (PR `claude/persona-library`, latest):** enriched the deterministic council with 5 opt-in lenses (Security/Privacy Auditor · Reality Checker · Research Synthesizer · Systems Architect · Product Manager) via `boardroom(…, { extended: true })`; default stays the classic 6. Deterministic-first (no key needed); live upgrade still only via `governedComplete`. `boardroom-verify` (24) → matrix **739/739**; no schema/API change.
+
 > **MCP CONNECTOR SEAM — DORMANT (PR `claude/mcp-seam`):** typed contract for future MCP tools (Zapier etc.) — NO live connection/credentials/network/writes. Pure `mcp.ts` (`McpToolMeta`/`McpConnector`/`mcpGate` default-deny/`fenceMcpResult`/`stubMcpConnector`) + `mcp-verify` (19) + `20_MCP_CONNECTOR_SEAM.md`. Default-deny; writes need enable+`mcp:write`+confirmation; results untrusted+fenced; never bypasses `governedComplete`. matrix **730/730**; no schema/wiring. Live = owner-approved future PR.
 
-`Last updated: 2026-06-15 · Commit: mcp-seam · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: persona-library · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 
