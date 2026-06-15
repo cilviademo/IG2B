@@ -125,6 +125,7 @@ export interface Job<T = Record<string, unknown>> {
   user_id: string;
   payload: T;
   enqueued_at: string;
+  attempts?: number; // incremented on each failed handler run; dead-lettered past the cap
 }
 
 export interface User {

@@ -1,4 +1,6 @@
-> **LOGIN FIX (latest):** the token-only security change **broke sign-in/re-auth** (claimed-guard refused silent re-auth + creds no longer stored), so a claimed user couldn't get back in after sign-out/token-loss. **Reverted to the working login flow** per owner: `ensureSession` re-auths from stored `indigold_device` creds; `claim`/`login` persist creds again; claimed-guard removed. **Auth debugging added:** login/claim surface the exact HTTP status + server body + hints; AccountPanel shows a persistent error line. Tradeoff: the plaintext-password P0 returns (deliberate, to restore working login) — safer token-only re-do is re-queued in the reliability gate. matrix 465/465; builds green. CORS toggle (`CORS_ALLOW_ONRENDER=false`) + CI + fatal-migrations from the security pass stay.
+> **QUEUE DURABILITY (latest):** reliability-gate item — job queue now has **bounded retries** (failing handler re-queues to head with `attempts++` until cap=3, then dead-letters; was straight-to-dead) + **crash recovery** (`recoverStale` requeues orphaned `:processing` jobs at startup for the embedded/standalone/media workers). `queue-verify` extended to 12 checks → matrix **469/469**; builds green. Perf guard (dedicated Redis connection) untouched.
+
+> **LOGIN FIX:** the token-only security change **broke sign-in/re-auth** (claimed-guard refused silent re-auth + creds no longer stored), so a claimed user couldn't get back in after sign-out/token-loss. **Reverted to the working login flow** per owner: `ensureSession` re-auths from stored `indigold_device` creds; `claim`/`login` persist creds again; claimed-guard removed. **Auth debugging added:** login/claim surface the exact HTTP status + server body + hints; AccountPanel shows a persistent error line. Tradeoff: the plaintext-password P0 returns (deliberate, to restore working login) — safer token-only re-do is re-queued in the reliability gate. matrix 465/465; builds green. CORS toggle (`CORS_ALLOW_ONRENDER=false`) + CI + fatal-migrations from the security pass stay.
 
 > **(superseded by Login fix) SECURITY PASS — TOKEN-ONLY AUTH + CORS TOGGLE:** plaintext-password P0 fixed — claimed/logged-in accounts are **token-only** (`claimAccount`/`loginAccount` set token + `indigold_account_email`, **remove `indigold_device`** → real password never persisted). `ensureSession` claimed-guard: lost token → "session expired", **no silent mint/fork**; **"Session expired — log in" banner** (Keychain autofills). CORS: `CORS_ALLOW_ONRENDER=false` drops the blanket `*.onrender.com` trust (default unchanged for PR previews). matrix 465/465; builds green. **Owner on-device: log in → force token loss → confirm re-login restores the SAME vault (no fork)** — critical auth path. Pairing (secondary) still carries a password by design.
 
@@ -34,7 +36,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: fix-login · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: queue-durability · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

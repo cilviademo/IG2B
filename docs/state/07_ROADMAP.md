@@ -8,7 +8,8 @@ source directive and the gate that unblocks/closes it.
 ## Reliability gate (Codex audit 2026-06-15) — address before the next big feature wave
 - **DONE:** blocking **CI**; **fatal migrations**; **plaintext-password fix** (claimed accounts are token-only — password never persisted; `ensureSession` re-prompts login instead of forking; "session expired" banner); **CORS** strict toggle (`CORS_ALLOW_ONRENDER=false` drops the blanket `*.onrender.com` trust).
 - **OWNER:** set `CORS_ALLOW_ONRENDER=false` on the API once `PWA_ORIGIN` is confirmed; on-device verify login + token-eviction re-login (no vault fork). Pairing (secondary) still carries a password by design.
-- **NEXT from the audit:** queue retries/crash recovery, e2e integration test, tested vault restore, structured observability, dependency hygiene. Tracked in `docs/REPOSITORY_AUDIT_2026-06-15.md` (Codex branch).
+- **DONE:** queue **bounded retries** (re-queue to head until cap=3, then dead-letter) + **crash recovery** (`recoverStale` requeues orphaned `:processing` jobs at worker startup).
+- **NEXT from the audit:** e2e integration test, tested vault restore, structured observability, dependency hygiene; the secure token-only auth re-do. Tracked in `docs/REPOSITORY_AUDIT_2026-06-15.md` (Codex branch).
 
 ## In-progress (open PRs — merge gate = owner live-test)
 - **File upload (PR #1 `claude/indigold-file-upload`)** — *in-progress.* PWA file picker +

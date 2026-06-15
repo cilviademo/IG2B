@@ -4,7 +4,7 @@
 // connection is injected via the `connect` test seam and the loop is bounded by
 // `maxIterations`.
 //   npx tsx packages/shared/scripts/queue-verify.ts   (run from repo root)
-import { consume } from "../src/queue";
+import { consume, recoverStale } from "../src/queue";
 import { redis } from "../src/redis";
 import type { Job, JobType } from "../src/types";
 
@@ -12,12 +12,15 @@ let pass = 0, fail = 0;
 const ok = (n: string, c: boolean, d = "") => { c ? (pass++, console.log(`PASS  ${n}`)) : (fail++, console.log(`FAIL  ${n}${d ? " — " + d : ""}`)); };
 
 function fakeClient(queue: string[]) {
-  const calls = { brpoplpush: 0, lrem: 0, lpush: 0 };
+  const calls = { brpoplpush: 0, lrem: 0, lpush: 0, rpoplpush: 0 };
+  const lpushes: { key: string; val: string }[] = [];
   const c = {
     calls,
+    lpushes,
     async brpoplpush() { calls.brpoplpush++; return queue.shift() ?? null; },
     async lrem() { calls.lrem++; return 1; },
-    async lpush() { calls.lpush++; return 1; },
+    async lpush(key: string, val: string) { calls.lpush++; lpushes.push({ key, val }); return 1; },
+    async rpoplpush() { calls.rpoplpush++; return queue.shift() ?? null; },
   };
   return c;
 }
@@ -49,12 +52,27 @@ async function main() {
   await consume(async () => {}, { connect: () => empty as never, maxIterations: 3 });
   ok("loop honored maxIterations (3 empty polls)", empty.calls.brpoplpush === 3);
 
-  // 4) A throwing handler dead-letters without killing the loop.
-  const dl = fakeClient([JSON.stringify(job)]);
+  // 4) A throwing handler RE-QUEUES (bounded retry) on first failure, not dead-letter.
+  const rq = fakeClient([JSON.stringify(job)]);
   let onErr = false;
-  await consume(async () => { throw new Error("boom"); }, { connect: () => dl as never, maxIterations: 1, onError: () => { onErr = true; } });
+  await consume(async () => { throw new Error("boom"); }, { connect: () => rq as never, maxIterations: 1, onError: () => { onErr = true; } });
   ok("handler failure routed to onError", onErr);
-  ok("failed job moved to dead list (lpush)", dl.calls.lpush === 1);
+  const last = rq.lpushes[rq.lpushes.length - 1];
+  ok("first failure re-queued to MAIN (not dead)", !!last && last.key === "indigold:jobs");
+  ok("re-queued job carries attempts=1", !!last && JSON.parse(last.val).attempts === 1);
+
+  // 5) A job at the attempt cap is dead-lettered (not retried forever).
+  const capJob: Job = { ...job, attempts: 2 };
+  const dl = fakeClient([JSON.stringify(capJob)]);
+  await consume(async () => { throw new Error("boom"); }, { connect: () => dl as never, maxIterations: 1 });
+  const lastDl = dl.lpushes[dl.lpushes.length - 1];
+  ok("job at attempt cap is dead-lettered", !!lastDl && lastDl.key === "indigold:jobs:dead");
+
+  // 6) Crash recovery requeues orphaned :processing jobs (RPOPLPUSH until empty).
+  const rec = fakeClient(["orphan_a", "orphan_b"]);
+  const n = await recoverStale("indigold:jobs", rec as never);
+  ok("recoverStale requeued all orphaned processing jobs", n === 2);
+  ok("recoverStale stops when processing is empty", rec.calls.rpoplpush === 3);
 
   redis().disconnect();
   console.log(`\n${pass} passed, ${fail} failed`);

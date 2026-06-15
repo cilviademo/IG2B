@@ -14,6 +14,10 @@ const QUEUE = "indigold:jobs";
 // no binaries for and dead-lettering it before the media-worker can take it.
 export const MEDIA_QUEUE = "indigold:jobs:media";
 
+// Bounded retries: a failing handler is re-queued (head of the main list, so other
+// jobs go first) until it has been attempted MAX_ATTEMPTS times, then dead-lettered.
+const MAX_ATTEMPTS = 3;
+
 export async function enqueue<T extends Record<string, unknown>>(
   type: JobType,
   userId: string,
@@ -73,11 +77,32 @@ export async function consume(handler: (job: Job) => Promise<void>, opts: Consum
       await r.lrem(processing, 1, raw);
     } catch (e) {
       opts.onError?.(e, job as Job);
-      // move back off the processing list for one retry, then drop to the dead list
       await r.lrem(processing, 1, raw);
-      await r.lpush(dead, raw);
+      // Bounded retry: re-queue with an incremented attempt count until the cap,
+      // then dead-letter. (Re-queues to the head so other jobs run first = backoff.)
+      const attempts = (job?.attempts ?? 0) + 1;
+      if (job && attempts < MAX_ATTEMPTS) {
+        await r.lpush(queue, JSON.stringify({ ...job, attempts }));
+      } else {
+        await r.lpush(dead, raw);
+      }
     }
   }
+}
+
+/** Crash recovery: requeue jobs orphaned in `<queue>:processing` by a worker that
+ *  died mid-handler. Call ONCE at startup, BEFORE consume (single consumer per queue,
+ *  so nothing is legitimately in-flight yet). Returns how many were recovered. */
+export async function recoverStale(queue: string = QUEUE, client = redis()): Promise<number> {
+  const processing = `${queue}:processing`;
+  let n = 0;
+  // RPOPLPUSH moves processing → main queue atomically; loop until empty (safety cap).
+  while (n < 10000) {
+    const moved = await client.rpoplpush(processing, queue);
+    if (!moved) break;
+    n++;
+  }
+  return n;
 }
 
 export async function queueDepth() {

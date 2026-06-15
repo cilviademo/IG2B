@@ -96,11 +96,13 @@ const port = Number(process.env.PORT || 7000);
 // self-scheduler inside this process. SCALED mode runs them as their own services.
 async function startEmbedded() {
   if (process.env.RUN_WORKER === "true") {
-    const [{ consume }, { handlers }, repo] = await Promise.all([
+    const [{ consume, recoverStale }, { handlers }, repo] = await Promise.all([
       import("@indigold/shared"),
       import("../../worker/src/jobs/handlers"),
       import("@indigold/db"),
     ]);
+    // Crash recovery: requeue jobs orphaned in :processing by a prior crash/restart.
+    await recoverStale().catch(() => {});
     consume(
       async (job) => {
         const h = handlers[job.type];

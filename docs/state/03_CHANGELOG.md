@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: fix-login · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: queue-durability · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -506,3 +506,8 @@ commit(s) · what/why · live-test status).
 - **Auth debugging (owner asked):** login/claim now surface the **exact** failure — HTTP status + server body (`bodyText`) + actionable hints ("invalid_credentials … if you never set a password, use Secure this vault"; 409 → "already in use by another account — use Log in"). AccountPanel shows a **persistent error line** (not just a toast) for on-device diagnosis. The Debug/Sync panel already shows the current device-account email + token presence.
 - **Security note:** this re-persists the password in localStorage (the plaintext-password P0 returns) — a deliberate revert to restore working login per owner. A safer re-implementation (token-only + reliable re-login, verified on device) is re-queued in the reliability gate.
 - **Verified (sandbox):** typecheck:all + pwa build green; matrix 465/465. **Owner on-device:** sign out → log in with the same email+password → should sign in; if it still fails, the on-screen error now states exactly why (status + server code).
+
+### 2026-06-15 · claude (Claude Code) · `main` — Queue durability: bounded retries + crash recovery
+- **Bounded retries:** a failing handler is now re-queued (to the head, so other jobs run first = natural backoff) with an incremented `Job.attempts`, until `MAX_ATTEMPTS=3`, then dead-lettered — previously a single failure went straight to the dead list.
+- **Crash recovery:** new `recoverStale(queue)` (RPOPLPUSH `:processing` → main until empty) runs ONCE at worker startup (embedded API worker, standalone worker, and media worker) to requeue jobs orphaned by a crash mid-handler (single consumer per queue, so nothing legit is in-flight at boot). Returns the count; logged.
+- **Verified (sandbox):** `queue-verify` extended (12 checks: retry re-queues to main w/ attempts=1; cap → dead-letter; recoverStale drains processing) → matrix **469/469**; typecheck:all + build:all green. The dedicated-connection perf guard is untouched.

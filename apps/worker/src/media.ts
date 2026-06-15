@@ -8,7 +8,7 @@
 // Runs in apps/media-worker/Dockerfile (Node + python3 + ffmpeg + yt-dlp + whisper),
 // NOT in the in-process API worker. Wired only when MEDIA_WORKER=on (see render.yaml).
 import * as repo from "@indigold/db";
-import { consume, enqueue, MEDIA_QUEUE, isResearchSafe, planIntake, type Job } from "@indigold/shared";
+import { consume, enqueue, recoverStale, MEDIA_QUEUE, isResearchSafe, planIntake, type Job } from "@indigold/shared";
 import {
   makeWorkDir, cleanup, fetchCaptions, downloadAudio, normalizeToWav,
   probeRemoteDurationSec, probeDurationSec, transcribeWav,
@@ -99,6 +99,9 @@ const mediaExtract = async (job: Job): Promise<void> => {
 };
 
 console.log(`[indigold-media-worker] starting; consuming ${MEDIA_QUEUE}; max ${MAX_MINUTES}min; advanced=${ADVANCED}`);
+
+// Crash recovery: requeue any media jobs orphaned in :processing by a prior crash.
+recoverStale(MEDIA_QUEUE).then((n) => { if (n) console.log(`[media-worker] recovered ${n} orphaned job(s)`); }).catch(() => {});
 
 consume(
   async (job) => {
