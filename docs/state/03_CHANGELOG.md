@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: adoption-docs · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: mcp-seam · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -694,3 +694,10 @@ commit(s) · what/why · live-test status).
 - **`19_LOCAL_FIRST_NOTES.md` (Part 4A):** OpenJarvis local-first/escalation idea as a *routing policy* inside `getTaskAdapter` (cheap/local first → escalate to Claude) — **deferred** (needs a local Ollama/box; the `ollama` provider seam already exists). No code.
 - **`21_SKILL_SCHEMA_EVAL.md` (Part 3):** honest recommendation — **don't retrofit** the 8-verb `VerbSpec` catalog (sufficient, adding agentskills ceremony buys nothing); define the typed skill/tool descriptor **at the MCP boundary** (Part 5) where external/untrusted tools actually need it. Report-only.
 - Indexed in `00_INDEX.md`. **Next:** `claude/mcp-seam` (dormant MCP connector contract + deterministic stub + verify), then personas.
+
+### 2026-06-15 · claude (Claude Code) · `claude/mcp-seam` (PR) — Dormant MCP connector seam (Part 5)
+- **A typed, DORMANT seam for future MCP tool servers (e.g. Zapier MCP) — no live connection, no credentials, no network, no writes.** Only a pure contract + a deterministic, network-free stub ship.
+- Pure `packages/shared/src/mcp.ts`: `McpToolMeta` (the typed skill descriptor — name/description/inputs/outputs/**read|write**/permissions/confirmation/cost/`enabled`), `McpServerIdentity` (`authHandleRef` = a reference only, never a secret), `McpConnector` (`listTools`/`callTool`), `McpCallResult` (**`untrusted: true` always**) + `McpProvenance` (append-only event shape), the pure **`mcpGate`** (default-deny), `fenceMcpResult` (untrusted-content guard via `fenceUntrusted`), and `stubMcpConnector` (canned reads, refuses writes without confirmation, no I/O). `mcp-verify` (19).
+- **Safety model:** connector + every tool disabled by default; reads need explicit enable + `mcp:read`; **writes need enable + `mcp:write` + per-action confirmation**; MCP results are untrusted (fenced before synthesis); secret/internal vault never sent without per-action approval; **no MCP call bypasses `governedComplete`**; no secrets to PWA/logs; every call emits provenance.
+- `20_MCP_CONNECTOR_SEAM.md`: architecture, contract, safety model, Zapier activation path (owner-approved, separate PR), future Render env handles, suggested first read-only tools.
+- **No schema change, no endpoint/worker wiring (truly dormant).** **Verified (sandbox):** typecheck:all + build:all green; matrix **730/730** (+19). Live connection requires explicit owner approval.

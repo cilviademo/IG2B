@@ -47,4 +47,5 @@ export * from "./wikipedia";
 export * from "./watchlists";
 export * from "./intent";
 export * from "./negative-knowledge";
+export * from "./mcp";
 export * from "./world-lens";

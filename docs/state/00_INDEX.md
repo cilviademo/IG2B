@@ -24,6 +24,7 @@ working code out of ignorance of history.
 | 9b | [`09_PHONE_GATES.md`](09_PHONE_GATES.md) | The per-subsystem phone-gate **checklist** (walk top-to-bottom, flip 🟡→🟢) |
 | 18 | [`18_BUILD_AGENTS.md`](18_BUILD_AGENTS.md) | Build-time Claude Code agents (dev accelerators; not runtime) |
 | 19 | [`19_LOCAL_FIRST_NOTES.md`](19_LOCAL_FIRST_NOTES.md) | Local-first / escalation routing idea (deferred) |
+| 20 | [`20_MCP_CONNECTOR_SEAM.md`](20_MCP_CONNECTOR_SEAM.md) | Dormant MCP connector seam design (no live connection) |
 | 21 | [`21_SKILL_SCHEMA_EVAL.md`](21_SKILL_SCHEMA_EVAL.md) | Skill-schema vs verb-catalog recommendation |
 
 **Minimum reading before any work:** `00_INDEX` → `02_CURRENT_STATE` → `08_CONSTRAINTS`
