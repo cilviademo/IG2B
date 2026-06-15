@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX, MessageCircle, ThumbsUp, ThumbsDown, X, Archive } from "lucide-react";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
-import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, radianFeedback, getBriefing, createConversation, listConversations, getConversation, archiveConversation, type BackendCapture, type ChatMode, type CompanionBriefing, type Conversation } from "@/lib/api";
+import { apiEnabled, fetchCaptures, getLiveNodes, getLiveEdges, askRadian, chatRadian, rememberRadian, radianFeedback, getBriefing, createConversation, listConversations, getConversation, archiveConversation, getAttention, type BackendCapture, type ChatMode, type CompanionBriefing, type Conversation, type AttentionItem } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
 import { speak, stopSpeaking, canSpeak, canListen, listenOnce } from "@/lib/speech";
 import { toast } from "sonner";
@@ -101,6 +101,14 @@ export default function Companion() {
     if (apiEnabled()) setConvos(await listConversations((q ?? convoQuery).trim() || undefined));
   }, [convoQuery]);
 
+  // Sprint 4 — Attention Queue ("what needs you now").
+  const [attention, setAttention] = useState<AttentionItem[]>([]);
+  const loadAttention = useCallback(async () => {
+    if (!apiEnabled()) return;
+    const r = await getAttention();
+    if (r) setAttention(r.queue);
+  }, []);
+
   // Resume a durable thread into the chat.
   async function openConvo(id: string) {
     const r = await getConversation(id);
@@ -119,6 +127,14 @@ export default function Companion() {
     if (!c) { toast.error("Couldn't open thread", { description: "offline or API asleep" }); return; }
     await openConvo(c.id);
     void loadConvos();
+  }
+
+  // Act on an attention item. "revisit" opens the node's thread (Sprint 3b tie-in); the
+  // rest route to the surface that resolves them (triage→Inbox, quests→Quests, review→Quests).
+  function doAttention(it: AttentionItem) {
+    if (it.action.verb === "discuss" && it.action.subjectId) { void discuss(it.action.subjectId, it.title); return; }
+    if (it.kind === "triage") return navigate("/inbox");
+    navigate("/quests"); // unblock · due · review
   }
 
   // Forget a thread (soft archive — never deletes the underlying vault data).
@@ -251,9 +267,10 @@ export default function Companion() {
   useEffect(() => {
     void loadFound();
     void loadConvos();
-    const off = onVaultSynced(() => { void loadFound(); void loadConvos(); });
+    void loadAttention();
+    const off = onVaultSynced(() => { void loadFound(); void loadConvos(); void loadAttention(); });
     return off;
-  }, [loadFound, loadConvos]);
+  }, [loadFound, loadConvos, loadAttention]);
 
   useEffect(() => () => stopSpeaking(), []); // stop any speech when leaving Radian
 
@@ -384,6 +401,29 @@ export default function Companion() {
           <Globe2 size={14} strokeWidth={1.5} /> Memory
         </button>
       </div>
+
+      {attention.length > 0 && (
+        <section className="mb-6">
+          <div className="cap-data mb-2" style={{ color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Needs you now</div>
+          <div className="space-y-2">
+            {attention.map((it) => {
+              const Icon = it.kind === "unblock" ? AlertTriangle : it.kind === "triage" ? InboxIcon : it.kind === "due" ? Clock : it.kind === "revisit" ? RotateCcw : Check;
+              const dot = it.band === "now" ? "var(--gold)" : it.band === "soon" ? "var(--info)" : "var(--text-dim)";
+              return (
+                <button key={`${it.kind}:${it.id}`} onClick={() => doAttention(it)} className="press w-full text-left p-3 flex items-center gap-2.5" style={{ borderRadius: 10, border: `1px solid ${it.band === "now" ? "var(--gold-line)" : "var(--line)"}`, background: "var(--surface)" }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 999, background: dot, flexShrink: 0 }} />
+                  <Icon size={15} strokeWidth={1.5} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate" style={{ fontSize: 14, color: "var(--text)" }}>{it.title}</span>
+                    <span className="cap-data block truncate" style={{ color: "var(--text-dim)" }}>{it.reason}</span>
+                  </span>
+                  <span className="cap-data inline-flex items-center gap-1 flex-shrink-0" style={{ color: "var(--gold)" }}>{it.action.label} <ArrowRight size={12} strokeWidth={1.5} /></span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {found.length > 0 && (
         <section className="mb-6">

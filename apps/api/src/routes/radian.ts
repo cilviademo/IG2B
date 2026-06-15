@@ -7,6 +7,7 @@ import { id, enqueue, queueDepth, redisHealthy } from "@indigold/shared";
 import { providersStatus, providerConfigured, resolveTask, PROVIDER_ENV, ALL_PROVIDERS, getTools, webSearchConfigured, type Provider } from "@indigold/shared/providers";
 import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
+import { buildAttentionQueue, ageDays, inboxUrgency, type AttentionCandidate } from "@indigold/shared";
 import { getEmbedder } from "@indigold/shared";
 import { isResearchSafe, BudgetExceededError } from "@indigold/shared";
 import { findVerb, verbsFor } from "@indigold/shared";
@@ -350,6 +351,62 @@ radianRouter.get("/conversations/:id", async (req: Authed, res) => {
 radianRouter.post("/conversations/:id/archive", async (req: Authed, res) => {
   await repo.conversations.setStatus(req.userId!, req.params.id, "archived");
   res.json({ ok: true });
+});
+
+// ---- Sprint 4: Attention Queue — "what needs you now" (deterministic ranker) ----
+// Composes the owner's real signals (inbox backlog, blocked/in-play quests, open reviews,
+// resurfaced forgotten gems) into a short, scored "do next" list via the pure
+// `buildAttentionQueue`. Honours Sprint 2b feedback (dismissed → dropped, useful → boosted)
+// and ties into Sprint 3b (revisit → "Discuss" opens that node's thread). No LLM, no mutation.
+radianRouter.get("/attention", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const now = Date.now();
+  const [captures, questList, nodes, edges, opps] = await Promise.all([
+    repo.captures.list(uid), repo.quests.list(uid), repo.nodes.list(uid), repo.edges.list(uid), repo.opportunities.list(uid),
+  ]);
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const cands: AttentionCandidate[] = [];
+
+  // Inbox backlog → triage (louder with age); a few oldest only.
+  const inbox = (captures as { id: string; title: string; status?: string; captured_at?: string }[])
+    .filter((c) => c.status === "inbox")
+    .sort((a, b) => new Date(a.captured_at || 0).getTime() - new Date(b.captured_at || 0).getTime());
+  for (const c of inbox.slice(0, 4)) {
+    const d = ageDays(c.captured_at, now);
+    cands.push({
+      id: c.id, kind: "triage", title: c.title || "Untitled capture",
+      inputs: { importance: 50, urgency: inboxUrgency(d), recencyDays: 0, signal: 0.6 },
+      reason: d >= 1 ? `Captured ${Math.round(d)}d ago — not yet triaged` : "Just captured — triage it",
+      action: { label: "Triage", verb: "triage", subjectType: "capture", subjectId: c.id },
+    });
+  }
+
+  // Quests: blocked → unblock (loud); in-play (snoozed/active) → due.
+  for (const q of questList) {
+    const rd = Math.round(ageDays((q as { updated_at?: string }).updated_at, now));
+    if (q.state === "blocked") {
+      cands.push({ id: q.id, kind: "unblock", title: q.title, inputs: { importance: 70, urgency: 90, recencyDays: rd, signal: 0.7 }, reason: "Blocked — needs you to clear the blocker", action: { label: "Unblock", verb: "unblock", subjectType: "quest", subjectId: q.id } });
+    } else if (q.state === "active" || q.state === "accepted") {
+      const due = (q as { snooze_until?: string | null }).snooze_until;
+      cands.push({ id: q.id, kind: "due", title: q.title, inputs: { importance: 60, urgency: due ? urgencyFromDate(due, now) : 45, recencyDays: rd, signal: 0.7 }, reason: due ? "Resuming soon" : "In play — keep momentum", action: { label: "Open", verb: "open", subjectType: "quest", subjectId: q.id } });
+    }
+  }
+
+  // Open reviews (opportunities awaiting a decision).
+  for (const o of (opps as { id: string; title?: string; status?: string; created_at?: string }[]).filter((x) => x.status === "review").slice(0, 3)) {
+    cands.push({ id: o.id, kind: "review", title: o.title || "Opportunity", inputs: { importance: 55, urgency: 55, recencyDays: Math.round(ageDays(o.created_at, now)), signal: 0.6 }, reason: "Awaiting your review", action: { label: "Review", verb: "review", subjectType: "opportunity", subjectId: o.id } });
+  }
+
+  // Resurfaced forgotten gems → revisit (honours per-node feedback; Discuss opens its thread).
+  const tm = timeMachine({ nodes: nodes as TimeMachineInput["nodes"], edges: edges as TimeMachineInput["edges"] }, "30d", now);
+  for (const g of tm.resurfaced.forgottenGems.slice(0, 5)) {
+    const n = byId.get(g.id);
+    const fb = (n as { meta?: { feedback?: { kind?: string } } } | undefined)?.meta?.feedback?.kind as AttentionCandidate["feedback"];
+    cands.push({ id: g.id, kind: "revisit", title: g.title, inputs: { importance: Math.max(60, n?.mvs ?? 70), urgency: 30, recencyDays: 30, signal: 0.6 }, reason: "High-value idea gone quiet — worth revisiting", action: { label: "Discuss", verb: "discuss", subjectType: "node", subjectId: g.id }, feedback: fb ?? null });
+  }
+
+  const queue = buildAttentionQueue(cands, 7);
+  res.json({ queue, counts: { inbox: inbox.length, blocked: questList.filter((q) => q.state === "blocked").length, candidates: cands.length } });
 });
 
 // ---- Living OS G10: Companion — the spoken commander's briefing (deterministic) ----

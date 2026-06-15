@@ -287,6 +287,20 @@ export async function archiveConversation(id: string): Promise<boolean> {
   return !!(await radianPost(`/radian/conversations/${encodeURIComponent(id)}/archive`, {}));
 }
 
+// ---- Attention Queue (Sprint 4): "what needs you now" ----
+export interface AttentionItem {
+  id: string;
+  kind: "triage" | "unblock" | "due" | "revisit" | "review";
+  title: string;
+  reason: string;
+  score: number;
+  band: "now" | "soon" | "later";
+  action: { label: string; verb: string; subjectType?: string; subjectId?: string };
+}
+export async function getAttention(): Promise<{ queue: AttentionItem[]; counts?: { inbox: number; blocked: number; candidates: number } } | null> {
+  return radianGet(`/radian/attention`);
+}
+
 /** Record owner feedback on a finding (useful | not_useful | wrong_connection | dismiss). */
 export async function radianFeedback(nodeId: string, kind: string): Promise<boolean> {
   if (!apiEnabled() || (!getToken() && !(await ensureSession()))) return false;
