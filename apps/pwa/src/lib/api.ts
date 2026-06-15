@@ -206,7 +206,7 @@ export interface ChatReply {
   deterministic: boolean;
   usedWeb: boolean;
   webNote?: string;
-  sources: { id: string; title: string }[];
+  sources: { id?: string; title: string; url?: string }[];
 }
 /** Ask Radian anything with a brain mode (Auto/Vault/General/Web/Research) + short history. */
 export async function chatRadian(question: string, mode: ChatMode = "auto", history: { role: string; text: string }[] = []): Promise<ChatReply | null> {

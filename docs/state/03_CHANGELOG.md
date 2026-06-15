@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: radian-modes · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: radian-websearch · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -485,3 +485,8 @@ commit(s) · what/why · live-test status).
 - **UI (spec #2):** mode selector (Auto default) — Auto · Vault · General · Vault + Web · Research.
 - **Privacy (spec #8):** secret/internal nodes excluded from context in ALL modes → never sent to the model.
 - **Verified (sandbox):** typecheck:all + api + pwa builds green; matrix 459/459; headless `/companion` shows the mode selector. Live answers/modes need the deployed worker + provider key (+ `WEB_RESEARCH=on` for live web). Streaming responses deferred (SSE) — noted as next.
+
+### 2026-06-15 · claude (Claude Code) · `main` — Real web search (Tavily/Brave) + progressive reveal
+- **Live web search behind the ToolAdapter seam** (`makeWebSearchTool`, `webSearchConfigured` in providers.ts) — Tavily (preferred) or Brave by env key (`TAVILY_API_KEY`/`BRAVE_API_KEY`), returns normalized `{title,url,snippet}`. Replaces the `web_search` stub in `getTools`. `/radian/chat` web/research modes now fetch real results (governed seam, server-only), inject them into the prompt, set `usedWeb`, and return **real cited web sources** (the Companion renders them as external links). No key → honest "Web research isn't configured" + general reasoning, never fabricated sources. Privacy: secret/internal still excluded.
+- **Progressive reveal:** Radian's chat answers animate in (typewriter) for a live feel. NOTE: this is a client-side reveal of the full answer — true token-by-token SSE streaming is a deeper backend follow-up (flagged, not faked).
+- **Verified (sandbox):** new `websearch-verify` (6 tests: not-configured/missing-query never fabricate; getTools wiring) → matrix **465/465**; typecheck:all + api+worker+pwa builds green. Live web needs `TAVILY_API_KEY` or `BRAVE_API_KEY` on the API → owner adds to unlock Research mode citations.

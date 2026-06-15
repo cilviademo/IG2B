@@ -273,10 +273,52 @@ export function makeGithubTool(env: Env = process.env): ToolAdapter {
   };
 }
 
-/** Tool registry resolved against env. Web-search is wired to the model provider's
- *  native tool in a live deploy; here it's a safe stub until that's enabled. */
+/** True when a web-search provider key is present (Tavily or Brave). */
+export function webSearchConfigured(env: Env = process.env): boolean {
+  return !!(env.TAVILY_API_KEY || env.BRAVE_API_KEY);
+}
+
+/** Real web search behind the ToolAdapter seam. Tavily (preferred) or Brave, by env
+ *  key. Returns normalized {title,url,snippet}[] so callers cite real sources — never
+ *  fabricated. Honest "not_configured" when no key (caller degrades to general reasoning). */
+export function makeWebSearchTool(env: Env = process.env): ToolAdapter {
+  const tavily = env.TAVILY_API_KEY;
+  const brave = env.BRAVE_API_KEY;
+  return {
+    name: "web_search",
+    async run(input): Promise<ToolResult> {
+      const query = String(input.query || "").trim().slice(0, 400);
+      if (!query) return { ok: false, error: "web_search_missing_query" };
+      const max = Math.min(Math.max(Number(input.max) || 5, 1), 8);
+      try {
+        if (tavily) {
+          const r = await fetch("https://api.tavily.com/search", {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ api_key: tavily, query, max_results: max, search_depth: "basic" }),
+          });
+          if (!r.ok) return { ok: false, error: `tavily_${r.status}` };
+          const j = (await r.json()) as { results?: { title?: string; url?: string; content?: string }[] };
+          return { ok: true, data: { results: (j.results || []).slice(0, max).map((x) => ({ title: x.title || x.url || "", url: x.url || "", snippet: (x.content || "").slice(0, 500) })) } };
+        }
+        if (brave) {
+          const r = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${max}`, {
+            headers: { accept: "application/json", "x-subscription-token": brave },
+          });
+          if (!r.ok) return { ok: false, error: `brave_${r.status}` };
+          const j = (await r.json()) as { web?: { results?: { title?: string; url?: string; description?: string }[] } };
+          return { ok: true, data: { results: (j.web?.results || []).slice(0, max).map((x) => ({ title: x.title || x.url || "", url: x.url || "", snippet: (x.description || "").slice(0, 500) })) } };
+        }
+        return { ok: false, error: "web_search_not_configured" };
+      } catch (e) {
+        return { ok: false, error: `web_search_network: ${redact(e instanceof Error ? e.message : "")}` };
+      }
+    },
+  };
+}
+
+/** Tool registry resolved against env. */
 export function getTools(env: Env = process.env): Record<string, ToolAdapter> {
-  return { github: makeGithubTool(env), web_search: stubTool("web_search") };
+  return { github: makeGithubTool(env), web_search: makeWebSearchTool(env) };
 }
 
 // ---------------------------------------------------------------------------

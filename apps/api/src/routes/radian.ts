@@ -4,7 +4,7 @@ import { Router } from "express";
 import * as repo from "@indigold/db";
 import { seedProjectsIfEmpty, budgetStatus } from "@indigold/db";
 import { id, enqueue, queueDepth, redisHealthy } from "@indigold/shared";
-import { providersStatus, providerConfigured, resolveTask, PROVIDER_ENV, ALL_PROVIDERS, type Provider } from "@indigold/shared/providers";
+import { providersStatus, providerConfigured, resolveTask, PROVIDER_ENV, ALL_PROVIDERS, getTools, webSearchConfigured, type Provider } from "@indigold/shared/providers";
 import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
 import { getEmbedder } from "@indigold/shared";
@@ -192,7 +192,15 @@ radianRouter.post("/chat", async (req: Authed, res) => {
   const mode = (["auto", "vault", "general", "web", "research"].includes(String(req.body?.mode)) ? String(req.body?.mode) : "auto") as ChatMode;
   const resolvedMode = mode === "auto" ? inferMode(question) : mode;
   const wantWeb = resolvedMode === "web" || resolvedMode === "research";
-  const webConfigured = process.env.WEB_RESEARCH === "on"; // flip on once a real web tool is wired
+  const webConfigured = webSearchConfigured(); // real Tavily/Brave key present?
+
+  // Live web search (governed seam) — only in web/research modes, only when configured.
+  // Returns real {title,url,snippet}; we cite exactly these, never fabricate.
+  let webResults: { title: string; url: string; snippet: string }[] = [];
+  if (wantWeb && webConfigured) {
+    const tr = await getTools().web_search.run({ query: question, max: 5 });
+    if (tr.ok) webResults = ((tr.data as { results?: { title: string; url: string; snippet: string }[] }).results || []).slice(0, 5);
+  }
 
   // Vault retrieval (research-safe only) — context for vault/web/research and connection for general.
   const sem = await semanticNeighbors(uid, question, 12).catch(() => ({ matches: [] as { subject_id: string; score: number }[] }));
@@ -204,16 +212,22 @@ radianRouter.post("/chat", async (req: Authed, res) => {
   const ctx = picked.map((n) => `- ${n.title}: ${(n.summary || "").slice(0, 280)}`).join("\n");
   const convo = history.length ? history.map((h: { role: string; text: string }) => `${h.role}: ${h.text}`).join("\n") + "\n\n" : "";
 
+  const webBlock = webResults.length
+    ? `\n\nWEB RESULTS (cite these by title; use ONLY these for current/web facts):\n${webResults.map((w) => `- ${w.title} (${w.url}): ${w.snippet}`).join("\n")}`
+    : "";
+
   let system: string;
   if (resolvedMode === "vault") {
     system = "You are Radian, the owner's personal intelligence. Answer ONLY from the vault context. State what IS known; if something isn't covered, say so plainly — don't invent. Be a helpful assistant, not a gatekeeper.";
   } else {
-    const webClause = wantWeb && !webConfigured
-      ? " Live web research is NOT available right now, so rely on general knowledge and DO NOT claim current/web-verified facts or cite sources you can't see."
+    const webClause = wantWeb
+      ? (webResults.length
+        ? " Use the WEB RESULTS for current facts and cite them by title; do not invent sources beyond them."
+        : " Live web research is NOT available right now, so rely on general knowledge and DO NOT claim current/web-verified facts or cite sources you can't see.")
       : "";
     system = `You are Radian, the owner's personal intelligence OS — a sharp, candid companion.${webClause} Answer the question directly and usefully with your general reasoning first. Then, if the vault context is relevant, add a short "In your Indigold context:" paragraph connecting it to their work. Never refuse for lack of vault context. Never invent sources.`;
   }
-  const prompt = `${convo}VAULT CONTEXT${resolvedMode === "vault" ? "" : " (may be empty — use only if relevant)"}:\n${ctx || "(none)"}\n\nQUESTION: ${question}`;
+  const prompt = `${convo}VAULT CONTEXT${resolvedMode === "vault" ? "" : " (may be empty — use only if relevant)"}:\n${ctx || "(none)"}${webBlock}\n\nQUESTION: ${question}`;
 
   let answer = "";
   let provider = "deterministic";
@@ -228,15 +242,17 @@ radianRouter.post("/chat", async (req: Authed, res) => {
   }
 
   const grounding = resolvedMode === "vault" ? "vault" : ctx ? "mixed" : "general";
+  const vaultSources = picked.slice(0, 5).map((n) => ({ id: n.id, title: n.title }));
+  const webSources = webResults.map((w) => ({ title: w.title, url: w.url }));
   res.json({
     answer: answer || "Let me try that another way — could you rephrase, or pick a mode (Vault / General / Research)?",
     mode: resolvedMode,
     grounding,
     provider,
     deterministic: provider === "deterministic",
-    usedWeb: wantWeb && webConfigured,
+    usedWeb: webResults.length > 0,
     webNote: wantWeb && !webConfigured ? "Web research isn't configured — answered with general reasoning. Save it as a research task to queue for later." : undefined,
-    sources: picked.slice(0, 5).map((n) => ({ id: n.id, title: n.title })),
+    sources: [...vaultSources, ...webSources],
   });
 });
 

@@ -47,13 +47,34 @@ function relTime(ms: number): string {
   return `${Math.round(s / 86400)}d ago`;
 }
 
+// Progressive reveal — gives answers a "live, thinking" feel. (A client-side reveal of
+// the full answer; true token-by-token SSE streaming is a deeper backend follow-up.)
+function Typewriter({ text }: { text: string }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    setN(0);
+    const step = Math.max(2, Math.round(text.length / 90));
+    const id = window.setInterval(() => setN((x) => {
+      const nx = x + step;
+      if (nx >= text.length) { clearInterval(id); return text.length; }
+      return nx;
+    }), 18);
+    return () => clearInterval(id);
+  }, [text]);
+  return (
+    <p style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text)", whiteSpace: "pre-wrap" }}>
+      {text.slice(0, n)}{n < text.length ? <span style={{ opacity: 0.5 }}>▍</span> : null}
+    </p>
+  );
+}
+
 export default function Companion() {
   const { tasks, retry, trackJob } = useTasks();
   const [, navigate] = useLocation();
   const [found, setFound] = useState<Found[]>([]);
   const [asking, setAsking] = useState<string | null>(null);
   // Free-form conversation with Radian (this-session transcript, multi-turn).
-  type Msg = { role: "you" | "radian"; text: string; q?: string; sources?: { id: string; title: string }[]; deterministic?: boolean; mode?: string; grounding?: string; webNote?: string; usedWeb?: boolean; saved?: boolean };
+  type Msg = { role: "you" | "radian"; text: string; q?: string; sources?: { id?: string; title: string; url?: string }[]; deterministic?: boolean; mode?: string; grounding?: string; webNote?: string; usedWeb?: boolean; saved?: boolean };
   const [chat, setChat] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
@@ -230,14 +251,18 @@ export default function Companion() {
                     {m.deterministic && <span className="cap-data" style={{ color: "var(--gold)" }}>deterministic</span>}
                   </div>
                 )}
-                <p style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text)", whiteSpace: "pre-wrap" }}>{m.text}</p>
+                {m.role === "radian"
+                  ? <Typewriter text={m.text} />
+                  : <p style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text)", whiteSpace: "pre-wrap" }}>{m.text}</p>}
                 {m.role === "radian" && m.grounding && (
                   <p className="cap-data mt-1.5" style={{ color: "var(--text-dim)" }}>{GROUND_LABEL[m.grounding] || m.grounding}{m.webNote ? ` · ${m.webNote}` : ""}</p>
                 )}
                 {m.sources && m.sources.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {m.sources.map((s) => (
-                      <Link key={s.id} href={`/atlas?focus=${encodeURIComponent(s.id)}`} className="press text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)", maxWidth: 180 }}>{s.title}</Link>
+                    {m.sources.map((s, si) => (
+                      s.url
+                        ? <a key={si} href={s.url} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1 text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--info)", maxWidth: 200 }}><ExternalLink size={9} strokeWidth={1.5} /> {s.title}</a>
+                        : <Link key={si} href={`/atlas?focus=${encodeURIComponent(s.id || "")}`} className="press text-[11px] px-2 py-0.5 truncate" style={{ borderRadius: 6, border: "1px solid var(--line)", color: "var(--text-dim)", maxWidth: 180 }}>{s.title}</Link>
                     ))}
                   </div>
                 )}
