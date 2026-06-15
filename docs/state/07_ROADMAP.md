@@ -1,6 +1,6 @@
 # Roadmap
 
-`Last updated: 2026-06-15 · Commit: research-tensions-screens · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: world-lens-evidence-drawer · By: claude (Claude Code)`
 
 Status keys: **done · owner-gated · infra-gated · planned.** "Done" = code on `main`, CI-green,
 matrix-tested. Owner/infra-gated work is *built or trivial* but needs an action only the owner
@@ -53,9 +53,9 @@ can take (a device check, a Render env var, a paid plan). Each item lists its ga
 - **Phase 2 — first connectors: RSS/Atom DONE** (`rss.ts` + `feeds` table + `poll_feed` job +
   `/radian/feeds`). **Next:** Crossref → OpenAlex → Wikimedia (same evidence contract + gate).
   **Phase 4:** arXiv / Europe PMC / Hacker News / FRED / regulatory.
-- **Phase 3 — evidence UX:** **Research Inbox (`/research`) + Tensions (`/tensions`) screens DONE.**
-  Remaining: World Lens, Evidence Drawer, Watchlists (weekly). **Owner intents** (My memory/Explain/
-  Check/Research/Decide) over brain modes.
+- **Phase 3 — evidence UX:** **Research Inbox (`/research`), Tensions (`/tensions`), World Lens
+  (`/world-lens`), and the Evidence Drawer (on Radian answers) all DONE.** Remaining: Watchlists
+  (weekly). **Owner intents** (My memory/Explain/Check/Research/Decide) over brain modes.
 - **Phase 5 — evaluation + proactive intelligence:** golden vault, retrieval metrics, weekly change
   detection, decision-review triggers. Plus **full correlation-trace diagnostics** end-to-end.
 

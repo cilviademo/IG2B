@@ -35,6 +35,7 @@ const Activity = lazy(() => import("./pages/Activity"));
 const Diagnostics = lazy(() => import("./pages/Diagnostics"));
 const ResearchInbox = lazy(() => import("./pages/ResearchInbox"));
 const Tensions = lazy(() => import("./pages/Tensions"));
+const WorldLens = lazy(() => import("./pages/WorldLens"));
 const CaptureDeepLink = lazy(() => import("./pages/CaptureDeepLink"));
 const Share = lazy(() => import("./pages/Share"));
 
@@ -67,6 +68,7 @@ function Routes() {
         <Route path="/diagnostics" component={Diagnostics} />
         <Route path="/research" component={ResearchInbox} />
         <Route path="/tensions" component={Tensions} />
+        <Route path="/world-lens" component={WorldLens} />
         <Route path="/capture" component={CaptureDeepLink} />
         <Route path="/share" component={Share} />
         <Route path="/404" component={NotFound} />

@@ -35,7 +35,7 @@ function turnText(c: AtlasNode): string {
   return (c.meta?.ask?.answer || c.summary || "").trim();
 }
 import { Loading, ErrorState } from "@/components/State";
-import { Share2, X, Plus, Minus, Locate, Sparkles, ArrowLeft, Swords, Copy, Trash2, ExternalLink, MessageCircle } from "lucide-react";
+import { Share2, X, Plus, Minus, Locate, Sparkles, ArrowLeft, Swords, Copy, Trash2, ExternalLink, MessageCircle, Globe2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { haptic } from "@/lib/haptics";
 import CompanionPanel from "@/components/CompanionPanel";
@@ -1053,6 +1053,16 @@ function NodeSheet({ node, turns = [], sourceUrl, onClose, onAsk, onDeleted }: {
             style={{ borderRadius: 6, border: "1px solid #22252D", color: "#8E929C" }}
           >
             <MessageCircle size={13} strokeWidth={1.5} /> {node.type === "project" ? "Discuss workstream" : "Discuss in Radian"}
+          </button>
+        )}
+        {apiEnabled() && (
+          // World Lens: what's changed OUTSIDE the vault about this node (external evidence + claims).
+          <button
+            onClick={() => navigate(`/world-lens?subject=${encodeURIComponent(node.id)}&kind=node&title=${encodeURIComponent(node.title)}`)}
+            className="press w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold mb-2.5"
+            style={{ borderRadius: 6, border: "1px solid #22252D", color: "#8E929C" }}
+          >
+            <Globe2 size={13} strokeWidth={1.5} /> World Lens
           </button>
         )}
         {sourceUrl && (

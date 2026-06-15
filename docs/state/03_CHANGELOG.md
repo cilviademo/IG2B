@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: research-tensions-screens · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: world-lens-evidence-drawer · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -625,3 +625,8 @@ commit(s) · what/why · live-test status).
 - **Tensions screen** (`/tensions`, in More): lists open **tensions** (`GET /radian/tensions` — contested evidence / conflicting claims / stale-accepted) and the **claims** list with a confidence bar, contested/stale flags, and owner review (Accept / Reject / Supersede → `POST /radian/claims/:id/status`).
 - **Client + routing:** `listEvidence`/`setEvidenceStatus`/`listFeeds`/`addFeed`/`removeFeed`/`pollFeed`/`listClaims`/`setClaimStatus`/`getTensions` in `api.ts`; routes in `App.tsx`; two entries in the More hub. Both pages code-split.
 - **Full debug pass:** typecheck:all + build:all green; verify matrix **607/607**; `schema.sql` ↔ `schema.ts` in sync; no ESLint configured (project gate is typecheck+build+matrix). Correctness scan: `delAt` hoist OK, all CSS vars present, no stray console/debugger, no duplicate routes, no circular-import risk from the new `repo` import in `middleware/auth`. No issues found.
+
+### 2026-06-15 · claude (Claude Code) · `claude/world-lens-evidence-drawer` (PR) — World Lens + Evidence Drawer
+- **World Lens** ("what changed OUTSIDE your vault" for a subject). Pure `packages/shared/src/world-lens.ts` (`worldLens` + lexical `lexicalRelevant`): composes a subject's **claims + relevant external evidence + tensions** into deterministic sections — New evidence · Counterevidence · What you believe · Corrections & retractions · Tensions · Worth turning into claims. Evidence is matched to the subject by lexical term overlap (title + node tags). `world-lens-verify` (12). Endpoint `GET /radian/world-lens?subject=&kind=&title=` (resolves node title/tags when `kind=node`). New **`/world-lens`** PWA screen (sectioned), reached from the **Atlas node sheet → "World Lens"** button + the More hub.
+- **Evidence Drawer** — a reusable `apps/pwa/src/components/EvidenceDrawer.tsx` collapsible that exposes the **provenance** behind a Radian answer: vault sources (→ open the node thread) vs **web sources**, deterministic-vs-reasoned + provider, grounding, and the web note. Wired into the Companion chat (replaces the inline grounding line + raw source chips), with a link into the Research Inbox.
+- **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **619/619**; schema in sync; both new screens code-split. Live data → owner sees it on device (add feeds → evidence → open a node's World Lens). Remaining Phase-3 UX: Watchlists; more connectors (Crossref/OpenAlex/Wikimedia).
