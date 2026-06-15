@@ -285,6 +285,14 @@ export default function Companion() {
   useEffect(() => {
     if (!apiEnabled()) return;
     const params = new URLSearchParams(window.location.search);
+    // Deep-link from the History screen / Home: open a specific saved thread by id.
+    const cid = params.get("conversation");
+    if (cid) {
+      void openConvo(cid);
+      params.delete("conversation");
+      window.history.replaceState({}, "", window.location.pathname + (params.toString() ? `?${params}` : ""));
+      return;
+    }
     const anchor = params.get("anchor");
     if (!anchor) return;
     const sep = anchor.indexOf(":");
@@ -566,8 +574,9 @@ export default function Companion() {
       <section>
         <div className="flex items-center gap-2 mb-2">
           <span className="cap-data" style={{ color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Conversations</span>
+          <Link href="/history" className="press cap-data ml-auto inline-flex items-center gap-1" style={{ color: "var(--text-dim)" }}>All history →</Link>
           {(convoId || chat.length > 0) && (
-            <button onClick={newConvo} className="press cap-data ml-auto inline-flex items-center gap-1" style={{ color: "var(--gold)" }}>+ New</button>
+            <button onClick={newConvo} className="press cap-data inline-flex items-center gap-1" style={{ color: "var(--gold)" }}>+ New</button>
           )}
         </div>
         {/* Thread search — matches the title or anything said in the thread (Sprint 3b). */}

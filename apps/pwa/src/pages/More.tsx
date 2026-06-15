@@ -1,9 +1,10 @@
 import { Link } from "wouter";
-import { Swords, Activity, FileText, Compass, BarChart3, Clock, Settings, ShieldCheck, Globe2, LayoutDashboard, ChevronRight, Inbox as InboxIcon, GitFork, Globe, Radar } from "lucide-react";
+import { Swords, Activity, FileText, Compass, BarChart3, Clock, Settings, ShieldCheck, Globe2, LayoutDashboard, ChevronRight, Inbox as InboxIcon, GitFork, Globe, Radar, MessageSquare } from "lucide-react";
 
 // The "More" hub. Primary tabs are Radian · Inbox · Timeline · Library · More; everything
 // else is one calm tap away here. No capability removed — just relocated.
 const ITEMS: { href: string; icon: typeof Swords; label: string; sub: string }[] = [
+  { href: "/history", icon: MessageSquare, label: "Chat history", sub: "Every Radian conversation — reopen the full Q&A" },
   { href: "/atlas", icon: Globe2, label: "Atlas", sub: "Memory graph — the constellation behind Radian" },
   { href: "/home", icon: LayoutDashboard, label: "Mission Control", sub: "The classic dashboard overview" },
   { href: "/quests", icon: Swords, label: "Quests", sub: "Today · Later · Archive" },
