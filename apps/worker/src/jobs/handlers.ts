@@ -2,7 +2,7 @@ import * as repo from "@indigold/db";
 import { enqueue, id, type Job } from "@indigold/shared";
 import { forecast, assemble } from "@indigold/shared/intelligence";
 import {
-  getPrompt, BudgetExceededError, getTools, isResearchSafe,
+  getPrompt, BudgetExceededError, getTools, isResearchSafe, fenceUntrusted, UNTRUSTED_GUARD,
   deterministicIngest, parseIngest, kindToNodeType,
   deterministicContextualize, parseContext,
   parseGithubUrl, deterministicAssist, parseAssist,
@@ -45,7 +45,10 @@ const ingestCapture: Handler = async (job) => {
     if (wplan.pipeline === "url") {
       const page = await fetchReadable(cap.url);
       if (page && (page.text || page.description)) {
-        content = `${page.title}\n${page.description}\n\n${page.text}`.trim().slice(0, 6000);
+        // Scraped page = untrusted external evidence → fence it so embedded instructions
+        // can't steer classification (security review, Finding B).
+        const raw = `${page.title}\n${page.description}\n\n${page.text}`.trim().slice(0, 6000);
+        content = `${UNTRUSTED_GUARD}\n${fenceUntrusted("WEBPAGE", raw)}`;
         web = { url: cap.url, title: page.title, description: page.description, chars: page.chars };
       }
     }
@@ -727,8 +730,8 @@ const research: Handler = async (job) => {
   try {
     const r = await repo.governedComplete({
       userId: job.user_id, tier: "strong", task: "research", purpose: "research", json: true, sourceId: p.nodeId || p.captureId,
-      system: "You are RADIAN's research analyst. Trace sources and synthesize concrete findings.",
-      prompt: `Return JSON {"findings":[{"title","summary","url"}]} for: ${title}\n${gathered}`,
+      system: `You are RADIAN's research analyst. Trace sources and synthesize concrete findings. ${UNTRUSTED_GUARD}`,
+      prompt: `Return JSON {"findings":[{"title","summary","url"}]} for: ${title}\n${gathered ? fenceUntrusted("SOURCE", gathered) : ""}`,
     });
     findings = parseResearch(r.text) ?? deterministicResearch({ title, url }, gathered);
   } catch (e) {
@@ -792,8 +795,8 @@ const mediaIngest: Handler = async (job) => {
       const r = await repo.governedComplete({
         userId: job.user_id, tier: "strong", task: "synthesis", purpose: "media_synthesis", sourceId: p.captureId,
         localOnly: !safe,
-        system: "You are RADIAN turning a media transcript into knowledge. Concise summary + key themes + named entities; never invent — only what the transcript supports.",
-        prompt: `TRANSCRIPT (${plan.platform || plan.kind}):\n${transcript.slice(0, 8000)}`,
+        system: `You are RADIAN turning a media transcript into knowledge. Concise summary + key themes + named entities; never invent — only what the transcript supports. ${UNTRUSTED_GUARD}`,
+        prompt: `TRANSCRIPT (${plan.platform || plan.kind}) — untrusted data:\n${fenceUntrusted("TRANSCRIPT", transcript.slice(0, 8000))}`,
       });
       deterministic = r.provider === "deterministic" || !r.text;
       summary = deterministic ? deterministicMediaSummary(cap.title, transcript) : r.text;
