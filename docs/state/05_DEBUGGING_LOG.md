@@ -1,6 +1,6 @@
 # Debugging Log (institutional scar tissue)
 
-`Last updated: 2026-06-14 · Commit: durable-account · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: honest-connectivity · By: claude (Claude Code)`
 
 Every significant bug: **symptom → root cause → fix → LESSON.** Append-only.
 
@@ -52,6 +52,21 @@ Every significant bug: **symptom → root cause → fix → LESSON.** Append-onl
   origins + the `Authorization` header (Bearer, no cookies/credentials).
 - **LESSON:** Validate the API base at runtime and **show it on screen**. The owner
   found this from the on-screen error message — surfacing real errors paid off.
+
+## BUG-007 — "Couldn't reach Radian" hid the real reason
+- **Symptom:** Every Radian ask showed "couldn't reach Radian (offline or API asleep)" — a
+  fixed guess, regardless of the actual cause.
+- **Root cause:** Radian clients return `null` on `!apiEnabled()` / no session / failed
+  request; the UI printed a static string. The true reason (missing `VITE_API_URL`,
+  expired session, HTTP/CORS) was known in `lastSessionError()` but thrown away; transport
+  failures in `chatRadian`/`askRadian` weren't captured at all.
+- **Fix:** `claude/honest-connectivity` — `api.ts` captures transport errors (`lastApiErr`)
+  + exposes `connectivityError()` and a `probeApi()` `/health` check. Companion fallback +
+  toasts show the real reason; `AppBanners` shows an "API not configured (sample data)" /
+  "can't reach <host>" banner with Retry. (Same family as BUG-005: usually `VITE_API_URL`
+  unset on the PWA static site, or a free-tier cold start.)
+- **LESSON:** Never print a guessed cause. Surface the known error — the owner debugs from
+  what's on screen (cf. BUG-005, BUG-006).
 
 ## BUG-006 — Headless-green ≠ live-green (verification discipline)
 - **Symptom:** Repeated fixes were "verified locally (headless)" then failed on device.
