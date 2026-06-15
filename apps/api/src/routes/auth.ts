@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { users, audit } from "@indigold/db";
-import { contracts, setSession, delSession, token, id } from "@indigold/shared";
+import { contracts, token, id } from "@indigold/shared";
 import { hashPassword, verifyPassword } from "../lib/password";
 import { validate } from "../lib/validate";
 import { requireAuth, type Authed } from "../middleware/auth";
+import { putSession, dropSession } from "../lib/session";
 
 const r = Router();
 
@@ -14,7 +15,7 @@ r.post("/register", validate(contracts.authBody), async (req, res) => {
   const user = await users.create({ id: id("user"), email, password_hash: await hashPassword(password) });
   if (!user) return res.status(500).json({ error: "create_failed" });
   const tok = token();
-  await setSession(tok, { userId: user.id, email });
+  await putSession(tok, { userId: user.id, email });
   await audit.log({ user_id: user.id, actor: "api", action: "register" });
   res.json({ token: tok, user: { id: user.id, email } });
 });
@@ -25,7 +26,7 @@ r.post("/login", validate(contracts.authBody), async (req, res) => {
   if (!user || !(await verifyPassword(password, user.password_hash)))
     return res.status(401).json({ error: "invalid_credentials" });
   const tok = token();
-  await setSession(tok, { userId: user.id, email });
+  await putSession(tok, { userId: user.id, email });
   await audit.log({ user_id: user.id, actor: "api", action: "login" });
   res.json({ token: tok, user: { id: user.id, email } });
 });
@@ -45,14 +46,14 @@ r.post("/claim", requireAuth, validate(contracts.authBody), async (req: Authed, 
     return res.status(409).json({ error: "email_in_use" });
   }
   const tok = token();
-  await setSession(tok, { userId: req.userId!, email });
+  await putSession(tok, { userId: req.userId!, email });
   await audit.log({ user_id: req.userId!, actor: "api", action: "claim" });
   res.json({ token: tok, user: { id: req.userId, email } });
 });
 
 r.post("/logout", requireAuth, async (req, res) => {
   const header = req.header("authorization") || "";
-  await delSession(header.slice(7));
+  await dropSession(header.slice(7));
   res.json({ ok: true });
 });
 

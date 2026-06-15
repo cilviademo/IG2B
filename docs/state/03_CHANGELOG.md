@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-14 · Commit: vault-restore · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: durable-sessions · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -516,3 +516,8 @@ commit(s) · what/why · live-test status).
 - **Restore gap fixed:** `POST /io/import` previously restored only nodes + edges and **silently dropped captures** (Truth Layer A — the raw vault) and timeline. It now **restores captures** too — id-preserving (faithful round-trip) + dupe-tolerant (idempotent re-import) — alongside nodes (id-remapped) + edges (remapped, skips dangling).
 - **Pure + tested:** new `packages/shared/src/importmap.ts` (`normalizeImportNode`/`normalizeImportCapture`) does loosely-typed → safe-defaulted mapping (bad mvs→50, tags→strings, captures always Layer A, null assets when absent); `import-verify` (10 checks). Keeps the route thin.
 - **Verified (sandbox):** `import-verify` 10/10 → matrix **479/479**; typecheck:all + build:all green. Full DB round-trip (export→reset→restore) needs a live Postgres → owner/CI runs it; the mapping it depends on is unit-covered.
+
+### 2026-06-15 · claude (Claude Code) · `claude/durable-sessions` (PR) — Durable Postgres sessions (BUG-003 fix + secure-auth foundation)
+- **Durable sessions:** new `sessions` table (schema.sql + regenerated schema.ts) + `repo.sessions` (put/get/del). New `apps/api/src/lib/session.ts` wrappers — **Redis-first cache, Postgres backstop**: `putSession` writes both; `readSession` reads Redis then falls back to Postgres and re-warms; `dropSession` clears both. Auth routes (register/login/claim/logout) + `requireAuth` middleware now use these. Fixes **BUG-003** (free-tier Redis LRU evicting sessions → silent logouts / sync failures) and is **step 1 of the secure token-only auth re-do** (durable tokens make password-free auth safe).
+- **No PWA change** (login flow untouched → no regression). The PWA token-only flip (drop the stored password) is step 2, after device-confirming session durability. `reset-vault` preserves `sessions` (stay logged in after a reset); comment corrected.
+- **Shipped as a PR so CI runs** (the new gate) before merge — auth is a critical path. **Verified (sandbox):** typecheck:all + build:all green; matrix 479/479; schema.sql↔schema.ts in sync.

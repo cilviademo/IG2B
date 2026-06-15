@@ -1,4 +1,6 @@
-> **TESTED VAULT RESTORE (latest):** `/io/import` previously dropped **captures** (Truth Layer A — your raw vault) on restore, only doing nodes+edges. Now it restores **captures too** — id-preserving (faithful round-trip) + dupe-tolerant (idempotent) — via pure `normalizeImportNode`/`normalizeImportCapture` (`importmap.ts`), covered by `import-verify` (10 checks). matrix **479/479**; builds green. Full DB round-trip needs live Postgres (owner/CI); the mapping is unit-covered. Anthropic key is live → Radian reasoning is genuine; web search stays "not configured" until a key is added.
+> **DURABLE SESSIONS — IN PR `claude/durable-sessions` (latest):** sessions are now **Postgres-backed** (new `sessions` table + `repo.sessions`; `apps/api/src/lib/session.ts` = Redis-first cache + Postgres backstop, used by auth routes + `requireAuth`). Fixes **BUG-003** (free-tier Redis LRU evicting sessions → silent logouts/sync-fails) and is **step 1 of the secure auth re-do** (durable tokens make password-free auth safe; PWA token-only flip = step 2 after device-confirm). **No PWA/login change → no regression.** Opened as a **PR so CI runs** before merge (auth is critical). matrix 479/479; typecheck+build:all green; schema.sql↔schema.ts in sync; `reset-vault` preserves sessions.
+
+> **TESTED VAULT RESTORE:** `/io/import` previously dropped **captures** (Truth Layer A — your raw vault) on restore, only doing nodes+edges. Now it restores **captures too** — id-preserving (faithful round-trip) + dupe-tolerant (idempotent) — via pure `normalizeImportNode`/`normalizeImportCapture` (`importmap.ts`), covered by `import-verify` (10 checks). matrix **479/479**; builds green. Full DB round-trip needs live Postgres (owner/CI); the mapping is unit-covered. Anthropic key is live → Radian reasoning is genuine; web search stays "not configured" until a key is added.
 
 > **QUEUE DURABILITY:** reliability-gate item — job queue now has **bounded retries** (failing handler re-queues to head with `attempts++` until cap=3, then dead-letters; was straight-to-dead) + **crash recovery** (`recoverStale` requeues orphaned `:processing` jobs at startup for the embedded/standalone/media workers). `queue-verify` extended to 12 checks → matrix **469/469**; builds green. Perf guard (dedicated Redis connection) untouched.
 
@@ -38,7 +40,7 @@
 
 # Current State
 
-`Last updated: 2026-06-14 · Commit: vault-restore · By: claude (Claude Code)`
+`Last updated: 2026-06-14 · Commit: durable-sessions · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

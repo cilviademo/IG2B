@@ -8,8 +8,9 @@
 //   Scope to one user (safer; DELETE … WHERE user_id):
 //     DATABASE_URL=… … scripts/reset-vault.ts --user <user_id> --apply
 //
-// PRESERVED: `users` (auth) + `prompt_overrides` (Meta-Radian/prompt config). Sessions live
-// in Redis and provider keys live in Render env — neither is touched here.
+// PRESERVED: `users` (auth) + `prompt_overrides` (Meta-Radian/prompt config) + `sessions`
+// (durable Redis-cache backstop — kept so the owner stays logged in after a reset). Sessions
+// also live in Redis; provider keys live in Render env — none are touched here.
 // BEFORE YOU --apply: export your vault (`GET /radian/export-bundle`) — a git tag restores
 // CODE, not DATA. This wipe is irreversible.
 

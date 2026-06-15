@@ -18,6 +18,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Install per-package deps (no npm workspaces — each package vendors its own)
+        run: |
+          set -euo pipefail
+          for d in packages/shared packages/db apps/api apps/worker apps/pwa services/radian services/encompass; do
+            echo "== install $d =="
+            ( cd "$d" && ( npm ci || npm install ) )
+          done
       - name: Typecheck (all workspaces + PWA)
         run: npm run typecheck:all
       - name: Build (api · worker · radian · encompass · pwa)

@@ -326,3 +326,16 @@ CREATE TABLE IF NOT EXISTS xp_ledger (
 CREATE INDEX IF NOT EXISTS xp_ledger_user_idx ON xp_ledger(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS xp_ledger_source_idx ON xp_ledger(source_type, source_id);
 
+
+-- Reliability gate — durable, Postgres-backed sessions. Redis (KV) stays the fast
+-- session cache, but free-tier LRU evicts it (BUG-003: silent logouts / sync fails).
+-- This is the durability backstop so a token survives Redis eviction; the API reads
+-- Redis-first, then falls back here and re-warms the cache. Additive.
+CREATE TABLE IF NOT EXISTS sessions (
+  token      TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL,
+  email      TEXT NOT NULL DEFAULT '',
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
