@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX, MessageCircle, ThumbsUp, ThumbsDown, X, Archive } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertTriangle, RotateCcw, ArrowRight, ArrowUp, Inbox as InboxIcon, Globe2, Clock, Link2, ExternalLink, Search, BookOpen, Users, Mic, Volume2, VolumeX, MessageCircle, ThumbsUp, ThumbsDown, X, Archive, Cpu } from "lucide-react";
+import { providerLabel, isLiveProvider } from "@/lib/modelLabel";
 import { useTasks, type Task } from "@/contexts/TaskCenter";
 import { Dot } from "@/components/primitives";
 import EvidenceDrawer from "@/components/EvidenceDrawer";
@@ -88,7 +89,7 @@ export default function Companion() {
   const [found, setFound] = useState<Found[]>([]);
   const [asking, setAsking] = useState<string | null>(null);
   // Free-form conversation with Radian (this-session transcript, multi-turn).
-  type Msg = { role: "you" | "radian"; text: string; q?: string; sources?: { id?: string; title: string; url?: string }[]; deterministic?: boolean; mode?: string; grounding?: string; webNote?: string; usedWeb?: boolean; saved?: boolean };
+  type Msg = { role: "you" | "radian"; text: string; q?: string; sources?: { id?: string; title: string; url?: string }[]; deterministic?: boolean; provider?: string; mode?: string; grounding?: string; webNote?: string; usedWeb?: boolean; saved?: boolean };
   const [chat, setChat] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
@@ -165,7 +166,7 @@ export default function Companion() {
       const r = await chatRadian(q, mode, history, cid, intent ?? undefined);
       const text = r ? r.answer : `I couldn't reach Radian — ${connectivityError() || "the API may be waking; try again in ~30s"}.`;
       setChat((c) => [...c, r
-        ? { role: "radian", text, q, sources: r.sources, deterministic: r.deterministic, mode: r.mode, grounding: r.grounding, webNote: r.webNote, usedWeb: r.usedWeb }
+        ? { role: "radian", text, q, sources: r.sources, deterministic: r.deterministic, provider: r.provider, mode: r.mode, grounding: r.grounding, webNote: r.webNote, usedWeb: r.usedWeb }
         : { role: "radian", text, q }]);
       if (r?.conversationId && !convoId) setConvoId(r.conversationId);
       if ((speakBack || voice) && canSpeak()) speak(text);
@@ -386,7 +387,12 @@ export default function Companion() {
                     <span className="cap-data inline-flex items-center gap-1" style={{ color: "var(--gold)" }}><Sparkles size={10} strokeWidth={1.5} /> Radian</span>
                     {m.mode && <span className="cap-data px-1.5 py-0.5" style={{ borderRadius: 5, border: "1px solid var(--line)", color: "var(--text-dim)" }}>{MODE_LABEL[m.mode] || m.mode}</span>}
                     {m.usedWeb && <span className="cap-data" style={{ color: "var(--good)" }}>web</span>}
-                    {m.deterministic && <span className="cap-data" style={{ color: "var(--gold)" }}>deterministic</span>}
+                    {/* Who answered: a live model (Claude) or the deterministic fallback — always shown. */}
+                    {(() => { const live = isLiveProvider(m.provider) && !m.deterministic; const label = providerLabel(m.deterministic ? "deterministic" : m.provider); return (
+                      <span className="cap-data px-1.5 py-0.5 inline-flex items-center gap-1" style={{ borderRadius: 5, border: `1px solid ${live ? "var(--gold-line)" : "var(--line)"}`, color: live ? "var(--gold)" : "var(--text-dim)" }}>
+                        {live ? <Sparkles size={9} strokeWidth={1.5} /> : <Cpu size={9} strokeWidth={1.5} />} {label}
+                      </span>
+                    ); })()}
                   </div>
                 )}
                 {m.role === "radian"
