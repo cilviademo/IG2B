@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: claims-tensions · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: rss-connector · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -613,3 +613,9 @@ commit(s) · what/why · live-test status).
 - **Schema (additive):** `claims` table (+ regenerated schema.ts; evidence links as JSONB) + `repo.claims` (create/list/get/setOwnerStatus/setEvidenceAndConfidence). `reset-vault` wipes it.
 - **Endpoints:** `POST/GET /radian/claims` (list adds `contested`+`stale` flags), `POST /radian/claims/:id/status` (accept/reject/supersede), `POST /radian/claims/:id/evidence` (link evidence → **recomputes confidence**), and **`GET /radian/tensions`** (the contradiction view backend).
 - **Verified (sandbox):** typecheck:all + build:all green; matrix **588/588**; schema in sync. Covers the review's claims + freshness + contradictions proposals. **Next:** Phase 2 RSS/Atom connector feeding the Research Inbox.
+
+### 2026-06-15 · claude (Claude Code) · `claude/rss-connector` (PR) — Intelligence Phase 2: RSS/Atom connector
+- **First evidence connector** (the review's recommended first source: open standard, no vendor, owner-controlled, GUID dedupe). Pure `packages/shared/src/rss.ts`: `parseFeed` (RSS 2.0 `<item>` + Atom `<entry>`; CDATA/entity-safe, never throws) + `feedItemToEvidence` → the `ExternalEvidence` contract. `rss-verify` (19, incl. end-to-end feed→evidence→gate dedup).
+- **Feed sources:** additive `feeds` table (+ regenerated schema.ts; unique `(user_id,url)`) + `repo.feeds`; `reset-vault` wipes it. Endpoints `GET/POST/DELETE /radian/feeds` + `POST /radian/feeds/:id/poll`.
+- **Polling job:** new `poll_feed` worker handler — SSRF-safe `fetchFeedText` (reuses the existing host guard) → `parseFeed` → `normalizeEvidence` → `evidenceGate` (dedup by content hash vs the user's seen hashes) → `repo.evidence.upsert` → Research Inbox. Best-effort + honest (`feed.last_status`); new entries are **evidence, never auto-promoted** to a node.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix **607/607**; schema in sync. Live polling needs egress + a real feed → owner adds a feed + polls on device. This completes the intelligence-program **core** (Phase 1 evidence + claims/Tensions + Phase 2 first connector); more connectors (Crossref/OpenAlex/Wikimedia) + UX surfaces (World Lens/Watchlists) are incremental follow-ons.

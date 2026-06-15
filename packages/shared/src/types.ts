@@ -117,7 +117,8 @@ export type JobType =
   | "horizon_scan"
   | "monitor_scan"
   | "media_ingest"
-  | "media_extract";
+  | "media_extract"
+  | "poll_feed";
 
 export interface Job<T = Record<string, unknown>> {
   id: string;

@@ -40,3 +40,4 @@ export * from "./sanitize";
 export * from "./capture-scopes";
 export * from "./evidence";
 export * from "./claims";
+export * from "./rss";

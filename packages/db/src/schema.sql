@@ -432,3 +432,16 @@ CREATE TABLE IF NOT EXISTS claims (
 );
 CREATE INDEX IF NOT EXISTS claims_user_idx ON claims(user_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS claims_subject_idx ON claims(user_id, subject);
+
+-- Feed sources (Phase 2 — RSS/Atom connector). Owner-controlled list; polled into the Research
+-- Inbox as external evidence (deduped by content hash). No central vendor.
+CREATE TABLE IF NOT EXISTS feeds (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id),
+  url          TEXT NOT NULL,
+  title        TEXT NOT NULL DEFAULT '',
+  last_polled  TIMESTAMPTZ,
+  last_status  TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS feeds_user_url_idx ON feeds(user_id, url);

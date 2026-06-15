@@ -340,6 +340,31 @@ radianRouter.post("/evidence/:id/status", async (req: Authed, res) => {
   res.json({ ok: true });
 });
 
+// ---- Feed sources (Phase 2 — RSS/Atom connector) ----
+// Owner-controlled feeds polled into the Research Inbox as deduped evidence. Polling runs as a
+// `poll_feed` worker job (SSRF-safe fetch). New entries are evidence, never auto-promoted.
+radianRouter.get("/feeds", async (req: Authed, res) => {
+  res.json({ items: await repo.feeds.list(req.userId!) });
+});
+radianRouter.post("/feeds", async (req: Authed, res) => {
+  const url = String(req.body?.url || "").trim();
+  if (!/^https?:\/\/.+/i.test(url)) return res.status(400).json({ error: "valid_url_required" });
+  const fid = id("feed");
+  await repo.feeds.add({ id: fid, user_id: req.userId!, url, title: String(req.body?.title || "").slice(0, 120) });
+  res.status(201).json({ id: fid, url });
+});
+radianRouter.delete("/feeds/:id", async (req: Authed, res) => {
+  await repo.feeds.remove(req.userId!, req.params.id);
+  res.json({ ok: true });
+});
+radianRouter.post("/feeds/:id/poll", async (req: Authed, res) => {
+  const feed = await repo.feeds.get(req.userId!, req.params.id);
+  if (!feed) return res.status(404).json({ error: "not_found" });
+  const j = await enqueue("poll_feed", req.userId!, { feedId: req.params.id });
+  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued", payload: j.payload });
+  res.status(202).json({ queued: true, job: j.id });
+});
+
 // ---- Claims + Tensions (Intelligence review) — the epistemic layer ----
 // A claim is a statement with type/subject/confidence/validity + supporting/refuting evidence.
 // Tensions surface contradictions instead of flattening them. Deterministic; no auto-promotion.
