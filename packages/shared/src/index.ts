@@ -35,3 +35,4 @@ export * from "./intake-router";
 export * from "./importmap";
 export * from "./attention-queue";
 export * from "./narrative";
+export * from "./opportunity-scoring";

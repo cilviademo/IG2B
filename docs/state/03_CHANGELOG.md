@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: sprint-6-atlas-evolution · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: roadmap-completion · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -579,3 +579,11 @@ commit(s) · what/why · live-test status).
 - **Sprint 3b workstream tail — workstream threads + Atlas→Radian bridge.** Conversations can now anchor to a **`decision`** (added to allowed anchor types; project already allowed) and the list resolves **project/decision anchor titles** too. The Companion supports a **deep-link** `/?anchor=<type>:<id>&title=…` that opens/resumes that anchored thread (`openAnchored`, generalizing `discuss`). The **Atlas node sheet** gains a **"Discuss in Radian" / "Discuss workstream"** (for project nodes) button that jumps from the graph INTO the node's persistent conversation — the inversion made literal (Atlas = memory; conversation = experience).
 - **No schema change.** `living-os-verify` +4 (memory tiers, crystallized gate, patina only on mature tiers, state machine unperturbed) → matrix **514/514**.
 - **Verified (sandbox):** typecheck:all + build:all green; matrix 514/514; SW untouched (no cache bump needed). Canvas patina + the workstream bridge are **device-gated** (per constraint #5) — owner confirms the evolving rings + Atlas→Radian jump on iPhone.
+
+### 2026-06-15 · claude (Claude Code) · `claude/roadmap-completion` (PR) — Roadmap completion: stale-PR cleanup + C4 + observability + dep hygiene
+- **Closed 4 stale PRs (#7/#8/#9/#11 — Cognition Wave B/C/D + Living OS Phase 0).** They targeted intermediate branches, not `main`; the work had already landed on `main` via squash. **Verified endpoint-by-endpoint on `main`** before closing (constraints, attention, memory tiers/promote-core, reviews, agent society/constitution/wisdom in `cognition-d.ts`, export-bundle, embeddings table, pgvector-check). No code lost.
+- **Cognition C4 — opportunity scoring (now built).** New pure `packages/shared/src/opportunity-scoring.ts`: `scoreOpportunity` (composite of **alignment + revenue + confidence + urgency + capacity fit**, weighted so no single input dominates; honest flags: low-alignment / capacity-strain / high-leverage / closing-soon), `revenueSignal` (deterministic keyword reader), `capacityFit` (weekly-hours + risk). `GET /radian/opportunities` now **scores + ranks** each opportunity (alignment from contributing nodes vs active project tags/titles; revenue from text + node MVS; urgency from decay date; fit from the constraint profile). `opportunity-scoring-verify` (14).
+- **Observability.** New `apps/api/src/lib/log.ts` — structured JSON logging + a `requestLogger` middleware (method/path/status/latency + `x-request-id`; **never** query/body/headers/secrets — constraint #4; skips `/health`). Wired in `index.ts`; the listen log is now structured.
+- **Dependency hygiene.** `npm audit` = **0 vulnerabilities**. Remaining upgrades are **breaking majors** (Express 5 / Zod 4 / TS 6 / @types) — deliberately deferred as a dedicated future migration; safe patch bumps noted. Recorded in `07_ROADMAP.md`.
+- **Roadmap rewritten** (`07_ROADMAP.md`) to reflect reality: done (Sprints 1–6, Cognition A–D, reliability gate, C4, observability) vs **owner-gated** (device phone-gates, CORS env, pgvector, Tavily key, iOS Shortcut) vs **infra-gated** (media worker, always-on, e2e, SSE) — each with its gate.
+- **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **528/528**.

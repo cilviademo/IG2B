@@ -11,6 +11,7 @@ import { projectsRouter, radianRouter, llmRouter } from "./routes/radian";
 import { eventsRouter } from "./routes/events";
 import { requireAuth } from "./middleware/auth";
 import { limit } from "./middleware/ratelimit";
+import { log, requestLogger } from "./lib/log";
 
 const app = express();
 app.disable("x-powered-by");
@@ -62,6 +63,9 @@ app.use(
     maxAge: 86400,
   }),
 );
+
+// Structured request logging (observability) — after CORS, before auth/routes; skips /health.
+app.use(requestLogger);
 
 // health/readiness must not depend on the rate limiter or KV
 app.use("/", health);
@@ -147,7 +151,7 @@ async function boot() {
     console.error("[api] STORAGE GUARD:", (e as Error).message);
   }
 
-  app.listen(port, () => console.log(`[indigold-api] listening on :${port}`));
+  app.listen(port, () => log.info("api_listening", { port }));
   await startEmbedded();
 }
 boot();
