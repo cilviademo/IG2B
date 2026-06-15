@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: scoped-capture-token · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: evidence-foundation · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -601,3 +601,9 @@ commit(s) · what/why · live-test status).
 - **PWA:** **More → Diagnostics → Capture tokens** — Generate (raw shown once + copy), list with scopes/last-used, revoke. Shortcut docs (`UPLOADS.md`, `CAPTURE_DEEPLINK.md`) updated to recommend the scoped token.
 - **Constraint #1 honored:** the `/capture?raw=…` link/text path is **untouched** (this is additive). `reset-vault` preserves `capture_tokens` (auth-adjacent, like sessions).
 - **Verified (sandbox):** typecheck:all + build:all green; matrix **551/551**; schema.sql↔schema.ts in sync. Owner device-gate: generate a token, use it in the Shortcut → capture works; confirm it's rejected on a non-capture route.
+
+### 2026-06-15 · claude (Claude Code) · `claude/evidence-foundation` (PR) — Intelligence Phase 1: evidence foundation (Research Inbox)
+- **Public-world facts become a first-class, untrusted truth class.** New pure `packages/shared/src/evidence.ts`: the **`ExternalEvidence`** contract (connector · external_id · canonical_url · title · permitted summary · authors · source_name/kind · observed/retrieved/valid_until/refresh_after · license · attribution · `content_hash` · claim_candidates · status) + `normalizeEvidence` (loosely-typed connector output → safe defaults, mirrors `importmap`), `evidenceHash` (dependency-free FNV-1a, runs in the PWA too), `isStale` (freshness), `evidenceGate` (deterministic intake: dedup by hash, allowed source kinds, drop empties), and the `SourceConnector` interface. `evidence-verify` (21).
+- **Schema (additive):** `external_evidence` table (+ regenerated schema.ts) with a unique `(user_id, content_hash)` dedupe index; `repo.evidence` (`upsert` returns whether newly inserted, `listInbox`, `get`, `setStatus`, `seenHashes`). `reset-vault` wipes it.
+- **Research Inbox endpoints:** `GET /radian/evidence?status=` + `POST /radian/evidence/:id/status` (new/relevant/contradictory/corrected/dismissed/accepted). **Evidence is NEVER auto-promoted to a memory node** — it's triaged here.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix **572/572**; schema in sync. Connectors that populate the inbox (RSS/Atom → Crossref → OpenAlex → Wikimedia) are Phase 2.
