@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: world-lens-evidence-drawer · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: watchlists-crossref · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -630,3 +630,12 @@ commit(s) · what/why · live-test status).
 - **World Lens** ("what changed OUTSIDE your vault" for a subject). Pure `packages/shared/src/world-lens.ts` (`worldLens` + lexical `lexicalRelevant`): composes a subject's **claims + relevant external evidence + tensions** into deterministic sections — New evidence · Counterevidence · What you believe · Corrections & retractions · Tensions · Worth turning into claims. Evidence is matched to the subject by lexical term overlap (title + node tags). `world-lens-verify` (12). Endpoint `GET /radian/world-lens?subject=&kind=&title=` (resolves node title/tags when `kind=node`). New **`/world-lens`** PWA screen (sectioned), reached from the **Atlas node sheet → "World Lens"** button + the More hub.
 - **Evidence Drawer** — a reusable `apps/pwa/src/components/EvidenceDrawer.tsx` collapsible that exposes the **provenance** behind a Radian answer: vault sources (→ open the node thread) vs **web sources**, deterministic-vs-reasoned + provider, grounding, and the web note. Wired into the Companion chat (replaces the inline grounding line + raw source chips), with a link into the Research Inbox.
 - **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **619/619**; schema in sync; both new screens code-split. Live data → owner sees it on device (add feeds → evidence → open a node's World Lens). Remaining Phase-3 UX: Watchlists; more connectors (Crossref/OpenAlex/Wikimedia).
+
+### 2026-06-15 · claude (Claude Code) · `claude/watchlists-crossref` (PR) — Proactive intelligence: Watchlists + Crossref connector
+- **The system becomes proactive.** Watch a topic → new scholarship + your feeds flow into the Research Inbox on a cadence, with no manual polling.
+- **Crossref connector** (2nd evidence connector; open scholarly API, no key, ~150M works). Pure `packages/shared/src/crossref.ts`: `buildCrossrefUrl` (encoded query, ≤50 rows, newest-first), `parseCrossref` + `crossrefItemToEvidence` (DOI as `external_id`, authors flattened, JATS stripped from abstracts, date-parts→ISO) → the `ExternalEvidence` contract (`source_kind: "scholarly"`). `crossref-verify` (16).
+- **Watchlists.** Pure `watchlists.ts` (`watchlistDue` cadence math — daily/weekly/manual; `normalizeCadence`); `watchlists-verify` (11). Additive `watchlists` table (+ regenerated schema.ts; `kinds` + `cadence`) + `repo.watchlists`. `reset-vault` wipes it.
+- **Worker.** New `run_watchlist` job — SSRF-safe `fetchJson` (reuses the host guard) → `buildCrossrefUrl` → `parseCrossref` → `normalizeEvidence` → `evidenceGate` (dedup) → `repo.evidence.upsert` → Research Inbox; marks `last_run`/`last_status`.
+- **Endpoints.** `GET/POST/DELETE /radian/watchlists`, `POST /radian/watchlists/:id/run`, and **`POST /radian/watchlists/run-due`** — cadence-aware + idempotent (only enqueues elapsed-window watchlists). The PWA pings `run-due` **on launch**, so monitoring runs proactively without new cron infra.
+- **PWA.** New **`/watchlists`** screen (add topic · pick sources scholarly/feeds · cadence · run-now · last-run status; code-split), in the More hub; launch-time `runDueWatchlists()` fire-and-forget.
+- **Verified (sandbox):** typecheck:all + build:all green; matrix **646/646**; schema in sync. Live Crossref fetch needs worker egress → owner sees results on device. **Next:** OpenAlex + Wikimedia connectors (same contract); owner-intent labels.

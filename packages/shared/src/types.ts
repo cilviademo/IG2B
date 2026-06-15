@@ -118,7 +118,8 @@ export type JobType =
   | "monitor_scan"
   | "media_ingest"
   | "media_extract"
-  | "poll_feed";
+  | "poll_feed"
+  | "run_watchlist";
 
 export interface Job<T = Record<string, unknown>> {
   id: string;

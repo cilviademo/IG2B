@@ -13,6 +13,7 @@ import TaskToast from "./components/TaskToast";
 import AppBanners from "./components/AppBanners";
 import { Loading } from "./components/State";
 import { forceSync, startAutoSync } from "./lib/sync";
+import { runDueWatchlists } from "./lib/api";
 import Dashboard from "./pages/Dashboard";
 
 // Home loads eagerly (it's the landing surface). Every other route is code-split so the
@@ -36,6 +37,7 @@ const Diagnostics = lazy(() => import("./pages/Diagnostics"));
 const ResearchInbox = lazy(() => import("./pages/ResearchInbox"));
 const Tensions = lazy(() => import("./pages/Tensions"));
 const WorldLens = lazy(() => import("./pages/WorldLens"));
+const Watchlists = lazy(() => import("./pages/Watchlists"));
 const CaptureDeepLink = lazy(() => import("./pages/CaptureDeepLink"));
 const Share = lazy(() => import("./pages/Share"));
 
@@ -69,6 +71,7 @@ function Routes() {
         <Route path="/research" component={ResearchInbox} />
         <Route path="/tensions" component={Tensions} />
         <Route path="/world-lens" component={WorldLens} />
+        <Route path="/watchlists" component={Watchlists} />
         <Route path="/capture" component={CaptureDeepLink} />
         <Route path="/share" component={Share} />
         <Route path="/404" component={NotFound} />
@@ -131,6 +134,8 @@ function Shell() {
   // taps. The stale banner surfaces any failure (never stale data silently).
   useEffect(() => {
     void forceSync();
+    // Proactive monitoring: enqueue any due watchlists (idempotent + cadence-gated server-side).
+    void runDueWatchlists().catch(() => {});
     return startAutoSync();
   }, []);
 

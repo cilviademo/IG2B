@@ -1,6 +1,6 @@
 # Roadmap
 
-`Last updated: 2026-06-15 · Commit: world-lens-evidence-drawer · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: watchlists-crossref · By: claude (Claude Code)`
 
 Status keys: **done · owner-gated · infra-gated · planned.** "Done" = code on `main`, CI-green,
 matrix-tested. Owner/infra-gated work is *built or trivial* but needs an action only the owner
@@ -50,12 +50,12 @@ can take (a device check, a Render env var, a paid plan). Each item lists its ga
   confidence-from-evidence, **freshness** (`claimStale`), and **contradictions** (`/radian/tensions`).
   **Still in this theme:** **negative knowledge** (remember searched-but-not-found / retracted /
   excluded) and **"why did Radian show me this?"** provenance surfacing.
-- **Phase 2 — first connectors: RSS/Atom DONE** (`rss.ts` + `feeds` table + `poll_feed` job +
-  `/radian/feeds`). **Next:** Crossref → OpenAlex → Wikimedia (same evidence contract + gate).
+- **Phase 2 — connectors: RSS/Atom + Crossref DONE** (`rss.ts`/`crossref.ts` + `feeds` table +
+  `poll_feed`/`run_watchlist` jobs). **Next:** OpenAlex → Wikimedia (same evidence contract + gate).
   **Phase 4:** arXiv / Europe PMC / Hacker News / FRED / regulatory.
-- **Phase 3 — evidence UX:** **Research Inbox (`/research`), Tensions (`/tensions`), World Lens
-  (`/world-lens`), and the Evidence Drawer (on Radian answers) all DONE.** Remaining: Watchlists
-  (weekly). **Owner intents** (My memory/Explain/Check/Research/Decide) over brain modes.
+- **Phase 3 — evidence UX: Research Inbox · Tensions · World Lens · Evidence Drawer · Watchlists
+  (`/watchlists`, cadence-driven, auto-run on launch) all DONE.** Remaining: **owner intents**
+  (My memory/Explain/Check/Research/Decide) over brain modes; **negative knowledge**.
 - **Phase 5 — evaluation + proactive intelligence:** golden vault, retrieval metrics, weekly change
   detection, decision-review triggers. Plus **full correlation-trace diagnostics** end-to-end.
 

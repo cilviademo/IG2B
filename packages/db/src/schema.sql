@@ -445,3 +445,18 @@ CREATE TABLE IF NOT EXISTS feeds (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS feeds_user_url_idx ON feeds(user_id, url);
+
+-- Watchlists (Phase 3 — Intelligence review): owner-chosen topics monitored on a cadence. The
+-- connectors (Crossref scholarly + the owner's RSS feeds) gather new evidence into the Research
+-- Inbox automatically. Evidence stays untrusted; nothing is auto-promoted to a memory node.
+CREATE TABLE IF NOT EXISTS watchlists (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id),
+  topic       TEXT NOT NULL,
+  kinds       TEXT[] NOT NULL DEFAULT ARRAY['scholarly','rss']::text[],
+  cadence     TEXT NOT NULL DEFAULT 'weekly',
+  last_run    TIMESTAMPTZ,
+  last_status TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS watchlists_user_idx ON watchlists(user_id);

@@ -14,6 +14,7 @@ import { fenceUntrusted, UNTRUSTED_GUARD } from "@indigold/shared";
 import { normalizeCaptureScopes } from "@indigold/shared";
 import { normalizeClaim, normalizeClaimEvidence, aggregateConfidence, isContested, claimStale, detectTensions, type Claim, type ClaimEvidenceLink } from "@indigold/shared";
 import { worldLens, type ExternalEvidence } from "@indigold/shared";
+import { normalizeCadence, watchlistDue } from "@indigold/shared";
 import { randomBytes } from "crypto";
 import { sha256 } from "../middleware/auth";
 import { getEmbedder } from "@indigold/shared";
@@ -339,6 +340,42 @@ radianRouter.post("/evidence/:id/status", async (req: Authed, res) => {
   if (!e) return res.status(404).json({ error: "not_found" });
   await repo.evidence.setStatus(req.userId!, req.params.id, status);
   res.json({ ok: true });
+});
+
+// ---- Watchlists (Phase 3 — monitor topics on a cadence) ----
+// Owner-chosen topics; connectors gather new evidence into the Research Inbox. `run-due` is
+// cadence-aware + idempotent (only enqueues watchlists whose window has elapsed) — the PWA pings
+// it on launch so monitoring is proactive without extra infra. Evidence is never auto-promoted.
+radianRouter.get("/watchlists", async (req: Authed, res) => {
+  res.json({ items: await repo.watchlists.list(req.userId!) });
+});
+radianRouter.post("/watchlists", async (req: Authed, res) => {
+  const topic = String(req.body?.topic || "").trim();
+  if (!topic) return res.status(400).json({ error: "topic_required" });
+  const kindsIn = Array.isArray(req.body?.kinds) ? req.body.kinds.map(String).filter((k: string) => ["scholarly", "rss"].includes(k)) : [];
+  const wid = id("watch");
+  await repo.watchlists.create({ id: wid, user_id: req.userId!, topic: topic.slice(0, 200), kinds: kindsIn.length ? kindsIn : ["scholarly"], cadence: normalizeCadence(req.body?.cadence) });
+  res.status(201).json({ id: wid, topic });
+});
+radianRouter.delete("/watchlists/:id", async (req: Authed, res) => {
+  await repo.watchlists.remove(req.userId!, req.params.id);
+  res.json({ ok: true });
+});
+radianRouter.post("/watchlists/:id/run", async (req: Authed, res) => {
+  const wl = await repo.watchlists.get(req.userId!, req.params.id);
+  if (!wl) return res.status(404).json({ error: "not_found" });
+  const j = await enqueue("run_watchlist", req.userId!, { watchlistId: req.params.id });
+  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued", payload: j.payload });
+  res.status(202).json({ queued: true, job: j.id });
+});
+// Idempotent cadence sweep — enqueue runs for the caller's due watchlists (PWA pings on launch).
+radianRouter.post("/watchlists/run-due", async (req: Authed, res) => {
+  const due = (await repo.watchlists.list(req.userId!)).filter((w) => watchlistDue(String((w as { cadence: string }).cadence), (w as { last_run: string | null }).last_run));
+  for (const w of due) {
+    const j = await enqueue("run_watchlist", req.userId!, { watchlistId: (w as { id: string }).id });
+    await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued", payload: j.payload });
+  }
+  res.json({ queued: due.length });
 });
 
 // ---- Feed sources (Phase 2 — RSS/Atom connector) ----
