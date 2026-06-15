@@ -37,6 +37,28 @@ export const users = {
   },
 };
 
+// ---- sessions (durable backstop; Redis stays the fast cache) ----
+export const sessions = {
+  async put(token: string, userId: string, email: string, ttlSec: number) {
+    const expires = new Date(Date.now() + ttlSec * 1000).toISOString();
+    await query(
+      `INSERT INTO sessions (token, user_id, email, expires_at) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (token) DO UPDATE SET user_id=$2, email=$3, expires_at=$4`,
+      [token, userId, email, expires],
+    );
+  },
+  async get(token: string) {
+    const r = await query<{ user_id: string; email: string }>(
+      `SELECT user_id, email FROM sessions WHERE token=$1 AND expires_at > now()`,
+      [token],
+    );
+    return r.rows[0] || null;
+  },
+  async del(token: string) {
+    await query(`DELETE FROM sessions WHERE token=$1`, [token]);
+  },
+};
+
 // ---- captures ----
 export const captures = {
   async create(c: Capture & { raw?: object }) {

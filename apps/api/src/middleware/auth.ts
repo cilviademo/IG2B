@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { getSession } from "@indigold/shared";
+import { readSession } from "../lib/session";
 
 export interface Authed extends Request {
   userId?: string;
@@ -11,7 +11,7 @@ export async function requireAuth(req: Authed, res: Response, next: NextFunction
   const tok = header.startsWith("Bearer ") ? header.slice(7) : "";
   if (!tok) return res.status(401).json({ error: "unauthenticated" });
   try {
-    const sess = await getSession<{ userId: string; email: string }>(tok);
+    const sess = await readSession(tok);
     if (!sess) return res.status(401).json({ error: "invalid_session" });
     req.userId = sess.userId;
     req.email = sess.email;
