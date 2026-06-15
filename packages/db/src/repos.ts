@@ -216,6 +216,31 @@ export const claims = {
   },
 };
 
+// ---- feed sources (Phase 2 — RSS/Atom connector) ----
+export const feeds = {
+  async add(f: { id: string; user_id: string; url: string; title?: string }) {
+    await query(
+      `INSERT INTO feeds (id, user_id, url, title) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (user_id, url) DO NOTHING`,
+      [f.id, f.user_id, f.url, f.title ?? ""],
+    );
+  },
+  async list(userId: string) {
+    const r = await query(`SELECT * FROM feeds WHERE user_id=$1 ORDER BY created_at DESC`, [userId]);
+    return r.rows;
+  },
+  async get(userId: string, id: string) {
+    const r = await query<{ id: string; user_id: string; url: string; title: string }>(`SELECT * FROM feeds WHERE user_id=$1 AND id=$2`, [userId, id]);
+    return r.rows[0] || null;
+  },
+  async remove(userId: string, id: string) {
+    await query(`DELETE FROM feeds WHERE user_id=$1 AND id=$2`, [userId, id]);
+  },
+  async markPolled(userId: string, id: string, status: string) {
+    await query(`UPDATE feeds SET last_polled=now(), last_status=$3 WHERE user_id=$1 AND id=$2`, [userId, id, status.slice(0, 120)]);
+  },
+};
+
 // ---- captures ----
 export const captures = {
   async create(c: Capture & { raw?: object }) {

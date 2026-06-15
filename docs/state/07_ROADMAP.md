@@ -1,6 +1,6 @@
 # Roadmap
 
-`Last updated: 2026-06-15 · Commit: claims-tensions · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: rss-connector · By: claude (Claude Code)`
 
 Status keys: **done · owner-gated · infra-gated · planned.** "Done" = code on `main`, CI-green,
 matrix-tested. Owner/infra-gated work is *built or trivial* but needs an action only the owner
@@ -50,8 +50,9 @@ can take (a device check, a Render env var, a paid plan). Each item lists its ga
   confidence-from-evidence, **freshness** (`claimStale`), and **contradictions** (`/radian/tensions`).
   **Still in this theme:** **negative knowledge** (remember searched-but-not-found / retracted /
   excluded) and **"why did Radian show me this?"** provenance surfacing.
-- **Phase 2 — first connectors:** RSS/Atom → Crossref → OpenAlex → Wikimedia (new evidence → Research
-  Inbox, never auto-promoted). **Phase 4:** arXiv / Europe PMC / Hacker News / FRED / regulatory.
+- **Phase 2 — first connectors: RSS/Atom DONE** (`rss.ts` + `feeds` table + `poll_feed` job +
+  `/radian/feeds`). **Next:** Crossref → OpenAlex → Wikimedia (same evidence contract + gate).
+  **Phase 4:** arXiv / Europe PMC / Hacker News / FRED / regulatory.
 - **Phase 3 — evidence UX:** World Lens, Evidence Drawer, Research Inbox, Watchlists (weekly), Tensions
   (contradiction) view. **Owner intents** (My memory/Explain/Check/Research/Decide) over brain modes.
 - **Phase 5 — evaluation + proactive intelligence:** golden vault, retrieval metrics, weekly change

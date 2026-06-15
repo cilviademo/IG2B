@@ -1,4 +1,6 @@
-> **INTELLIGENCE — CLAIMS + FRESHNESS + TENSIONS (PR `claude/claims-tensions`, latest):** the epistemic layer above nodes/evidence. Pure `claims.ts` (`Claim` = statement·type·subject·confidence·validity·owner_status·supporting/refuting evidence; `aggregateConfidence`, `isContested`, `claimStale`, `detectTensions`). Additive `claims` table + `repo.claims`; endpoints `POST/GET /radian/claims`, `/claims/:id/status`, `/claims/:id/evidence` (recomputes confidence), and **`GET /radian/tensions`** (contradiction view — surfaces disagreement instead of flattening it). `claims-verify` (16) → matrix **588/588**; schema in sync.
+> **INTELLIGENCE PHASE 2 — RSS/ATOM CONNECTOR (PR `claude/rss-connector`, latest):** the first evidence connector. Pure `rss.ts` (`parseFeed` RSS+Atom, CDATA/entity-safe + `feedItemToEvidence`); additive `feeds` table + `repo.feeds`; endpoints `GET/POST/DELETE /radian/feeds` + `POST /radian/feeds/:id/poll`; new `poll_feed` worker job (SSRF-safe `fetchFeedText` → parse → normalize → gate-dedup → Research Inbox). New entries are evidence, never auto-promoted. `rss-verify` (19) → matrix **607/607**; schema in sync. **Intelligence-program core complete** (evidence + claims/Tensions + first connector); more connectors + World Lens/Watchlists are incremental.
+
+> **INTELLIGENCE — CLAIMS + FRESHNESS + TENSIONS (PR `claude/claims-tensions`):** the epistemic layer above nodes/evidence. Pure `claims.ts` (`Claim` = statement·type·subject·confidence·validity·owner_status·supporting/refuting evidence; `aggregateConfidence`, `isContested`, `claimStale`, `detectTensions`). Additive `claims` table + `repo.claims`; endpoints `POST/GET /radian/claims`, `/claims/:id/status`, `/claims/:id/evidence` (recomputes confidence), and **`GET /radian/tensions`** (contradiction view — surfaces disagreement instead of flattening it). `claims-verify` (16) → matrix **588/588**; schema in sync.
 
 > **INTELLIGENCE PHASE 1 — EVIDENCE FOUNDATION (PR `claude/evidence-foundation`):** public-world facts are now a first-class untrusted truth class. Pure `evidence.ts` (`ExternalEvidence` contract + `normalizeEvidence` + `evidenceHash` + `isStale` freshness + `evidenceGate` dedup/kind intake + `SourceConnector` interface), additive `external_evidence` table (unique `(user_id,content_hash)` dedupe) + `repo.evidence`, and a **Research Inbox** (`GET /radian/evidence`, `POST /radian/evidence/:id/status`) — evidence is **never auto-promoted** to a memory node. `evidence-verify` (21) → matrix **572/572**; schema in sync. Connectors (RSS→Crossref→OpenAlex→Wikimedia) are Phase 2.
 
@@ -58,7 +60,7 @@
 
 # Current State
 
-`Last updated: 2026-06-15 · Commit: claims-tensions · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: rss-connector · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

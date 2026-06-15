@@ -3,6 +3,7 @@ import { enqueue, id, type Job } from "@indigold/shared";
 import { forecast, assemble } from "@indigold/shared/intelligence";
 import {
   getPrompt, BudgetExceededError, getTools, isResearchSafe, fenceUntrusted, UNTRUSTED_GUARD,
+  parseFeed, feedItemToEvidence, normalizeEvidence, evidenceGate,
   deterministicIngest, parseIngest, kindToNodeType,
   deterministicContextualize, parseContext,
   parseGithubUrl, deterministicAssist, parseAssist,
@@ -21,7 +22,7 @@ import {
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
 } from "@indigold/shared";
 import { model } from "../lib/model";
-import { fetchReadable } from "../lib/fetchPage";
+import { fetchReadable, fetchFeedText } from "../lib/fetchPage";
 
 type Handler = (job: Job) => Promise<void>;
 
@@ -864,4 +865,25 @@ export const handlers: Partial<Record<Job["type"], Handler>> = {
   agent_task: agentTask,
   simulation,
   meta_review: metaReview,
+  poll_feed: pollFeed,
 };
+
+// Phase 2 — poll one RSS/Atom feed → normalized evidence → Research Inbox (deduped). Best-effort.
+async function pollFeed(job: Job) {
+  const p = (job.payload || {}) as { feedId?: string };
+  const feed = p.feedId ? await repo.feeds.get(job.user_id, p.feedId) : null;
+  if (!feed) { await repo.jobs.finish(job.id, "skipped", undefined, "feed_not_found"); return; }
+  const xml = await fetchFeedText(feed.url);
+  if (!xml) { await repo.feeds.markPolled(job.user_id, feed.id, "fetch_failed"); await repo.jobs.finish(job.id, "skipped", undefined, "fetch_failed"); return; }
+  const parsed = parseFeed(xml);
+  const seen = await repo.evidence.seenHashes(job.user_id);
+  let added = 0;
+  for (const item of parsed.items.slice(0, 30)) {
+    const raw = feedItemToEvidence(item, { feedUrl: feed.url, feedTitle: parsed.feedTitle || feed.title || feed.url });
+    const ev = normalizeEvidence(raw, { id: id("ev"), connector: "rss" });
+    if (!evidenceGate(ev, { seenHashes: seen }).accept) continue;
+    if (await repo.evidence.upsert({ ...ev, user_id: job.user_id })) { added++; seen.add(ev.content_hash); }
+  }
+  await repo.feeds.markPolled(job.user_id, feed.id, `ok:${added}`);
+  await repo.jobs.finish(job.id, "done", { added, scanned: parsed.items.length });
+}
