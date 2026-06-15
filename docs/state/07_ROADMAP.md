@@ -1,63 +1,67 @@
 # Roadmap
 
-`Last updated: 2026-06-12 · Commit: audit-p0 · By: claude (Claude Code)`
+`Last updated: 2026-06-15 · Commit: roadmap-completion · By: claude (Claude Code)`
 
-Status keys: **planned · in-progress · blocked · done→changelog.** Each item lists its
-source directive and the gate that unblocks/closes it.
+Status keys: **done · owner-gated · infra-gated · planned.** "Done" = code on `main`, CI-green,
+matrix-tested. Owner/infra-gated work is *built or trivial* but needs an action only the owner
+can take (a device check, a Render env var, a paid plan). Each item lists its gate.
 
-## Reliability gate (Codex audit 2026-06-15) — address before the next big feature wave
-- **DONE:** blocking **CI**; **fatal migrations**; **plaintext-password fix** (claimed accounts are token-only — password never persisted; `ensureSession` re-prompts login instead of forking; "session expired" banner); **CORS** strict toggle (`CORS_ALLOW_ONRENDER=false` drops the blanket `*.onrender.com` trust).
-- **OWNER:** set `CORS_ALLOW_ONRENDER=false` on the API once `PWA_ORIGIN` is confirmed; on-device verify login + token-eviction re-login (no vault fork). Pairing (secondary) still carries a password by design.
-- **DONE:** queue **bounded retries** (re-queue to head until cap=3, then dead-letter) + **crash recovery** (`recoverStale` requeues orphaned `:processing` jobs at worker startup).
-- **DONE:** tested **vault restore** (`/io/import` now restores captures (Truth Layer A, id-preserving + idempotent) + nodes + edges via pure `normalizeImport*`; `import-verify`).
-- **IN PR (`claude/durable-sessions`):** durable **Postgres-backed sessions** (Redis-first cache + Postgres backstop) — fixes BUG-003 (Redis LRU eviction → silent logouts) and is **step 1 of the secure auth re-do**; step 2 (PWA token-only, no stored password) follows after device-confirming durability.
-- **DONE:** **auth re-do complete** — claimed accounts are now **token-only** (password never stored in localStorage); durable Postgres sessions keep the token valid, `ensureSession` re-prompts login (no fork) if it's lost, "session expired" banner restores via Keychain.
-- **NEXT from the audit:** e2e integration test, structured observability, dependency hygiene. Tracked in `docs/REPOSITORY_AUDIT_2026-06-15.md` (Codex branch).
+## ✅ Done (code on `main` — verify in `03_CHANGELOG.md`)
+- **Companion inversion — Stage 0 + Sprints 1–6 (complete):** Radian-as-Home, rich arrival cards
+  + durable feedback, durable conversation threads, node-anchored/source-chip threads + thread
+  search, Attention Queue ("Needs you now"), Narrative Timeline, Atlas evolution (memory-age
+  patina) + workstream threads (Atlas→Radian bridge). See `19_COMPANION_INVERSION.md`.
+- **Cognition Waves A–D (complete):** knowledge layers (epistemic/causal/lifecycle), Constraint
+  Engine + Attention Layer (B), memory tiers + multi-timescale reviews + shadow memory (C), agent
+  society + human-override constitution + wisdom layer + resilience/export bundle (D). The stacked
+  PRs #7/#8/#9/#11 that built these were **closed as stale** on 2026-06-15 — the work had already
+  landed on `main` via squash (verified endpoint-by-endpoint).
+- **Cognition C4 — opportunity scoring (done 2026-06-15):** `scoreOpportunity` (alignment +
+  revenue + confidence + urgency + capacity fit, deterministic) ranks `GET /radian/opportunities`;
+  `opportunity-scoring-verify`.
+- **Living OS G1–G11 (complete):** Companion verbs, Atlas node-states/Memory Palace, Time Machine,
+  Quests, Progression, Boardroom, Research/Horizon, Simulation, Mentor, Companion briefing, Context
+  Engineering. Plus media spike (Wave 6) built (see infra-gated).
+- **Reliability gate (Codex audit P0s — complete in code):** blocking **CI**, **fatal migrations**,
+  **token-only auth** (no stored password) on **durable Postgres sessions** (Redis-first cache +
+  backstop, fixes BUG-003), **CORS strict toggle**, queue **bounded retries + crash recovery**,
+  tested **vault restore** (captures + nodes + edges + timeline).
+- **Observability (done 2026-06-15):** structured JSON request logging (`apps/api/src/lib/log.ts`,
+  `requestLogger` — method/path/status/latency + request id, never query/body/secrets) atop the
+  existing `GET /radian/observability` + Diagnostics surface.
+- **Dependency hygiene (audited 2026-06-15):** `npm audit` = **0 vulnerabilities**. Available
+  upgrades are **breaking majors** (Express 5, Zod 4, TypeScript 6, @types/node 25, @types/express
+  5) — **deliberately deferred** (each needs a careful migration + re-verify across the
+  no-workspaces vendored packages). Safe patch bumps (ioredis 5.11.1, aws-sdk 3.1068) available
+  when convenient. Re-run the audit each quarter.
 
-## In-progress (open PRs — merge gate = owner live-test)
-- **File upload (PR #1 `claude/indigold-file-upload`)** — *in-progress.* PWA file picker +
-  offline queue + signed-URL refresh (backend already on main). **Gate:** owner shares a
-  photo via the form → `uploaded ✓`, opens it from the vault; oversize blocked; airplane-mode
-  queue re-uploads on refresh. Source: "File Upload Branch Build Plan".
-- **Vault redesign (PR #2 `claude/indigold-vault-redesign`)** — *in-progress.* Dark-default
-  token system, self-hosted fonts, Atlas constellation, all screens, SW v0.22.0. **Gate:**
-  owner quit-reopens ×2; Home/Atlas/Inbox/Brief read true in dark + light. Source: "Vault
-  redesign directive".
-- **RADIAN 2.0 (PR #3 `claude/radian-2.0`)** — *in-progress.* Intelligence layer Waves 0–4 +
-  multi-provider LLM framework. **Gate (per wave, needs a provider key):** repo-share →
-  classify+link+relevance+playbook+NEXT ACTIONS; research → finding captures; budget force-test
-  ($0.01→queue); secret-exclusion test green. Source: "RADIAN 2.0 Build Directive".
+## 👤 owner-gated (built/trivial — needs an on-device or Render action)
+- **Device phone-gates (constraint #5 — the live gate):** confirm each shipped sprint behaves on
+  iPhone — ask Radian → restart → thread resumes; source-chip → node thread; "Needs you now" ranks
+  real items; Timeline shows real chapters; project node → "Discuss workstream"; Atlas patina rings
+  deepen with memory age; login + token-eviction re-login (no vault fork). Tracked in `09_PHONE_GATES.md`.
+- **CORS lockdown:** set `CORS_ALLOW_ONRENDER=false` on the API once `PWA_ORIGIN` is confirmed.
+- **pgvector retrieval:** run `CREATE EXTENSION vector` on the Render Postgres; `GET /radian/pgvector-check`
+  returns the verdict; the `VectorStore` seam flips with zero pipeline change (else stays on tag retrieval).
+- **Live web research:** add `TAVILY_API_KEY` (or `BRAVE_API_KEY`) → Radian Research/Web modes cite real sources.
+- **iOS Shortcut file branch:** build the Shortcut + paste the device token (`CAPTURE_DEEPLINK.md`).
 
-## In-progress (owner-gated)
-- **Phase 3 — Wave 6 media pipeline (`claude/phase3-media` → main)** — *built, inert until deployed.*
-  `media_extract` on a dedicated Redis queue → Docker media-worker (yt-dlp captions/audio +
-  ffmpeg + faster-whisper, baked model) → transcript → existing `media_ingest` synthesis.
-  **Gate:** owner uncomments the `indigold-media-worker` block in `render.yaml` (paid plan),
-  sets `MEDIA_WORKER=on`, runs the RTF timing spike (`17_WAVE6_MEDIA_SPIKE.md`), and shares a
-  YouTube link (captions path) → a transcribed+synthesized node; then an audio/podcast URL.
+## 🔧 infra-gated (needs a paid plan / live stack)
+- **Phase 3 — Wave 6 media pipeline:** built + inert. Uncomment `indigold-media-worker` in
+  `render.yaml` (paid), set `MEDIA_WORKER=on`, run the RTF spike (`17_WAVE6_MEDIA_SPIKE.md`), share a
+  YouTube/podcast URL → transcribed + synthesized node.
+- **Always-on background jobs:** set the API to Render `starter` (~$7) so scheduled briefs/reviews/
+  consolidation fire without cold-start gaps.
+- **e2e integration test:** needs the deployed Postgres+Redis+API+worker stack (the verify matrix
+  covers pure logic; DB round-trips are owner/CI-run).
+- **True SSE token streaming:** Radian answers currently client-reveal (typewriter); real
+  token-by-token streaming is a backend follow-up.
 
-## Planned (not started)
-- **iOS Shortcut file branch (live wiring)** — *planned, docs done.* The recipe is in
-  `CAPTURE_DEEPLINK.md`; needs the owner to build the Shortcut + paste the device token.
-  **Gate:** a file shared from the iOS share sheet lands in the vault.
-- **Wire RADIAN endpoints into the PWA** — *planned.* Surface `/radian/actions` (NEXT
-  ACTIONS) on Home, opportunities/decisions/simulation UIs. **Blocked-by:** PR #3 merge.
-- **pgvector retrieval** — *planned / blocked.* Stage-2 retrieval falls back to entity/tag;
-  embeddings path is wired behind `ModelAdapter.embed`. **Gate:** owner verifies
-  `CREATE EXTENSION vector` works on the basic-256mb Postgres; else stay on tag retrieval.
-- **More tool adapters** — *planned.* arXiv / YouTube / Gmail / Notion behind the existing
-  `ToolAdapter` interface (web-search + GitHub exist). **Gate:** per-adapter need + auth.
-- **Real execution agents** — *planned, off by default.* Stage-6 drafts exist; real
-  executors are gated behind per-kind opt-in flags (`RADIAN_EXECUTOR_<KIND>`), default off.
-- **Always-on background jobs** — *optional.* Set the API to Render `starter` (~$7) for
-  reliable scheduled briefs/consolidation without cold-start gaps.
+## 📋 planned / optional
+- **More tool adapters** (arXiv / YouTube / Gmail / Notion) behind the `ToolAdapter` seam — per-adapter need + auth.
+- **Real execution agents** — Stage-6 drafts exist; gated behind per-kind opt-in flags (`RADIAN_EXECUTOR_<KIND>`, default off).
+- **Major dependency upgrades** (Express 5 / Zod 4 / TS 6) — schedule as a dedicated, verified migration.
 
-## Done → see `03_CHANGELOG.md`
-Prototypes · Render monorepo + low-cost topology · capture/share/iOS-Shortcut link-text
-path · file-upload backend (R2 + signed URLs) · PWA↔API hardening (CORS, VITE_API_URL,
-401 re-mint, cold-start) · SW API-cache fix · light theme + pull-to-refresh.
-
-> The originating directives (file-upload, Vault redesign, RADIAN 2.0, living-handoff)
-> arrived as chat prompts. Their essential content is captured here + in `docs/RADIAN_2.0.md`
-> and the deep docs; if a future agent needs the full directive text, recreate it under
-> `docs/state/directives/` rather than relying on chat history.
+> Originating directives (file-upload, Vault redesign, RADIAN 2.0, Living OS, Companion inversion,
+> the 6-sprint product strategy) arrived as chat prompts; their essential content lives here + in
+> `19_COMPANION_INVERSION.md`, `docs/RADIAN_2.0.md`, and the deep docs.

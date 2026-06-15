@@ -9,6 +9,7 @@ import { calibrate, AGENT_KINDS, type AgentKind } from "@indigold/shared";
 import { DEFAULT_CONSTRAINTS, attentionScore, urgencyFromDate, computeSignalToNoise, type ConstraintProfile } from "@indigold/shared";
 import { buildAttentionQueue, ageDays, inboxUrgency, type AttentionCandidate } from "@indigold/shared";
 import { narrate, type Moment } from "@indigold/shared";
+import { scoreOpportunity, revenueSignal, capacityFit } from "@indigold/shared";
 import { getEmbedder } from "@indigold/shared";
 import { isResearchSafe, BudgetExceededError } from "@indigold/shared";
 import { findVerb, verbsFor } from "@indigold/shared";
@@ -946,8 +947,37 @@ radianRouter.delete("/quests/:id", async (req: Authed, res) => {
 
 // ---- Stage 7: Opportunities (review queue; never auto-promoted) ----
 radianRouter.get("/opportunities", async (req: Authed, res) => {
-  await repo.opportunities.expireStale(req.userId!);
-  res.json({ items: await repo.opportunities.list(req.userId!) });
+  // Cognition C4: score each opportunity (alignment + revenue + confidence + urgency +
+  // capacity fit) and return them ranked. Deterministic; proposal-only (never auto-acts).
+  const uid = req.userId!;
+  await repo.opportunities.expireStale(uid);
+  const [items, nodes, projects, profile] = await Promise.all([
+    repo.opportunities.list(uid), repo.nodes.list(uid), repo.projects.list(uid), repo.constraints.get(uid),
+  ]);
+  const now = Date.now();
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const activeTags = new Set<string>();
+  for (const p of projects as { tags?: string[]; status?: string; name: string }[]) {
+    if (p.status && p.status !== "active") continue;
+    for (const t of (p.tags || [])) activeTags.add(String(t).toLowerCase());
+    if (p.name) activeTags.add(p.name.toLowerCase().split(/\s+/)[0]);
+  }
+  const prof = (profile || {}) as { weekly_hours?: number; risk_tolerance?: string };
+  const constraintFit = capacityFit(prof.weekly_hours, prof.risk_tolerance);
+  const scored = (items as { id: string; thesis: string; leverage?: string; first_move?: string; confidence: number; contributing_nodes?: string[]; decay_date?: string | null }[]).map((o) => {
+    const contrib = (o.contributing_nodes || []).map((cid) => byId.get(cid)).filter((n): n is typeof nodes[number] => !!n);
+    let aligned = 0;
+    for (const n of contrib) {
+      const tags = (n.tags || []).map((t) => (t || "").toLowerCase());
+      if (tags.some((t) => activeTags.has(t)) || [...activeTags].some((t) => t && n.title.toLowerCase().includes(t))) aligned++;
+    }
+    const alignment = contrib.length ? aligned / contrib.length : (activeTags.size ? 0.2 : 0.5);
+    const maxMvs = Math.max(0, ...contrib.map((n) => n.mvs || 0));
+    const revenue = Math.min(100, Math.round(revenueSignal(`${o.thesis} ${o.leverage || ""} ${o.first_move || ""}`) * 0.7 + maxMvs * 0.3));
+    const scoring = scoreOpportunity({ confidence: o.confidence, alignment, revenue, urgency: urgencyFromDate(o.decay_date, now), constraintFit });
+    return { ...o, scoring };
+  }).sort((a, b) => b.scoring.score - a.scoring.score);
+  res.json({ items: scored });
 });
 radianRouter.post("/opportunities/scan", async (req: Authed, res) => {
   const j = await enqueue("opportunity_scan", req.userId!, {});
