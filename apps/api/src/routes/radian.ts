@@ -903,7 +903,7 @@ radianRouter.post("/boardroom", async (req: Authed, res) => {
   // shared signals: decision calibration → Historian.
   try { sig.calibrationNote = calibrate(await repo.decisions.forCalibration(uid)).note; } catch { /* none */ }
 
-  const synthesis = boardroom(subject!, sig);
+  const synthesis = boardroom(subject!, sig, { extended: req.body?.extended === true });
 
   // persist as a Boardroom node with provenance.
   const bid = id("node");

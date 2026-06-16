@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Users, Loader2, Gavel, Check, Target, ShieldAlert, Wrench, Palette, ScrollText, GraduationCap, ArrowLeft } from "lucide-react";
+import { Users, Loader2, Gavel, Check, Target, ShieldAlert, Wrench, Palette, ScrollText, GraduationCap, ArrowLeft, ShieldCheck, ScanSearch, Combine, Boxes, Briefcase } from "lucide-react";
 import { Link } from "wouter";
 import { conveneBoardroom, createQuest, type BoardroomSynthesis } from "@/lib/api";
 
@@ -10,6 +10,8 @@ import { conveneBoardroom, createQuest, type BoardroomSynthesis } from "@/lib/ap
 type IconType = typeof Target;
 const PERSONA_ICON: Record<string, IconType> = {
   strategist: Target, skeptic: ShieldAlert, operator: Wrench, creative: Palette, historian: ScrollText, teacher: GraduationCap,
+  // Extended council (opt-in "Full council").
+  security_auditor: ShieldCheck, reality_checker: ScanSearch, synthesizer: Combine, architect: Boxes, pm: Briefcase,
 };
 // Static identities so the radial renders before/while convening (names confirmed by API).
 const SEATS = ["strategist", "skeptic", "operator", "creative", "historian", "teacher"] as const;
@@ -28,6 +30,7 @@ export default function SituationRoom() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [questMade, setQuestMade] = useState(false);
+  const [full, setFull] = useState(false); // convene the extended 11-persona council
 
   // Map API lines (if convened) onto the fixed seats so each seat shows its real voice.
   const seatLine = useMemo(() => {
@@ -39,7 +42,7 @@ export default function SituationRoom() {
   async function convene() {
     if (busy || !subjectId) { if (!subjectId) setErr("No subject — open the Situation Room from a node or capture."); return; }
     setBusy(true); setErr(null);
-    const r = await conveneBoardroom(subjectType, subjectId, undefined);
+    const r = await conveneBoardroom(subjectType, subjectId, undefined, full);
     setBusy(false);
     if (!r) { setErr("Couldn't reach the council (offline or API asleep)."); return; }
     setSynth(r.synthesis);
@@ -53,7 +56,14 @@ export default function SituationRoom() {
         <Users size={18} strokeWidth={1.5} style={{ color: "var(--gold)" }} />
         <h1 className="text-xl font-display">Situation Room</h1>
       </div>
-      <p className="cap-data mb-5" style={{ color: "var(--text-dim)" }}>six advisors on <span style={{ color: "var(--text)" }}>{title}</span></p>
+      <p className="cap-data mb-3" style={{ color: "var(--text-dim)" }}>{full ? "eleven advisors" : "six advisors"} on <span style={{ color: "var(--text)" }}>{title}</span></p>
+
+      {/* Council size — the classic six, or the full eleven (adds Security · Reality · Synthesis · Architect · PM). */}
+      <div className="flex gap-1.5 mb-4">
+        {([["Core six", false], ["Full council", true]] as [string, boolean][]).map(([label, v]) => (
+          <button key={label} onClick={() => setFull(v)} className="press px-2.5 py-1 text-xs" style={{ borderRadius: 999, border: `1px solid ${full === v ? "var(--gold-line)" : "var(--line)"}`, color: full === v ? "var(--gold)" : "var(--text-dim)" }}>{label}</button>
+        ))}
+      </div>
 
       {/* Radial of advisors around a Convene control. */}
       <div className="relative mx-auto" style={{ width: 320, height: 348, marginBottom: 12 }}>
@@ -121,7 +131,7 @@ export default function SituationRoom() {
 
       {!synth && !busy && (
         <p className="mt-5 text-center" style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.55 }}>
-          Tap <span style={{ color: "var(--gold)" }}>Convene</span> to hear all six advisors weigh in and converge on a single move.
+          Tap <span style={{ color: "var(--gold)" }}>Convene</span> to hear {full ? "all eleven advisors" : "all six advisors"} weigh in and converge on a single move.
         </p>
       )}
 

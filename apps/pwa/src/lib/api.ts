@@ -760,8 +760,8 @@ async function questReq<T>(path: string, init?: RequestInit): Promise<T | null> 
 // G5 Boardroom — synchronous, deterministic multi-agent council. No polling needed.
 export interface BoardroomLine { persona: string; name: string; role: string; color: string; line: string }
 export interface BoardroomSynthesis { subject: string; question?: string; lines: BoardroomLine[]; resolved: string; resolvedAction: string; bootstrap: boolean }
-export const conveneBoardroom = (subjectType: string, subjectId: string, question?: string) =>
-  questReq<{ synthesis: BoardroomSynthesis; node: string }>(`/radian/boardroom`, { method: "POST", body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId, question }) });
+export const conveneBoardroom = (subjectType: string, subjectId: string, question?: string, extended?: boolean) =>
+  questReq<{ synthesis: BoardroomSynthesis; node: string }>(`/radian/boardroom`, { method: "POST", body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId, question, extended }) });
 
 // G6 Research Engine — horizon scan (deterministic research directions).
 export interface HorizonDirection { domain: string; topic: string; rationale: string; sourceType: string; priority: "high" | "med" | "low"; project_id?: string }
