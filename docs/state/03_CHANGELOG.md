@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-15 · Commit: persona-library · By: claude (Claude Code)`
+`Last updated: 2026-06-16 · Commit: situation-room-council · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -707,3 +707,8 @@ commit(s) · what/why · live-test status).
 - **Feature-flagged:** `boardroom(subject, sig, { extended: true })` → 11 lines; **default stays the classic 6** (no behavior change). Persona ideas adapted in spirit from agency-agents (MIT); **no external code imported**.
 - **Deterministic-first preserved:** every new line works with **no provider key**; a future live upgrade still routes only through `governedComplete` (no persona calls a provider directly). Each line carries persona/role attribution = provenance; callers emit events as before.
 - `boardroom-verify` extended (24): classic-6 default, 5 extended keys, no duplicate keys, opt-in adds them, sensitive-content branch, determinism. **No schema/API change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **739/739**. (Before/after council screenshots are an owner device step.)
+
+### 2026-06-16 · claude (Claude Code) · `claude/situation-room-council` (PR) — Finish: Situation Room extended council + companion/threads/Atlas audit
+- **Situation Room (cards/mobile):** surfaces the new 5 enrichment personas — a **Core six / Full council (11)** toggle convenes the extended Boardroom (`conveneBoardroom(…, extended)` → `POST /radian/boardroom { extended }` → `boardroom(subject, sig, { extended })`). The radial keeps the 6 core seats (clean on mobile); the deliberation list renders all returned voices, now with icons for Security Auditor / Reality Checker / Synthesizer / Architect / PM. Deterministic floor unchanged.
+- **companion/threads/Atlas:** audited — coherent and complete after the chat-history PR (`/history` deep-links via `?conversation=`, anchored threads show their anchor title, Atlas node sheet wires "Discuss in Radian" + "World Lens"). No invented changes.
+- **No schema change; deterministic-first intact.** **Verified (sandbox):** typecheck:all + build:all green; matrix **739/739**. (Finishes the two "Map …" task-panel items; the Vite-dev-server task is environment-local, not a deliverable.)
