@@ -5,6 +5,7 @@ import {
   getPrompt, BudgetExceededError, getTools, isResearchSafe, fenceUntrusted, UNTRUSTED_GUARD,
   parseFeed, feedItemToEvidence, normalizeEvidence, evidenceGate,
   buildCrossrefUrl, parseCrossref, buildOpenAlexUrl, parseOpenAlex, buildWikipediaUrl, parseWikipedia,
+  oEmbedUrlFor, parseOEmbed, oEmbedToContent, isThinContent,
   deterministicIngest, parseIngest, kindToNodeType,
   deterministicContextualize, parseContext,
   parseGithubUrl, deterministicAssist, parseAssist,
@@ -54,7 +55,24 @@ const ingestCapture: Handler = async (job) => {
         web = { url: cap.url, title: page.title, description: page.description, chars: page.chars };
       }
     }
+    // Fallback for social / JS / bot-blocked links (Instagram, YouTube, TikTok…) where the
+    // readable fetch yields nothing: pull the site's OPEN oEmbed so the capture carries real
+    // substance (title/author) instead of a bare domain. Untrusted → fenced. No keys.
+    if (!web) {
+      const oe = oEmbedUrlFor(cap.url);
+      if (oe) {
+        const parsed = parseOEmbed(await fetchJson(oe));
+        if (parsed) {
+          const snippet = oEmbedToContent(parsed);
+          content = `${UNTRUSTED_GUARD}\n${fenceUntrusted("OEMBED", snippet)}`;
+          web = { url: cap.url, title: parsed.title, description: parsed.author ? `by ${parsed.author}` : "", chars: snippet.length };
+        }
+      }
+    }
   }
+  // "Needs content": no enrichment landed and the note is just a bare domain/title → flag it so
+  // Radian asks for the content ONCE instead of answering generically every time.
+  const needsContent = !web && isThinContent(cap.note, cap.title, cap.url || undefined);
 
   const prompt = getPrompt("ingest_classify");
   let ingest: IngestResult;
@@ -103,6 +121,9 @@ const ingestCapture: Handler = async (job) => {
       reasoned, provider,
       // Provenance: the page was actually scraped + reasoned about (not just the link).
       ...(web ? { web: { ...web, scraped: true } } : {}),
+      // Thin capture: only a bare domain/title came through → surface "needs content" so Radian
+      // asks for the actual text once, instead of every query being generic.
+      ...(needsContent ? { needs_content: true } : {}),
     },
   });
   // Event Store: node + classification, tied to the capture lifecycle.

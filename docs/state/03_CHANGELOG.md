@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-16 · Commit: situation-room-council · By: claude (Claude Code)`
+`Last updated: 2026-06-16 · Commit: capture-enrichment · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -712,3 +712,9 @@ commit(s) · what/why · live-test status).
 - **Situation Room (cards/mobile):** surfaces the new 5 enrichment personas — a **Core six / Full council (11)** toggle convenes the extended Boardroom (`conveneBoardroom(…, extended)` → `POST /radian/boardroom { extended }` → `boardroom(subject, sig, { extended })`). The radial keeps the 6 core seats (clean on mobile); the deliberation list renders all returned voices, now with icons for Security Auditor / Reality Checker / Synthesizer / Architect / PM. Deterministic floor unchanged.
 - **companion/threads/Atlas:** audited — coherent and complete after the chat-history PR (`/history` deep-links via `?conversation=`, anchored threads show their anchor title, Atlas node sheet wires "Discuss in Radian" + "World Lens"). No invented changes.
 - **No schema change; deterministic-first intact.** **Verified (sandbox):** typecheck:all + build:all green; matrix **739/739**. (Finishes the two "Map …" task-panel items; the Vite-dev-server task is environment-local, not a deliverable.)
+
+### 2026-06-16 · claude (Claude Code) · `claude/capture-enrichment` (PR) — Capture content enrichment (oEmbed fallback + needs-content flag)
+- **Root-causes the "generic Radian answer" problem** (owner screenshot: a bare `instagram · instagram.com` capture → Radian honestly says "I only got the source label"). The ingest pipeline scrapes URLs via `fetchReadable`, but social/JS/login-walled sites (Instagram, YouTube, TikTok…) are bot-blocked → the node had only a domain → every downstream stage (classify, edges, embed, chat) inherited the emptiness.
+- **oEmbed fallback** (pure `social.ts`: `oEmbedUrlFor` open providers only — YouTube/Vimeo/TikTok/SoundCloud/Flickr; IG/X return null honestly since their oEmbed needs a token — `parseOEmbed`, `oEmbedToContent`, `isThinContent`; `social-verify` 17). Worker ingest now: when the readable fetch yields nothing, pull the site's open oEmbed (title/author) as **fenced untrusted** content for the classifier — substance instead of a bare domain. No keys.
+- **`needs_content` flag:** when nothing enriches a capture and the note is just a domain/title, the node is flagged so Radian can ask for the actual text once (instead of every query being generic). (UI surfacing rides next.)
+- **No schema change** (additive node meta). **Verified (sandbox):** typecheck:all + build:all green; matrix **756/756** (+17). **Next:** deterministic embedding-based auto-linking (#2) so connections form automatically.
