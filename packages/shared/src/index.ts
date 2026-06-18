@@ -48,4 +48,5 @@ export * from "./watchlists";
 export * from "./intent";
 export * from "./negative-knowledge";
 export * from "./mcp";
+export * from "./social";
 export * from "./world-lens";
