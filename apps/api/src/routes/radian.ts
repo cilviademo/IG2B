@@ -123,8 +123,15 @@ radianRouter.post("/ask", async (req: Authed, res) => {
   } else if (job === "context_pack") payload = { subjectId, purpose: `Pack for ${subjectType}` };
   else payload = { subjectType, subjectId, verb, question }; // "ask"
 
-  const j = await enqueue(job, req.userId!, payload);
-  await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+  // The job queue (Redis) may be down/unconfigured — return a PRECISE 503 so the UI says
+  // "queue unavailable", not a generic 500 that looks like "API asleep".
+  let j;
+  try {
+    j = await enqueue(job, req.userId!, payload);
+    await repo.jobs.record({ id: j.id, user_id: req.userId!, type: j.type, status: "queued" });
+  } catch {
+    return res.status(503).json({ error: "queue_unavailable" });
+  }
   res.status(202).json({ mode: "job", job: j.id, verb });
 });
 

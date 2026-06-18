@@ -1,6 +1,6 @@
 # Debugging Log (institutional scar tissue)
 
-`Last updated: 2026-06-15 · Commit: model-timeout · By: claude (Claude Code)`
+`Last updated: 2026-06-18 · Commit: queue-honesty · By: claude (Claude Code)`
 
 Every significant bug: **symptom → root cause → fix → LESSON.** Append-only.
 
@@ -67,6 +67,23 @@ Every significant bug: **symptom → root cause → fix → LESSON.** Append-onl
   unset on the PWA static site, or a free-tier cold start.)
 - **LESSON:** Never print a guessed cause. Surface the known error — the owner debugs from
   what's on screen (cf. BUG-005, BUG-006).
+
+## BUG-011 — "API asleep" on Ask Radian while captures save fine (queue, mislabeled)
+- **Symptom:** a shared reel captured fine ("4 in vault · just now") but Ask Radian kept saying
+  "couldn't reach Radian (offline or API asleep)" — the API is clearly NOT asleep (captures sync).
+- **Root cause (two parts):** (1) `CompanionPanel`/`SituationRoom` showed a HARDCODED "offline or
+  API asleep" for any `askRadian` null — a guess, not the real reason (the honest-error work had
+  only reached the main chat). (2) `/radian/ask` (and the capture POST) called `enqueue` with no
+  try/catch, so a **job-queue (Redis) outage** 500s the verb request while the capture still
+  persists (its DB row is written before the enqueue) — looking like "saves but can't Ask."
+- **Fix:** `claude/queue-honesty` — `/radian/ask` wraps enqueue → precise **503 `queue_unavailable`**;
+  capture POST tolerates a queue outage (never 500s a saved capture; leaves it `unprocessed` for
+  catch-up). `askRadian` captures the server error body; `CompanionPanel` shows `connectivityError()`
+  (e.g. "Radian /ask → 503 queue_unavailable") instead of "asleep". **Owner:** check Diagnostics →
+  Debug Console → redis health; ensure `REDIS_URL` is set on BOTH the API and worker (no Redis →
+  no jobs can run, even though captures save).
+- **LESSON:** never show a guessed failure cause; and the queue is a separate dependency from the
+  DB — a capture saving does not mean a job can be enqueued/run.
 
 ## BUG-010 — "Captured on one surface, not showing in the PWA" (account fork)
 - **Symptom:** a shared link "connected on the URL" but never appeared in the installed PWA, even
