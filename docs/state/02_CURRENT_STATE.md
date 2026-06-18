@@ -1,3 +1,5 @@
+> **BOARDROOM/MENTOR/SIMULATE → LIVE (PR `claude/boardroom-live`, latest):** the Situation Room council was placeholder text because `/radian/boardroom` never called `governedComplete` (unfinished live seam; deterministic-only). Wired Boardroom + Mentor + sync-Simulate INLINE through the chokepoint over the REAL subject/signals (Boardroom: one batched call, subject fenced+guarded). Deterministic stays the FLOOR (no-key/budget/error/secret `localOnly`); response carries `mode`+`provider` → live/floor badge in the Situation Room. Pure `boardroomPrompt`/`mergeBoardroomModel`; `boardroom-verify` 35 → matrix **784/784**; no schema change. See BUG-012.
+
 > **QUEUE HONESTY (PR `claude/queue-honesty`, latest):** "Ask Radian → API asleep" while captures saved fine was a MISLABEL — the Ask sheet showed a hardcoded string and `/radian/ask` 500d on a job-queue (Redis) outage. Fix: `CompanionPanel` shows `connectivityError()`; `askRadian` captures the error body; `/radian/ask` returns a precise **503 queue_unavailable**; the capture POST never 500s on a queue outage (capture stays instant, left `unprocessed`). Likely cause = Redis down/unconfigured (set `REDIS_URL` on API + worker; check Diagnostics → redis health). matrix **773/773**; no schema change. See BUG-011.
 
 > **ACCOUNT VISIBILITY + SHARE GUARD (PR `claude/account-visibility`, latest):** diagnoses "captured on one surface, not in the PWA" as an ACCOUNT FORK (anonymous device accounts are per-surface; `fetchCaptures` only returns the current `user_id`). Pure `accountFingerprint` (`account-verify` 6) surfaced as `acct <id>` in the Inbox sync line + an Account line in Diagnostics (claimed vs anonymous + "log in to unify"); deep-link/share now `await ensureSession()` before syncing so the claimed token is used and no second account is minted. Real cure: one claimed account across surfaces. matrix **773/773**; no schema change. See BUG-010.
@@ -88,7 +90,7 @@
 
 > **MCP CONNECTOR SEAM — DORMANT (PR `claude/mcp-seam`):** typed contract for future MCP tools (Zapier etc.) — NO live connection/credentials/network/writes. Pure `mcp.ts` (`McpToolMeta`/`McpConnector`/`mcpGate` default-deny/`fenceMcpResult`/`stubMcpConnector`) + `mcp-verify` (19) + `20_MCP_CONNECTOR_SEAM.md`. Default-deny; writes need enable+`mcp:write`+confirmation; results untrusted+fenced; never bypasses `governedComplete`. matrix **730/730**; no schema/wiring. Live = owner-approved future PR.
 
-`Last updated: 2026-06-18 · Commit: queue-honesty · By: claude (Claude Code)`
+`Last updated: 2026-06-18 · Commit: boardroom-live · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

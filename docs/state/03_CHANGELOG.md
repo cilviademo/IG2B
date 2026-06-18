@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-18 · Commit: queue-honesty · By: claude (Claude Code)`
+`Last updated: 2026-06-18 · Commit: boardroom-live · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -738,3 +738,10 @@ commit(s) · what/why · live-test status).
 - **Queue-outage hardening:** `/radian/ask` wraps `enqueue` → precise **503 `queue_unavailable`** (not an unhandled 500 that looks like "asleep"); the capture POST tolerates a queue outage — a saved capture is **never** failed by a Redis outage (left `unprocessed` for boot catch-up).
 - **Likely root cause = the job queue (Redis), not the API:** verb actions enqueue a job; if Redis is down/unconfigured the request 500s while captures still persist (DB write precedes enqueue). **Owner:** Diagnostics → Debug Console → redis health; ensure `REDIS_URL` is set on the API **and** worker (no Redis → no jobs run).
 - **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **773/773**. Logged BUG-011.
+
+### 2026-06-18 · claude (Claude Code) · `claude/boardroom-live` (PR) — Boardroom/Mentor/Simulate now reason through the live model (BUG-012)
+- **Diagnosed + fixed** the owner's "placeholder council" report: the Situation Room returned the **deterministic floor** because `/radian/boardroom` called the pure `boardroom()` with **no `governedComplete` in the path** — an unfinished live seam, not a fault. The synchronous G5/G7 engines (Boardroom, Mentor, sync-Simulate `/whatif`) were built instant-deterministic; only the async jobs + `/radian/chat` were wired live.
+- **Wired all three inline** (owner-approved: inline-await like `/chat`, all three together) through the single chokepoint, over the **real** subject + signals: Boardroom does **one batched governed call** (all persona takes + synthesis) with the subject fenced as untrusted + prompt-injection guard; Mentor sharpens its `answer`/`suggestion`; sync-Simulate sharpens the `recommendation` (keeping the deterministic scenarios + probabilities).
+- **Deterministic stays the FLOOR** on no-key / over-budget / provider error / **secret-or-internal subject** (`localOnly`) — never silently: the response carries **`mode: "live"|"floor"` + `provider`**, surfaced as a **live (Claude) / deterministic-floor badge** in the Situation Room deliberation header.
+- Pure `boardroomPrompt` + `mergeBoardroomModel` (merge keeps persona identity/role/color; garbage/empty JSON → floor, no blanking). `boardroom-verify` (35).
+- **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **784/784** (+11). **Owner live-gate:** Convene on a real node → text varies with content + badge reads "Claude"; `/status` spend increments; secret nodes stay on the floor.
