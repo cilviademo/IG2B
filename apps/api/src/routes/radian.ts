@@ -28,7 +28,7 @@ import {
   questReward, computeTracks, momentumFor, progressionSummary, inferTracks, TRACKS,
   MOMENTUM_STYLE, type Track, type CompletedQuest, type CaptureNode,
 } from "@indigold/shared";
-import { boardroom, type BoardroomSubject, type BoardroomSignals } from "@indigold/shared";
+import { boardroom, boardroomPrompt, mergeBoardroomModel, type BoardroomSubject, type BoardroomSignals } from "@indigold/shared";
 import { horizonScan, RESEARCH_CHAIN } from "@indigold/shared";
 import { simulate, parseOptions, type SimSignals } from "@indigold/shared";
 import { mentor, type MentorIntent } from "@indigold/shared";
@@ -769,8 +769,30 @@ radianRouter.post("/mentor", async (req: Authed, res) => {
     decisions, calibrationNote: cal.note, activeFocus,
     constraints: { weekly_hours: profile.weekly_hours, risk_tolerance: profile.risk_tolerance },
   });
-  await repo.emitEvent({ user_id: uid, actor: "agent:Chronos", event_type: "review_generated", subject_type: "mentor", subject_id: uid, correlation_id: uid, payload: { intent, bootstrap: reply.bootstrap } });
-  res.json({ reply });
+  // Live upgrade through the governed chokepoint — reason over the owner's REAL history (first-party
+  // vault data, not fenced). Deterministic `mentor()` stays the floor on no-key/budget/error.
+  let mode: "live" | "floor" = "floor";
+  let provider = "deterministic";
+  try {
+    const ctx = [
+      `Reflection lens: ${intent}`,
+      `Window: ${tm.window.label}`,
+      activeFocus.length ? `Top focus: ${activeFocus.map((f) => `${f.title} (MVS ${f.mvs})`).join(", ")}` : "",
+      tm.replay.themes.length ? `Themes: ${tm.replay.themes.map((t) => t.tag).join(", ")}` : "",
+      tm.changes.newThemes.length ? `New themes: ${tm.changes.newThemes.join(", ")}` : "",
+      cal.note ? `Decision record: ${cal.note}` : "",
+    ].filter(Boolean).join("\n");
+    const system = `You are the owner's reflective mentor speaking as "${reply.voice}". Answer the "${intent}" lens from their REAL history below — grounded and concrete, honest if the history is thin (do NOT invent). Respond with ONLY JSON: {"answer":"<2–4 sentences>","suggestion":"<one concrete next move>"}.`;
+    const r = await repo.governedComplete({ userId: uid, tier: "strong", task: "synthesis", purpose: "mentor", json: true, system, prompt: `OWNER HISTORY:\n${ctx}` });
+    const j = JSON.parse(r.text) as { answer?: string; suggestion?: string };
+    if (j && typeof j.answer === "string" && j.answer.trim()) {
+      reply.answer = j.answer.replace(/\s+/g, " ").trim().slice(0, 1000);
+      if (j.suggestion && j.suggestion.trim()) reply.suggestion = j.suggestion.replace(/\s+/g, " ").trim().slice(0, 300);
+      mode = "live"; provider = r.provider;
+    }
+  } catch { /* floor */ }
+  await repo.emitEvent({ user_id: uid, actor: "agent:Chronos", event_type: "review_generated", subject_type: "mentor", subject_id: uid, correlation_id: uid, payload: { intent, bootstrap: reply.bootstrap, mode } });
+  res.json({ reply: { ...reply, mode, provider } });
 });
 
 // ---- Living OS G7: Simulation Engine — synchronous "what happens if…?" (deterministic) ----
@@ -812,6 +834,20 @@ radianRouter.post("/whatif", async (req: Authed, res) => {
     ? simulate({ question, options: optionNames.map((name: string) => ({ name, sig: signalsFor(name) })) })
     : simulate({ question, signals: signalsFor(question) });
 
+  // Live upgrade: the deterministic scenarios + probabilities stay (they're computed from real
+  // signals); the model sharpens the RECOMMENDATION narrative from them. Floor on no-key/budget/error.
+  let mode: "live" | "floor" = "floor";
+  let provider = "deterministic";
+  try {
+    const scen = result.kind === "comparison"
+      ? (result.options || []).map((o) => `- ${o.name} (score ${o.score}): ${o.rationale}`).join("\n")
+      : (result.outcomes || []).map((o) => `- ${o.band} (${Math.round((o.probability || 0) * 100)}%): ${o.summary}`).join("\n");
+    const system = `You are Radian running a what-if analysis. The scenarios + probabilities below are computed from the owner's real graph signals — DON'T change them; write a sharp, honest recommendation grounded in them (say if the signal is thin). Respond with ONLY JSON: {"recommendation":"<2–4 sentences>"}.`;
+    const r = await repo.governedComplete({ userId: uid, tier: "strong", task: "synthesis", purpose: "whatif", json: true, system, prompt: `QUESTION: ${question}\n\nSCENARIOS:\n${scen || "(insufficient signal)"}` });
+    const j = JSON.parse(r.text) as { recommendation?: string };
+    if (j && typeof j.recommendation === "string" && j.recommendation.trim()) { result.recommendation = j.recommendation.replace(/\s+/g, " ").trim().slice(0, 800); mode = "live"; provider = r.provider; }
+  } catch { /* floor */ }
+
   // persist as an Analysis node (shows in GET /radian/simulations).
   const sid = id("node");
   await repo.nodes.create({
@@ -821,7 +857,7 @@ radianRouter.post("/whatif", async (req: Authed, res) => {
   });
   await repo.emitEvent({ user_id: uid, actor: "agent:Radian", event_type: "review_generated", subject_type: "node", subject_id: sid, correlation_id: sid, payload: { whatif: true, kind: result.kind } });
 
-  res.json({ result, node: sid });
+  res.json({ result: { ...result, mode, provider }, node: sid });
 });
 
 // ---- Living OS G6: Research Engine — horizon scan (deterministic planner) ----
@@ -874,10 +910,12 @@ radianRouter.post("/boardroom", async (req: Authed, res) => {
   let subject: BoardroomSubject | null = null;
   const sig: BoardroomSignals = { question };
   const now = Date.now();
+  let localOnly = false; // secret/internal subject → live council stays on the deterministic floor
 
   if (subjectType === "node") {
     const n = await repo.nodes.get(uid, subjectId);
     if (!n) return res.status(404).json({ error: "not_found" });
+    localOnly = !isResearchSafe(String((n as { meta?: { sensitivity?: string } }).meta?.sensitivity || "private"));
     const edges = await repo.edges.list(uid);
     const touching = edges.filter((e) => e.source_id === subjectId || e.target_id === subjectId);
     const neighborIds = touching.map((e) => (e.source_id === subjectId ? e.target_id : e.source_id));
@@ -892,6 +930,7 @@ radianRouter.post("/boardroom", async (req: Authed, res) => {
   } else if (subjectType === "capture") {
     const c = await repo.captures.get(uid, subjectId);
     if (!c) return res.status(404).json({ error: "not_found" });
+    localOnly = !isResearchSafe(c.sensitivity);
     subject = { title: c.title, summary: c.note || c.url || "", mvs: 50, tags: [], type: "capture" };
   } else if (subjectType === "project") {
     const proj = (await repo.projects.list(uid)).find((x) => x.id === subjectId);
@@ -910,7 +949,18 @@ radianRouter.post("/boardroom", async (req: Authed, res) => {
   // shared signals: decision calibration → Historian.
   try { sig.calibrationNote = calibrate(await repo.decisions.forCalibration(uid)).note; } catch { /* none */ }
 
-  const synthesis = boardroom(subject!, sig, { extended: req.body?.extended === true });
+  const extended = req.body?.extended === true;
+  // Deterministic council is the FLOOR. Upgrade it through the single governed chokepoint with the
+  // REAL subject + signals; on no-key / over-budget / error / secret-content it stays on the floor.
+  // `mode` is surfaced so the UI shows live vs floor (and this can never silently regress again).
+  const floor = boardroom(subject!, sig, { extended });
+  let synthesis = { ...floor, mode: "floor" as "live" | "floor", provider: "deterministic" };
+  try {
+    const { system, prompt } = boardroomPrompt(subject!, sig, { extended });
+    const r = await repo.governedComplete({ userId: uid, tier: "strong", task: "synthesis", purpose: "boardroom", json: true, system, prompt, localOnly });
+    const merged = mergeBoardroomModel(floor, r.text);
+    if (merged.ok) synthesis = { ...merged.synthesis, mode: "live", provider: r.provider };
+  } catch { /* BudgetExceededError / provider error → keep the deterministic floor (honest) */ }
 
   // persist as a Boardroom node with provenance.
   const bid = id("node");

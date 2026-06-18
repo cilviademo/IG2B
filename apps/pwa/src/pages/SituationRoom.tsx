@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Users, Loader2, Gavel, Check, Target, ShieldAlert, Wrench, Palette, ScrollText, GraduationCap, ArrowLeft, ShieldCheck, ScanSearch, Combine, Boxes, Briefcase } from "lucide-react";
+import { Users, Loader2, Gavel, Check, Target, ShieldAlert, Wrench, Palette, ScrollText, GraduationCap, ArrowLeft, ShieldCheck, ScanSearch, Combine, Boxes, Briefcase, Sparkles, Cpu } from "lucide-react";
 import { Link } from "wouter";
 import { conveneBoardroom, createQuest, type BoardroomSynthesis } from "@/lib/api";
+import { providerLabel } from "@/lib/modelLabel";
 
 // AURORA A5 — the Situation Room. The six-persona council, lifted out of Ask RADIAN into
 // its own screen: a radial of personas around a Convene control, then the deliberation
@@ -94,7 +95,13 @@ export default function SituationRoom() {
       {/* Deliberation — each voice. */}
       {synth && (
         <div className="mt-6 animate-fade-in-up">
-          <div className="cap-data mb-2" style={{ color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Deliberation</div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="cap-data" style={{ color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Deliberation</span>
+            {/* Live model vs deterministic floor — so it's never ambiguous which produced the council. */}
+            {synth.mode === "live"
+              ? <span className="cap-data inline-flex items-center gap-1 px-1.5 py-0.5" style={{ borderRadius: 5, border: "1px solid var(--gold-line)", color: "var(--gold)" }}><Sparkles size={9} strokeWidth={1.5} /> {providerLabel(synth.provider)}</span>
+              : <span className="cap-data inline-flex items-center gap-1 px-1.5 py-0.5" style={{ borderRadius: 5, border: "1px solid var(--line)", color: "var(--text-dim)" }} title="No model — deterministic floor (no key / over budget / private subject)"><Cpu size={9} strokeWidth={1.5} /> deterministic floor</span>}
+          </div>
           {synth.lines.map((l, i) => {
             const Icon = PERSONA_ICON[l.persona] || Users;
             return (

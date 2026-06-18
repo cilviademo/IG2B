@@ -1,6 +1,6 @@
 # Debugging Log (institutional scar tissue)
 
-`Last updated: 2026-06-18 · Commit: queue-honesty · By: claude (Claude Code)`
+`Last updated: 2026-06-18 · Commit: boardroom-live · By: claude (Claude Code)`
 
 Every significant bug: **symptom → root cause → fix → LESSON.** Append-only.
 
@@ -67,6 +67,27 @@ Every significant bug: **symptom → root cause → fix → LESSON.** Append-onl
   unset on the PWA static site, or a free-tier cold start.)
 - **LESSON:** Never print a guessed cause. Surface the known error — the owner debugs from
   what's on screen (cf. BUG-005, BUG-006).
+
+## BUG-012 — Boardroom returned deterministic placeholder text with a live key connected
+- **Symptom:** Situation Room "Convene" returned generic template advisor lines ("Moderate leverage…",
+  "No glaring risk — but absence of evidence isn't validation", "Pattern from your record: No reviewed
+  decisions yet") — same shape regardless of node content, even with a provider key + `/llm/status: live`.
+- **Root cause (unfinished seam, not a fault):** `/radian/boardroom` (`radian.ts`) called the PURE,
+  deterministic `boardroom()` (`boardroom.ts`) with **no `governedComplete` anywhere** in the path —
+  the handler's own comment said "synchronous + deterministic … rule-derived". Ruled out: silent
+  fallback (no model call to fall from), stale flag (`boardroom()` takes no config), budget (no model
+  call). The G5/G7 **synchronous** engines (Boardroom, Mentor, sync-Simulate `/whatif`) were built
+  instant-deterministic; only the async JOB pipeline (ingest/contextualize/assist/research/sim-job/
+  reviews/etc.) + `/radian/chat` were wired to `governedComplete`. `mode: live` only means the seam is
+  active for the paths that USE it.
+- **Fix:** `claude/boardroom-live` — wired Boardroom + Mentor + sync-Simulate to `governedComplete`
+  INLINE (like `/chat`) over the REAL subject + signals (Boardroom subject fenced as untrusted +
+  prompt-injection guard; one batched call returns all persona takes + synthesis). **Deterministic stays
+  the FLOOR** on no-key / over-budget / error / secret-content (`localOnly`), and the response carries
+  `mode: "live"|"floor"` + `provider` → a live/floor badge in the Situation Room so it can never silently
+  regress. Pure `boardroomPrompt`/`mergeBoardroomModel` + `boardroom-verify` (35).
+- **LESSON:** "deterministic floor" + "live seam" are separate; a connected key doesn't mean a given
+  engine calls it. Wire each reasoning engine through the single chokepoint and SHOW live-vs-floor.
 
 ## BUG-011 — "API asleep" on Ask Radian while captures save fine (queue, mislabeled)
 - **Symptom:** a shared reel captured fine ("4 in vault · just now") but Ask Radian kept saying

@@ -2,7 +2,7 @@
 //   npx tsx packages/shared/scripts/boardroom-verify.ts
 // Run from the repo root.
 
-import { PERSONAS, boardroom } from "../src/boardroom";
+import { PERSONAS, boardroom, boardroomPrompt, mergeBoardroomModel } from "../src/boardroom";
 
 let pass = 0, fail = 0;
 const ok = (n: string, c: boolean, d = "") => { c ? (pass++, console.log(`PASS  ${n}`)) : (fail++, console.log(`FAIL  ${n}${d ? " — " + d : ""}`)); };
@@ -60,6 +60,27 @@ ok("sparse subject → bootstrap resolution", b.bootstrap && /capture more/i.tes
 
 // Deadlines are always in the future (a Friday).
 ok("deadline is a future Friday", (() => { const m = s.resolved.match(/(\d{4}-\d{2}-\d{2})/); if (!m) return false; const d = new Date(m[1] + "T00:00:00Z"); return d.getUTCDay() === 5 && d.getTime() > Date.now(); })());
+
+// Live upgrade — boardroomPrompt + mergeBoardroomModel (deterministic floor stays the fallback).
+{
+  const subj = { title: "BTZ Sonic Alchemy", summary: "A spectral audio plugin", type: "project", tags: ["dsp"], mvs: 70 };
+  const { system, prompt } = boardroomPrompt(subj, { degree: 3, related: ["Reverb engine"], question: "Ship it?" });
+  ok("prompt asks for JSON with persona keys", /JSON/.test(system) && /strategist/.test(system));
+  ok("prompt fences the subject as untrusted", /⟦UNTRUSTED:SUBJECT⟧/.test(prompt) && prompt.includes("Sonic Alchemy"));
+  ok("prompt includes the guard + honesty instruction", /UNTRUSTED/.test(system) && /sparse|malformed|invent/i.test(system));
+  ok("extended roster includes the 5 lenses", /security_auditor/.test(boardroomPrompt(subj, {}, { extended: true }).system));
+
+  const floor = boardroom(subj, { degree: 3 });
+  const good = JSON.stringify({ lines: [{ persona: "strategist", line: "Real model take on Sonic Alchemy." }, { persona: "skeptic", line: "Real risk." }], resolved: "Ship a v0.1.", resolvedAction: "Cut scope to the analyzer." });
+  const merged = mergeBoardroomModel(floor, good);
+  ok("merge replaces a persona's line with model output", merged.ok && merged.synthesis.lines.find((l) => l.persona === "strategist")!.line === "Real model take on Sonic Alchemy.");
+  ok("merge keeps persona identity/role/color", merged.synthesis.lines.find((l) => l.persona === "strategist")!.name === "Strategist");
+  ok("merge overrides resolved/resolvedAction", merged.synthesis.resolved === "Ship a v0.1." && merged.synthesis.resolvedAction === "Cut scope to the analyzer.");
+  ok("unmatched personas keep the floor line", merged.synthesis.lines.find((l) => l.persona === "operator")!.line === floor.lines.find((l) => l.persona === "operator")!.line);
+  ok("garbage JSON → floor (ok=false)", mergeBoardroomModel(floor, "not json").ok === false && mergeBoardroomModel(floor, "not json").synthesis === floor);
+  ok("empty lines → floor (no silent blanking)", mergeBoardroomModel(floor, JSON.stringify({ lines: [{ persona: "strategist", line: "  " }] })).ok === false);
+  ok("no matching personas → floor", mergeBoardroomModel(floor, JSON.stringify({ lines: [{ persona: "nobody", line: "x" }] })).ok === false);
+}
 
 console.log(`\n${fail === 0 ? "ALL PASS ✓" : "SOME FAILED ✗"} — ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
