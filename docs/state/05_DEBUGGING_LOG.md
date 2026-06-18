@@ -68,6 +68,23 @@ Every significant bug: **symptom → root cause → fix → LESSON.** Append-onl
 - **LESSON:** Never print a guessed cause. Surface the known error — the owner debugs from
   what's on screen (cf. BUG-005, BUG-006).
 
+## BUG-010 — "Captured on one surface, not showing in the PWA" (account fork)
+- **Symptom:** a shared link "connected on the URL" but never appeared in the installed PWA, even
+  after Force Sync.
+- **Root cause:** NOT a sync bug. Force Sync + the Inbox pull `fetchCaptures()` for the CURRENT
+  session's `user_id`, and the Inbox renders that server list authoritatively. The capture was
+  created under a DIFFERENT account — anonymous device accounts are per-surface (`DEVICE_KEY` lives
+  in each context's localStorage), so a share done in Safari vs the installed PWA (or before a
+  session existed) forks into a second `user_id`. Cross-account captures never appear no matter how
+  many force syncs run. The fork was invisible, so it looked like broken sync.
+- **Fix:** `claude/account-visibility` — `accountFingerprint` (pure, `account-verify` 6) surfaced as
+  `acct <id>` in the Inbox sync line + an Account line in Diagnostics (claimed vs anonymous, with a
+  "log in to unify" hint). Share/deep-link guard: `await ensureSession()` before syncing so a
+  claimed token is used and no second account is minted in a race. **The real cure is one claimed
+  account across surfaces** (durable, token-only) — the fingerprint makes the fork diagnosable.
+- **LESSON:** anonymous per-surface accounts fork silently; identity must be VISIBLE. Capture-instant
+  is preserved (local capture still succeeds); the fix is visibility + using the claimed token.
+
 ## BUG-009 — RADIAN "slow" under a live key (diagnosis + timeout guard)
 - **Symptom:** RADIAN felt slow once a live provider key was connected (instant in stub mode).
 - **Diagnosis (end-to-end trace, code evidence):** mostly **normal live-model latency**, not a

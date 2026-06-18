@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-18 · Commit: auto-linking · By: claude (Claude Code)`
+`Last updated: 2026-06-18 · Commit: account-visibility · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -724,3 +724,10 @@ commit(s) · what/why · live-test status).
 - **Worker `embedJob`:** after upserting the node's embedding, `cosineRank` over the user's same-model embeddings → `selectAutoLinks` → `repo.edges.create` (`relationship: "similar"`, `label: "auto"`, weight = score) + an `edge_created` provenance event. **Best-effort** (never fails the embed). Works with no provider key (deterministic embedder); sharper with a real embedder.
 - Pairs with #42 (capture enrichment): real content → real embedding → real auto-links, so Radian's answers gain graph context instead of staying generic.
 - **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **767/767** (+11). Completes the owner-approved "Both #1 + #2".
+
+### 2026-06-18 · claude (Claude Code) · `claude/account-visibility` (PR) — Account fork made visible + share guard (BUG-010)
+- **Diagnoses "captured on one surface but the PWA won't show it after Force Sync"** as an ACCOUNT FORK, not broken sync: Force Sync + the Inbox pull `fetchCaptures()` for the CURRENT session's `user_id`, but anonymous device accounts are **per-surface** (`DEVICE_KEY` is per-context localStorage), so a share from Safari vs the installed PWA forks into a second `user_id`. Cross-account captures never appear.
+- **Made visible:** pure `account.ts` `accountFingerprint` (short, one-way, non-secret; `account-verify` 6) — surfaced as `acct <id>` in the Inbox sync line and an **Account** line in Diagnostics (claimed-durable vs anonymous, with a "log in to unify across devices" hint). Same id on two surfaces = same account; different = the fork.
+- **Share guard:** the deep-link/share path now `await ensureSession()` **before** syncing, so a claimed token is used and no second account is minted in a race. (Capture-instant preserved — the local capture still succeeds.)
+- **Real cure** remains one claimed account across surfaces (durable, token-only); the fingerprint makes the fork diagnosable instead of mysterious.
+- **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **773/773** (+6). Logged BUG-010.
