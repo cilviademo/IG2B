@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-18 · Commit: account-visibility · By: claude (Claude Code)`
+`Last updated: 2026-06-18 · Commit: queue-honesty · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -731,3 +731,10 @@ commit(s) · what/why · live-test status).
 - **Share guard:** the deep-link/share path now `await ensureSession()` **before** syncing, so a claimed token is used and no second account is minted in a race. (Capture-instant preserved — the local capture still succeeds.)
 - **Real cure** remains one claimed account across surfaces (durable, token-only); the fingerprint makes the fork diagnosable instead of mysterious.
 - **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **773/773** (+6). Logged BUG-010.
+
+### 2026-06-18 · claude (Claude Code) · `claude/queue-honesty` (PR) — "API asleep" mislabel + queue-outage hardening (BUG-011)
+- **Owner report:** a shared reel captured fine ("4 in vault · just now") but Ask Radian kept saying "couldn't reach Radian (offline or API asleep)" — the API is up (captures sync); the message was a **hardcoded guess** and the verb path was failing for a different reason.
+- **Honest errors:** `CompanionPanel` (the Ask sheet) now shows `connectivityError()` instead of a fixed "asleep" string; `askRadian` captures the server's error body (e.g. `Radian /ask → 503 queue_unavailable`).
+- **Queue-outage hardening:** `/radian/ask` wraps `enqueue` → precise **503 `queue_unavailable`** (not an unhandled 500 that looks like "asleep"); the capture POST tolerates a queue outage — a saved capture is **never** failed by a Redis outage (left `unprocessed` for boot catch-up).
+- **Likely root cause = the job queue (Redis), not the API:** verb actions enqueue a job; if Redis is down/unconfigured the request 500s while captures still persist (DB write precedes enqueue). **Owner:** Diagnostics → Debug Console → redis health; ensure `REDIS_URL` is set on the API **and** worker (no Redis → no jobs run).
+- **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **773/773**. Logged BUG-011.

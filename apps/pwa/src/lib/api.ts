@@ -720,7 +720,13 @@ export async function askRadian(subjectType: string, subjectId: string, verb: st
       headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
       body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId, verb, question }),
     });
-    if (!res.ok) { noteApiHttp("/radian/ask", res.status); return null; }
+    if (!res.ok) {
+      // Capture the server's reason (e.g. queue_unavailable / bad_subject) so the UI can show the
+      // REAL cause instead of a generic "offline or API asleep".
+      const why = await res.json().then((j) => (j as { error?: string })?.error).catch(() => "");
+      lastApiErr = `Radian /ask → ${res.status}${why ? ` ${why}` : ""}`;
+      return null;
+    }
     noteApiOk();
     return (await res.json()) as AskResult;
   } catch (e) {

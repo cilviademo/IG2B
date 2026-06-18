@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Sparkles, Loader2, Check, AlertTriangle, Users, ExternalLink, RotateCcw, ArrowUp, SlidersHorizontal } from "lucide-react";
 import Sheet from "./Sheet";
 import { Button, Dot } from "./primitives";
-import { askRadian } from "@/lib/api";
+import { askRadian, connectivityError } from "@/lib/api";
 import { useTasks } from "@/contexts/TaskCenter";
 
 // AURORA A4 — "Ask Radian" is now ONE natural-language input. The intent router maps the
@@ -69,7 +69,7 @@ export default function CompanionPanel({
   async function run(verb: string, q?: string) {
     setRunning(verb); setDone(null); setStatus("queued…"); setActiveTaskId(null);
     const r = await askRadian(subjectType, subjectId, verb, q);
-    if (!r) { setStatus("couldn't reach Radian (offline or API asleep)"); setDone("err"); setRunning(null); return; }
+    if (!r) { setStatus(connectivityError() || "couldn't reach Radian (offline or API asleep)"); setDone("err"); setRunning(null); return; }
     if (r.mode === "done") { setStatus("✓ task created in your vault"); setDone("ok"); setRunning(null); return; }
     // Hand the job to the Task Center — it persists + polls to completion, so you can
     // close this sheet / switch tabs / reload and still be notified + open the result.
