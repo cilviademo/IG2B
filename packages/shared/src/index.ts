@@ -50,4 +50,5 @@ export * from "./negative-knowledge";
 export * from "./mcp";
 export * from "./social";
 export * from "./auto-link";
+export * from "./account";
 export * from "./world-lens";

@@ -7,7 +7,7 @@ import { parseCaptureParams, normalizeType, type CaptureParams } from "@/lib/dee
 import { classifyShared } from "@/lib/classify";
 import { persistCaptureFromParams, removeCapture, markSynced, type LocalCapture } from "@/lib/captureStore";
 import { CAPTURE_TYPE_LABEL } from "@/lib/types";
-import { apiEnabled, syncCaptureToApi } from "@/lib/api";
+import { apiEnabled, syncCaptureToApi, ensureSession } from "@/lib/api";
 
 // /capture?raw=&url=&content=&title=&type=&source=&note=&tags=&method=&device=
 // Apple Shortcut / Share Sheet entry. Accepts a generic `raw` payload (URL, text,
@@ -104,7 +104,10 @@ export default function CaptureDeepLink() {
       }
       setSaved(cap);
       toast.success("Captured ✓", { description: `${CAPTURE_TYPE_LABEL[cap.type]} filed to your Intake Queue.` });
-      if (apiEnabled()) syncCaptureToApi(cap).then((ok) => ok && markSynced(cap.id)).catch(() => {});
+      // Account guard: establish the session FIRST (reuses an existing/claimed token; only mints
+      // a fresh anonymous account when there is genuinely none) so the capture lands on the right
+      // account instead of racing a second one — the usual cross-surface "fork" cause.
+      if (apiEnabled()) void (async () => { await ensureSession(); if (await syncCaptureToApi(cap)) markSynced(cap.id); })().catch(() => {});
     } catch (e) {
       setAttempted(true);
       setSaveError(e instanceof Error ? e.message : "Save failed — review and save manually.");

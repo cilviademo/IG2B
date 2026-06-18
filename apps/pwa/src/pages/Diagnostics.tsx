@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ShieldCheck, Activity, RefreshCw, AlertTriangle, KeyRound, Copy, Trash2, Plus, Sparkles, Cpu } from "lucide-react";
 import { providerLabel } from "@/lib/modelLabel";
 import { useJson } from "@/hooks/useJson";
-import { fetchObservability, apiEnabled, createCaptureToken, listCaptureTokens, revokeCaptureToken, type Observability, type CaptureToken } from "@/lib/api";
+import { fetchObservability, apiEnabled, createCaptureToken, listCaptureTokens, revokeCaptureToken, currentAccountFingerprint, isClaimedAccount, type Observability, type CaptureToken } from "@/lib/api";
 import { Button } from "@/components/primitives";
 import { toast } from "sonner";
 
@@ -80,6 +80,14 @@ export default function Diagnostics() {
       <p className="cap-data mb-3" style={{ color: "var(--text-dim)" }}>
         gray untested · gold simulated only · green owner-verified{manifest ? ` · manifest ${manifest.generated}` : ""}
       </p>
+
+      {/* Account fingerprint — same id across surfaces = same account; a different id means a
+          forked anonymous account (the usual "captured elsewhere but not showing here" cause). */}
+      {apiEnabled() && (
+        <p className="cap-data mb-3" style={{ color: "var(--text-dim)" }}>
+          account <b style={{ color: "var(--text)" }}>{currentAccountFingerprint()}</b> · {isClaimedAccount() ? "claimed (durable)" : "anonymous — log in (I/O) to unify captures across devices"}
+        </p>
+      )}
 
       {/* Model status — is Radian answering with a live model (Claude) or the deterministic fallback? */}
       {obs && (() => {

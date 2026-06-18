@@ -62,6 +62,19 @@ export const api = {
 const DEVICE_KEY = "indigold_device";
 const CLAIMED_KEY = "indigold_account_email"; // set when a real login/claim succeeds (token-only)
 
+// Account fingerprint — MIRROR of packages/shared/src/account.ts (PWA can't import @indigold/shared).
+// A short, non-secret, one-way id of the session token so a forked account across surfaces is
+// VISIBLE (same fingerprint = same account; different = a fork, the usual "captured but PWA won't
+// show it" cause). isClaimedAccount: a real login (durable), vs an anonymous per-surface device account.
+export function currentAccountFingerprint(): string {
+  const t = getToken();
+  if (!t) return "—";
+  let h = 5381;
+  for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) >>> 0;
+  return h.toString(36).padStart(6, "0").slice(-6);
+}
+export const isClaimedAccount = () => !!localStorage.getItem(CLAIMED_KEY);
+
 // Surfaced to the UI so a failed token mint reports the REAL reason (CORS/network
 // vs auth 500 vs missing build URL) instead of a generic "couldn't reach".
 let lastSessionErr: string | null = null;

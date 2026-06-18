@@ -35,7 +35,7 @@ import CaptureForm from "@/components/CaptureForm";
 import CaptureDetail, { type DetailItem } from "@/components/CaptureDetail";
 import Sheet from "@/components/Sheet";
 import { listCaptures, removeCapture, subscribeCaptures, exportCaptures, importCaptures, markSynced, type LocalCapture } from "@/lib/captureStore";
-import { apiEnabled, ensureSession, syncCaptureToApi, fetchCaptures, lastSessionError, lastSyncError, type BackendCapture } from "@/lib/api";
+import { apiEnabled, ensureSession, syncCaptureToApi, fetchCaptures, lastSessionError, lastSyncError, currentAccountFingerprint, type BackendCapture } from "@/lib/api";
 import { onVaultSynced } from "@/lib/sync";
 import { Button, Dot } from "@/components/primitives";
 import { flushUploadQueue } from "@/lib/uploadQueue";
@@ -148,7 +148,9 @@ export default function Inbox() {
       if (fresh !== null) {
         setRemote(fresh);
         const queuedNote = up.remaining ? ` · ${up.remaining} file(s) still queued` : up.uploaded ? ` · ${up.uploaded} file(s) uploaded` : "";
-        setRefreshMsg(`updated · ${fresh.length} in vault${queuedNote}`);
+        // Show the account fingerprint: if a capture made elsewhere isn't here, compare this to
+        // the other surface — a different id means a forked account (not broken sync).
+        setRefreshMsg(`updated · ${fresh.length} in vault · acct ${currentAccountFingerprint()}${queuedNote}`);
       } else {
         setRefreshMsg(`couldn't reach API — ${lastSyncError() || "kept last data"} (waking? retry in ~30s)`);
       }
