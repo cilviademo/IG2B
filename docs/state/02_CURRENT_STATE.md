@@ -1,3 +1,5 @@
+> **AUTO-LINKING (PR `claude/auto-linking`, latest):** the graph builds itself — when a node is embedded, `embedJob` auto-connects it to its most similar existing nodes (pure `selectAutoLinks`: threshold 0.7, k=3, dedup; `auto-link-verify` 11) via `cosineRank` → `edges.create` (relationship "similar", label "auto") + provenance event. Deterministic floor (no key needed). Pairs with capture-enrichment (#42). matrix **767/767**; no schema change.
+
 > **CAPTURE ENRICHMENT (PR `claude/capture-enrichment`, latest):** root-causes "generic Radian answers" — social/JS/bot-blocked URLs (Instagram, YouTube…) fail `fetchReadable` so the node had only a bare domain. Pure `social.ts` (`oEmbedUrlFor` open providers only, `parseOEmbed`, `isThinContent`; `social-verify` 17); worker ingest now falls back to open oEmbed (fenced untrusted) and flags `needs_content` on bare-domain captures. matrix **756/756**; no schema change. Next: deterministic embedding auto-linking (#2).
 
 > **RADIAN LATENCY — TIMEOUT GUARD (PR `claude/model-timeout`, latest):** diagnosed the "slow under a live key" report — mostly normal live-model latency (`/radian/chat` awaits `governedComplete` inline; stub was instant). Verified NOT a plumbing bug (Redis dedicated-connection intact + self-asserting, budget query indexed, no retry stacking). Fix: `resolveModelTimeoutMs` (`LLM_TIMEOUT_MS`, 30s default, 3–120s clamp) + `AbortController` on all live adapters → slow/hung calls abort → deterministic fallback/queue, never hang. `model-timeout-verify` (7) → matrix **711/711**. Follow-ups (owner/infra): chat SSE streaming, worker concurrency, Render starter tier. See BUG-009.
@@ -82,7 +84,7 @@
 
 > **MCP CONNECTOR SEAM — DORMANT (PR `claude/mcp-seam`):** typed contract for future MCP tools (Zapier etc.) — NO live connection/credentials/network/writes. Pure `mcp.ts` (`McpToolMeta`/`McpConnector`/`mcpGate` default-deny/`fenceMcpResult`/`stubMcpConnector`) + `mcp-verify` (19) + `20_MCP_CONNECTOR_SEAM.md`. Default-deny; writes need enable+`mcp:write`+confirmation; results untrusted+fenced; never bypasses `governedComplete`. matrix **730/730**; no schema/wiring. Live = owner-approved future PR.
 
-`Last updated: 2026-06-16 · Commit: capture-enrichment · By: claude (Claude Code)`
+`Last updated: 2026-06-18 · Commit: auto-linking · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

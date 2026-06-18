@@ -18,7 +18,7 @@ import {
   constraintPromptBlock, reconcileAgainstConstraints, DEFAULT_CONSTRAINTS, type ConstraintProfile,
   assignMemoryTier, findResurrectionCandidates, deterministicReview, parseReview, simulationGroundingBlock,
   constitutionBlock, whatMatters, type ActivityShare,
-  getEmbedder, deterministicEmbedder, contentHash,
+  getEmbedder, deterministicEmbedder, contentHash, cosineRank, selectAutoLinks,
   horizonScan, planIntake,
   type ReviewTimescale, type ShadowCandidate,
   type IngestResult, type ContextResult, type AssistResult, type ResearchFinding, type AgentKind, type MetaStats,
@@ -322,7 +322,24 @@ const embedJob: Handler = async (job) => {
   await repo.embeddings.upsert({ subject_type: "node", subject_id: nodeId, user_id: job.user_id, model: embedder.model, dim: embedder.dim, vector: vec.vector, content_hash: hash });
   // Sentinel cost ledger (embeddings are cheap-tier; deterministic = $0).
   await repo.aiCalls.log({ id: id("aicall"), user_id: job.user_id, purpose: "embed", provider: embedder.provider, model: embedder.model, tier: "cheap", input_tokens: vec.tokens, output_tokens: 0, cost_cents: 0, source_id: nodeId, status: "ok" });
-  await repo.jobs.finish(job.id, "done", { provider: embedder.provider, dim: embedder.dim });
+
+  // Auto-link: connect this node to its most similar EXISTING nodes (same embedding model) so the
+  // graph builds itself — deterministic, works with no provider key, sharper with a real embedder.
+  // Best-effort: a failure here never fails the embed. The model layer (contextualize) refines later.
+  let autoLinked = 0;
+  try {
+    const peers = (await repo.embeddings.listForUser(job.user_id, embedder.model)).filter((r) => r.subject_type === "node");
+    const ranked = cosineRank(vec.vector, peers, 8, nodeId);
+    const existing = new Set((await repo.edges.list(job.user_id)).filter((e) => e.source_id === nodeId).map((e) => e.target_id));
+    const links = selectAutoLinks(ranked.map((m) => ({ subject_id: m.subject_id, score: m.score })), { existingTargetIds: existing });
+    for (const l of links) {
+      await repo.edges.create({ id: id("edge"), user_id: job.user_id, source_id: nodeId, target_id: l.target_id, relationship: "similar", weight: l.weight, valid_from: new Date().toISOString(), label: "auto" });
+      await repo.emitEvent({ user_id: job.user_id, actor: "agent:Atlas", event_type: "edge_created", subject_type: "edge", subject_id: nodeId, correlation_id: nodeId, payload: { target: l.target_id, via: "auto_link", weight: l.weight } });
+      autoLinked++;
+    }
+  } catch { /* best-effort — never fail the embed on auto-link */ }
+
+  await repo.jobs.finish(job.id, "done", { provider: embedder.provider, dim: embedder.dim, autoLinked });
 };
 
 // ---- Wave 2, Stage 3: Assistance Engine (strong tier) ----
