@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-16 · Commit: capture-enrichment · By: claude (Claude Code)`
+`Last updated: 2026-06-18 · Commit: auto-linking · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -718,3 +718,9 @@ commit(s) · what/why · live-test status).
 - **oEmbed fallback** (pure `social.ts`: `oEmbedUrlFor` open providers only — YouTube/Vimeo/TikTok/SoundCloud/Flickr; IG/X return null honestly since their oEmbed needs a token — `parseOEmbed`, `oEmbedToContent`, `isThinContent`; `social-verify` 17). Worker ingest now: when the readable fetch yields nothing, pull the site's open oEmbed (title/author) as **fenced untrusted** content for the classifier — substance instead of a bare domain. No keys.
 - **`needs_content` flag:** when nothing enriches a capture and the note is just a domain/title, the node is flagged so Radian can ask for the actual text once (instead of every query being generic). (UI surfacing rides next.)
 - **No schema change** (additive node meta). **Verified (sandbox):** typecheck:all + build:all green; matrix **756/756** (+17). **Next:** deterministic embedding-based auto-linking (#2) so connections form automatically.
+
+### 2026-06-18 · claude (Claude Code) · `claude/auto-linking` (PR) — Deterministic auto-linking (#2): the graph builds itself
+- **"AI connections automatically made"** — when a node is embedded, it now auto-connects to its most similar EXISTING nodes. Pure `auto-link.ts` (`selectAutoLinks`: ≥ threshold 0.7, capped at k=3, skips self + already-linked + dup/NaN/empty ids; clamped weights). `auto-link-verify` (11).
+- **Worker `embedJob`:** after upserting the node's embedding, `cosineRank` over the user's same-model embeddings → `selectAutoLinks` → `repo.edges.create` (`relationship: "similar"`, `label: "auto"`, weight = score) + an `edge_created` provenance event. **Best-effort** (never fails the embed). Works with no provider key (deterministic embedder); sharper with a real embedder.
+- Pairs with #42 (capture enrichment): real content → real embedding → real auto-links, so Radian's answers gain graph context instead of staying generic.
+- **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **767/767** (+11). Completes the owner-approved "Both #1 + #2".
