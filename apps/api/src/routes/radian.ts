@@ -23,6 +23,7 @@ import { getEmbedder } from "@indigold/shared";
 import { isResearchSafe, BudgetExceededError } from "@indigold/shared";
 import { findVerb, verbsFor } from "@indigold/shared";
 import { VERBS, buildSkillRegistry, discoverableSkills, skillsFor } from "@indigold/shared";
+import { memoryScore, topMemoryFactor } from "@indigold/shared";
 import { timeMachine, type RangeKey, type TimeMachineInput } from "@indigold/shared";
 import { applyAction, suggestQuests, type QuestAction, type QuestSeed } from "@indigold/shared";
 import {
@@ -99,6 +100,30 @@ radianRouter.get("/skills", (req: Authed, res) => {
   const subject = req.query.subject ? String(req.query.subject) : "";
   const scoped = subject ? skillsFor(registry, subject) : registry;
   res.json({ skills: discoverableSkills(scoped) });
+});
+
+// Advanced memory scoring (Tier-3): the multi-factor breakdown behind a node's value, computed
+// from LIVE signals (importance/mvs · recency · graph density · reuse & citation from the event
+// store · reasoning confidence). Read-only + deterministic — the stored `mvs` is unchanged; this
+// is the richer "why it ranks" view for Atlas.
+radianRouter.get("/nodes/:id/memory-score", async (req: Authed, res) => {
+  const uid = req.userId!;
+  const n = await repo.nodes.get(uid, req.params.id);
+  if (!n) return res.status(404).json({ error: "not_found" });
+  const edges = await repo.edges.list(uid);
+  const degree = edges.filter((e) => e.source_id === n.id || e.target_id === n.id).length;
+  const updated = (n as { updated_at?: string }).updated_at;
+  const recencyDays = updated ? Math.round((Date.now() - new Date(updated).getTime()) / 86400000) : 0;
+  const meta = (n as { meta?: { reasoned?: boolean; web?: unknown } }).meta || {};
+  const confidence = meta.reasoned ? (meta.web ? 0.85 : 0.7) : 0.4;
+  let reuseCount = 0, citationFrequency = 0;
+  try {
+    const evs = (await repo.events.bySubject("node", n.id)) as { event_type: string }[];
+    reuseCount = Math.max(0, evs.length - 1); // minus the node_created event
+    citationFrequency = evs.filter((e) => /review_generated|context|cited|resurfaced/.test(e.event_type)).length;
+  } catch { /* event store unavailable → reuse/citation default to 0 */ }
+  const score = memoryScore({ importance: n.mvs, recencyDays, reuseCount, confidence, connectionDensity: degree, citationFrequency });
+  res.json({ nodeId: n.id, title: n.title, mvs: n.mvs, ...score, top: topMemoryFactor(score) });
 });
 
 radianRouter.post("/ask", async (req: Authed, res) => {

@@ -53,3 +53,4 @@ export * from "./auto-link";
 export * from "./account";
 export * from "./world-lens";
 export * from "./skill";
+export * from "./memory-score";
