@@ -22,6 +22,7 @@ import { sha256 } from "../middleware/auth";
 import { getEmbedder } from "@indigold/shared";
 import { isResearchSafe, BudgetExceededError } from "@indigold/shared";
 import { findVerb, verbsFor } from "@indigold/shared";
+import { VERBS, buildSkillRegistry, discoverableSkills, skillsFor } from "@indigold/shared";
 import { timeMachine, type RangeKey, type TimeMachineInput } from "@indigold/shared";
 import { applyAction, suggestQuests, type QuestAction, type QuestSeed } from "@indigold/shared";
 import {
@@ -87,6 +88,17 @@ export const radianRouter = Router();
 radianRouter.get("/verbs/:entity", (req: Authed, res) => {
   const e = req.params.entity as "node" | "project" | "brief" | "capture";
   res.json({ verbs: verbsFor(e).map((v) => ({ verb: v.verb, label: v.label })) });
+});
+
+// Skill Registry (Wave 8 — "OS for capabilities"): the unified, DISCOVERABLE catalog of every
+// capability Radian can use. Today that's the internal verbs; MCP tools join here when a connector
+// goes live (same descriptor), and future owner-generated skills too. Read-only + governed —
+// discovery only, nothing executes from here. `?subject=` filters by applicable subject type.
+radianRouter.get("/skills", (req: Authed, res) => {
+  const registry = buildSkillRegistry({ verbs: VERBS }); // + MCP tools once a connector is enabled
+  const subject = req.query.subject ? String(req.query.subject) : "";
+  const scoped = subject ? skillsFor(registry, subject) : registry;
+  res.json({ skills: discoverableSkills(scoped) });
 });
 
 radianRouter.post("/ask", async (req: Authed, res) => {

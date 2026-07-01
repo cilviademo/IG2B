@@ -1,8 +1,24 @@
 # Debugging Log (institutional scar tissue)
 
-`Last updated: 2026-06-18 · Commit: boardroom-live · By: claude (Claude Code)`
+`Last updated: 2026-07-01 · Commit: skill-registry · By: claude (Claude Code)`
 
 Every significant bug: **symptom → root cause → fix → LESSON.** Append-only.
+
+## BUG-013 — Ephemeral container re-cloned a STALE, divergent `main` (work looked "gone")
+- **Symptom:** after an idle gap, the working tree was missing ~24 merged PRs of work — `ls` showed
+  only pre-session files, `handlers.ts` had none of the session changes, `git log` for `index.ts`
+  ended at a Wave-G11 commit.
+- **Root cause:** the remote execution container is ephemeral; it had been reclaimed and re-cloned,
+  and local `main` came back at a stale commit (`6b67ff9`) on a lineage that had **diverged** from
+  `origin/main` (`git pull --ff-only` failed "Not possible to fast-forward"). All work was safe on
+  `origin/main` (which had every merged PR through #46). `git reset --hard` was (correctly) blocked
+  as destructive.
+- **Fix:** non-destructive recovery — `git checkout -b <feature> origin/main` re-based new work on the
+  correct remote state (untracked files survive). Then per-package `npm install` (the monorepo has NO
+  npm-workspaces; each package installs its own deps) to restore `@types/node`/busboy/aws-sdk/tsup.
+- **LESSON:** treat the container as disposable — the SOURCE OF TRUTH is `origin/main`, not the local
+  tree. On resume, `git fetch` + compare `origin/main` before trusting the working tree; branch off
+  `origin/main` rather than a possibly-stale local `main`; never `reset --hard` to recover — branch.
 
 ## BUG-001 — Refresh "sometimes worked" (the SW API-cache incident)
 - **Symptom:** The vault Refresh button + pull-to-refresh returned stale or no data
