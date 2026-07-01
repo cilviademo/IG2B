@@ -1,3 +1,5 @@
+> **SKILL REGISTRY (PR `claude/skill-registry`, latest):** the "OS for capabilities" foundation — one `Skill` schema unifies internal verbs + MCP tools + future generated skills (pure `skill.ts`: `verbToSkill`/`mcpToolToSkill`/`buildSkillRegistry`/`skillGate` default-deny; `skill-verify` 23), exposed read-only at `GET /radian/skills`. Nothing executes from the registry — it describes; all skills still run through the governed chokepoint. `22_SKILL_REGISTRY.md` sequences the roadmap (→ memory scoring next). matrix **807/807**; no schema change. (Recovered from a stale container re-clone — BUG-013.)
+
 > **BOARDROOM/MENTOR/SIMULATE → LIVE (PR `claude/boardroom-live`, latest):** the Situation Room council was placeholder text because `/radian/boardroom` never called `governedComplete` (unfinished live seam; deterministic-only). Wired Boardroom + Mentor + sync-Simulate INLINE through the chokepoint over the REAL subject/signals (Boardroom: one batched call, subject fenced+guarded). Deterministic stays the FLOOR (no-key/budget/error/secret `localOnly`); response carries `mode`+`provider` → live/floor badge in the Situation Room. Pure `boardroomPrompt`/`mergeBoardroomModel`; `boardroom-verify` 35 → matrix **784/784**; no schema change. See BUG-012.
 
 > **QUEUE HONESTY (PR `claude/queue-honesty`, latest):** "Ask Radian → API asleep" while captures saved fine was a MISLABEL — the Ask sheet showed a hardcoded string and `/radian/ask` 500d on a job-queue (Redis) outage. Fix: `CompanionPanel` shows `connectivityError()`; `askRadian` captures the error body; `/radian/ask` returns a precise **503 queue_unavailable**; the capture POST never 500s on a queue outage (capture stays instant, left `unprocessed`). Likely cause = Redis down/unconfigured (set `REDIS_URL` on API + worker; check Diagnostics → redis health). matrix **773/773**; no schema change. See BUG-011.
@@ -90,7 +92,7 @@
 
 > **MCP CONNECTOR SEAM — DORMANT (PR `claude/mcp-seam`):** typed contract for future MCP tools (Zapier etc.) — NO live connection/credentials/network/writes. Pure `mcp.ts` (`McpToolMeta`/`McpConnector`/`mcpGate` default-deny/`fenceMcpResult`/`stubMcpConnector`) + `mcp-verify` (19) + `20_MCP_CONNECTOR_SEAM.md`. Default-deny; writes need enable+`mcp:write`+confirmation; results untrusted+fenced; never bypasses `governedComplete`. matrix **730/730**; no schema/wiring. Live = owner-approved future PR.
 
-`Last updated: 2026-06-18 · Commit: boardroom-live · By: claude (Claude Code)`
+`Last updated: 2026-07-01 · Commit: skill-registry · By: claude (Claude Code)`
 
 > **Live-AI stabilization (ON MAIN):** global toasts (any route), canonical View routing, **AI Activity screen `/activity`** (engine room: view/retry/archive/delete), Atlas Back-to-full + 44px controls + safe-area, node item-actions, result persistence verified. 409/409. See `16_LIVE_STABILIZATION.md`. Pending device confirm.
 

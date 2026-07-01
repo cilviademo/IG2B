@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-06-18 · Commit: boardroom-live · By: claude (Claude Code)`
+`Last updated: 2026-07-01 · Commit: skill-registry · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -745,3 +745,11 @@ commit(s) · what/why · live-test status).
 - **Deterministic stays the FLOOR** on no-key / over-budget / provider error / **secret-or-internal subject** (`localOnly`) — never silently: the response carries **`mode: "live"|"floor"` + `provider`**, surfaced as a **live (Claude) / deterministic-floor badge** in the Situation Room deliberation header.
 - Pure `boardroomPrompt` + `mergeBoardroomModel` (merge keeps persona identity/role/color; garbage/empty JSON → floor, no blanking). `boardroom-verify` (35).
 - **No schema change.** **Verified (sandbox):** typecheck:all + build:all green; matrix **784/784** (+11). **Owner live-gate:** Convene on a real node → text varies with content + badge reads "Claude"; `/status` spend increments; secret nodes stay on the floor.
+
+### 2026-07-01 · claude (Claude Code) · `claude/skill-registry` (PR) — Skill Registry: the OS for capabilities (Wave 8, #1)
+- **Foundation from the owner's Tier-1 brief** — turns Radian from "Claude in a PWA" into an OS for capabilities: internal verbs, MCP tools, and future generated skills all describe themselves with ONE schema, so Radian can route by **discovering** skills instead of a hardcoded switch.
+- Pure `packages/shared/src/skill.ts`: the `Skill` descriptor (`id·name·description·kind·access(reason|read|write)·inputs·outputs·on·requiredPermissions·requiresConfirmation·enabled·source·governed:true`), adapters **`verbToSkill`** (living-os verbs → first-party/governed/enabled) + **`mcpToolToSkill`** (MCP tools → default-deny posture carried), `buildSkillRegistry`/`findSkill`/`skillsFor`/`discoverableSkills`, and **`skillGate`** (verbs always allowed; external default-deny → enable + permissions, writes need confirmation — mirrors the MCP gate). `skill-verify` (23).
+- **`GET /radian/skills?subject=`** — read-only discovery endpoint (verbs today; MCP tools join when a connector is live). **Nothing executes from the registry** — it describes; every skill still runs through the governed chokepoint.
+- `22_SKILL_REGISTRY.md` (indexed): schema + the sequenced roadmap it unlocks (→ #4 memory scoring next, then A2A stub, Hermes-style skill proposals, read-only MCP activation, browser agents) + why Tier-4 frameworks are declined.
+- **Recovery note:** the container had re-cloned a stale, divergent `main`; rebased work onto `origin/main` (all prior PRs intact) — see BUG-013.
+- **No schema change.** **Verified (sandbox):** root typecheck (shared+api+worker) clean; matrix **807/807** (+23). (PWA/worker build needs a full workspace install — unaffected by this PR.)
