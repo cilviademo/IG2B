@@ -1,6 +1,6 @@
 # Changelog
 
-`Last updated: 2026-07-01 · Commit: skill-registry · By: claude (Claude Code)`
+`Last updated: 2026-07-01 · Commit: memory-scoring · By: claude (Claude Code)`
 
 Append-only. Reconstructed from `git log --all`. Newest at the bottom of each section.
 From now on, **every agent appends an entry per session** (date · agent · branch ·
@@ -753,3 +753,9 @@ commit(s) · what/why · live-test status).
 - `22_SKILL_REGISTRY.md` (indexed): schema + the sequenced roadmap it unlocks (→ #4 memory scoring next, then A2A stub, Hermes-style skill proposals, read-only MCP activation, browser agents) + why Tier-4 frameworks are declined.
 - **Recovery note:** the container had re-cloned a stale, divergent `main`; rebased work onto `origin/main` (all prior PRs intact) — see BUG-013.
 - **No schema change.** **Verified (sandbox):** root typecheck (shared+api+worker) clean; matrix **807/807** (+23). (PWA/worker build needs a full workspace install — unaffected by this PR.)
+
+### 2026-07-01 · claude (Claude Code) · `claude/memory-scoring` (PR) — Advanced memory scoring (#4): decompose MVS into transparent factors
+- **A node's value is no longer one opaque number.** Pure `packages/shared/src/memory-score.ts` — `memoryScore(factors)` composes a 0–100 score from **importance · recency · reuse · confidence · connection-density · citation-frequency · novelty** with transparent, summing weights, and returns the per-factor breakdown (0..1) + the weights, so Atlas can show WHY a node ranks. `topMemoryFactor` names the biggest lever. Deterministic (no model/key); reuse/citation/density saturate (log) so nothing runs away. `memory-score-verify` (16: bounds, monotonicity per factor, determinism, saturation, NaN-safety).
+- **`GET /radian/nodes/:id/memory-score`** — computes the breakdown from LIVE signals: `mvs` (importance), `updated_at` (recency), edge degree (connection), `meta.reasoned/web` (confidence), and reuse/citation counts from the **event store** (`events.bySubject`). **Read-only — the stored `mvs` is unchanged** (no migration); this is the richer "why it ranks" view.
+- Sharpens the same signal Atlas + the auto-linker (#43) + World Lens + retrieval already lean on. **Next (fast follow):** surface the breakdown in the Atlas node sheet.
+- **No schema change.** **Verified (sandbox):** root typecheck (shared+api+worker) clean; matrix **823/823** (+16). Completes the owner-approved "both, in order" (Skill Registry → memory scoring).
